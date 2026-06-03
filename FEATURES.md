@@ -77,6 +77,8 @@ infrastructure.
       wallet.
 - [x] Convert Kohaku RAILGUN WASM traps into persistent, readable toolkit
       errors with an explicit RAILGUN Wallet SDK fallback action.
+- [x] Add a browser-local Debug tab with persistent wallet/toolkit error logs
+      and stack traces for transient RAILGUN/Kohaku failures.
 
 ## Now
 

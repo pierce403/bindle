@@ -1,4 +1,5 @@
 import type { ProviderMode } from "../privacy/connectionPolicy";
+import { createKohakuWasmTrapError } from "../privacy/toolkitErrors";
 
 export type ReadinessItem = {
   id: string;
@@ -52,6 +53,17 @@ const loadKohakuShieldModule = (): Promise<KohakuShieldModule> =>
   import(
     "../../node_modules/@kohaku-eth/railgun/dist/pkg/index.js"
   ) as Promise<KohakuShieldModule>;
+
+const withKohakuWasmTrapContext = async <T>(
+  operation: string,
+  action: () => Promise<T> | T
+): Promise<T> => {
+  try {
+    return await action();
+  } catch (error) {
+    throw createKohakuWasmTrapError(operation, error);
+  }
+};
 
 const readinessReport = (items: ReadinessItem[]): ReadinessReport => ({
   ready: items.every((item) => item.ready),
@@ -220,21 +232,30 @@ export const prepareNativeEthShieldCalls = async ({
   }
 
   const kohaku = await loadKohakuShieldModule();
-  await kohaku.default();
-  kohaku.initLogging(debugLogging ? "Debug" : "Warn");
+  await withKohakuWasmTrapContext("preparing the native ETH shield transaction", async () => {
+    await kohaku.default();
+    kohaku.initLogging(debugLogging ? "Debug" : "Warn");
+  });
 
-  const chain = kohaku.chainConfig(chainId);
+  const chain = await withKohakuWasmTrapContext(
+    `loading the Kohaku RAILGUN shield chain config for chain ID ${chainId}`,
+    () => kohaku.chainConfig(chainId)
+  );
 
   if (!chain) {
     throw new Error(`Kohaku RAILGUN does not support chain ID ${chainId}.`);
   }
 
-  return new kohaku.ShieldBuilder(chain)
-    .shieldNative(railgunAddress as `0zk${string}`, amountWei)
-    .build()
-    .map((tx) => ({
-      to: tx.to,
-      data: tx.data,
-      value: BigInt(tx.value)
-    }));
+  return withKohakuWasmTrapContext(
+    "building the native ETH shield transaction",
+    () =>
+      new kohaku.ShieldBuilder(chain)
+        .shieldNative(railgunAddress as `0zk${string}`, amountWei)
+        .build()
+        .map((tx) => ({
+          to: tx.to,
+          data: tx.data,
+          value: BigInt(tx.value)
+        }))
+  );
 };

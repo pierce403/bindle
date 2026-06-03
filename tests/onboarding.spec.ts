@@ -368,6 +368,15 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByLabel("Toolkit failed notice")).toContainText(
       "Configure an Ethereum RPC endpoint before starting Kohaku."
     );
+
+    await page.getByRole("button", { name: "Debug" }).click();
+    await expect(page.getByLabel("Debug log entries")).toContainText("toolkit");
+    await expect(page.getByLabel("Debug log entries")).toContainText(
+      "Configure an Ethereum RPC endpoint before starting Kohaku."
+    );
+    await expect(page.getByLabel("Debug log entries")).toContainText(
+      "Error: Configure an Ethereum RPC endpoint before starting Kohaku."
+    );
   });
 
   test("persists explicit connection settings locally", async ({ page }) => {

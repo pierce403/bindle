@@ -1,10 +1,11 @@
 import { ChevronDown, Eye, MoreHorizontal } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { parseEther } from "viem";
 import { ActivityFeed } from "./components/ActivityFeed";
 import { BalancePanel, type WalletAction } from "./components/BalancePanel";
 import { BottomNav, type AppTab } from "./components/BottomNav";
 import { BrowserLandingPage } from "./components/BrowserLandingPage";
+import { DebugPanel } from "./components/DebugPanel";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { PrivacySwitchboard } from "./components/PrivacySwitchboard";
 import { PwaInstallPrompt } from "./components/PwaInstallPrompt";
@@ -13,6 +14,15 @@ import { SettingsPanel } from "./components/SettingsPanel";
 import { UnshieldedBalanceBanner } from "./components/UnshieldedBalanceBanner";
 import { WalletActionPanel } from "./components/WalletActionPanel";
 import { routeIntent, type IntentDraft, type RoutedIntent } from "./intents/router";
+import {
+  clearDebugLog,
+  createDebugLogEntry,
+  loadDebugLog,
+  saveDebugLog,
+  trimDebugLog,
+  type CreateDebugLogEntryInput,
+  type DebugLogEntry
+} from "./debug/debugLog";
 import {
   markConnectionPolicyCustom,
   type ConnectionPolicy
@@ -142,6 +152,9 @@ function WalletApp() {
   const toolkitStartRef = useRef<Promise<PrivacyToolkitHandle> | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
   const [appNotice, setAppNotice] = useState<AppNotice>(null);
+  const [debugLog, setDebugLog] = useState<DebugLogEntry[]>(() =>
+    loadDebugLog()
+  );
   const [theme, setTheme] = useState<ThemeSelection>(defaultTheme);
   const [activeAction, setActiveAction] = useState<WalletAction | null>(null);
   const [activeTab, setActiveTab] = useState<AppTab>("wallet");
@@ -265,6 +278,70 @@ function WalletApp() {
     (railgunRepairMode !== null && walletState.railgunAddress !== null) ||
     railgunReplacementRecoveryPhrase !== null;
 
+  const recordDebugEvent = useCallback((input: CreateDebugLogEntryInput) => {
+    setDebugLog((currentEntries) => {
+      const nextEntries = trimDebugLog([
+        ...currentEntries,
+        createDebugLogEntry(input)
+      ]);
+      saveDebugLog(nextEntries);
+      return nextEntries;
+    });
+  }, []);
+
+  const clearDebugEvents = useCallback(() => {
+    clearDebugLog();
+    setDebugLog([]);
+  }, []);
+
+  const messageFromError = useCallback(
+    (error: unknown, fallback: string, source: string, detail?: string) => {
+      const message = error instanceof Error ? error.message : fallback;
+      recordDebugEvent({
+        level: "error",
+        source,
+        message,
+        detail,
+        error
+      });
+      return message;
+    },
+    [recordDebugEvent]
+  );
+
+  useEffect(() => {
+    const handleWindowError = (event: ErrorEvent) => {
+      recordDebugEvent({
+        level: "error",
+        source: "browser",
+        message: event.message || "Unhandled browser error",
+        detail: `${event.filename}:${event.lineno}:${event.colno}`,
+        error: event.error
+      });
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason;
+      recordDebugEvent({
+        level: "error",
+        source: "browser",
+        message:
+          reason instanceof Error
+            ? reason.message
+            : "Unhandled promise rejection",
+        error: reason
+      });
+    };
+
+    window.addEventListener("error", handleWindowError);
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+
+    return () => {
+      window.removeEventListener("error", handleWindowError);
+      window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+    };
+  }, [recordDebugEvent]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -376,6 +453,11 @@ function WalletApp() {
 
     setToolkitState("starting");
     setStatusMessage("Starting privacy toolkit");
+    recordDebugEvent({
+      level: "info",
+      source: "toolkit",
+      message: `Starting ${policy.privacyToolkit}`
+    });
     setAppNotice(null);
     let lastToolkitStep = "Starting privacy toolkit";
 
@@ -383,6 +465,12 @@ function WalletApp() {
       const startPromise = startPrivacyToolkit(policy, (message) => {
         lastToolkitStep = message;
         setStatusMessage(message);
+        recordDebugEvent({
+          level: "info",
+          source: "toolkit",
+          message,
+          detail: `Toolkit: ${policy.privacyToolkit}`
+        });
       });
       toolkitStartRef.current = startPromise;
       const handle = await startPromise;
@@ -392,6 +480,13 @@ function WalletApp() {
       setAppNotice(null);
     } catch (error) {
       const failure = describeToolkitStartFailure(lastToolkitStep, error);
+      recordDebugEvent({
+        level: "error",
+        source: "toolkit",
+        message: failure.message,
+        detail: `Toolkit: ${policy.privacyToolkit}`,
+        error
+      });
       setToolkitState("error");
       setStatusMessage(failure.message);
       setAppNotice({
@@ -449,6 +544,12 @@ function WalletApp() {
     publicBalanceRequestRef.current = requestId;
     setPublicBalance({ status: "syncing" });
     setStatusMessage("Syncing public ETH balance");
+    recordDebugEvent({
+      level: "info",
+      source: "balance",
+      message: "Syncing public ETH balance",
+      detail: `Address: ${smartWalletAddress}\nRPC: ${policy.ethereumRpcUrl.trim()}`
+    });
 
     try {
       const balance = await fetchPublicEthBalance(policy, smartWalletAddress);
@@ -458,11 +559,21 @@ function WalletApp() {
         setStatusMessage(
           `Public ETH balance synced at block ${balance.blockNumber.toString()}`
         );
+        recordDebugEvent({
+          level: "info",
+          source: "balance",
+          message: `Public ETH balance synced: ${balance.formatted}`,
+          detail: `Block: ${balance.blockNumber.toString()}`
+        });
       }
     } catch (error) {
       if (publicBalanceRequestRef.current === requestId) {
-        const message =
-          error instanceof Error ? error.message : "Unable to sync public balance";
+        const message = messageFromError(
+          error,
+          "Unable to sync public balance",
+          "balance",
+          `Address: ${smartWalletAddress}\nRPC: ${policy.ethereumRpcUrl.trim()}`
+        );
         setPublicBalance({ status: "error", message });
         setStatusMessage(message);
       }
@@ -513,6 +624,16 @@ function WalletApp() {
 
       setStatusMessage(smartWalletAddress.reason);
       return state;
+    } catch (error) {
+      const message = messageFromError(
+        error,
+        "Unable to derive smart-wallet funding address",
+        "smart-wallet",
+        `RPC: ${policy.ethereumRpcUrl.trim() || "off"}`
+      );
+      setWalletState(markWalletError(state, message));
+      setStatusMessage(message);
+      return state;
     } finally {
       setIsDerivingSmartWallet(false);
     }
@@ -541,8 +662,11 @@ function WalletApp() {
         );
       }
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unable to create passkey";
+      const message = messageFromError(
+        error,
+        "Unable to create passkey",
+        "passkey"
+      );
       setWalletState(markWalletError(walletState, message));
       setStatusMessage(message);
     } finally {
@@ -574,10 +698,11 @@ function WalletApp() {
       setStatusMessage("Shielded RAILGUN wallet created");
       return wallet.recoveryPhrase;
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Unable to create shielded RAILGUN wallet";
+      const message = messageFromError(
+        error,
+        "Unable to create shielded RAILGUN wallet",
+        "railgun-wallet"
+      );
       setWalletState(markWalletError(walletState, message));
       setStatusMessage(message);
       return null;
@@ -613,10 +738,11 @@ function WalletApp() {
       setRailgunReplacementRecoveryPhrase(null);
       setStatusMessage("Shielded RAILGUN wallet imported");
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Unable to import shielded RAILGUN wallet";
+      const message = messageFromError(
+        error,
+        "Unable to import shielded RAILGUN wallet",
+        "railgun-wallet"
+      );
       setWalletState(markWalletError(walletState, message));
       setStatusMessage(message);
     } finally {
@@ -659,10 +785,11 @@ function WalletApp() {
       );
       setStatusMessage("New shielded RAILGUN wallet created");
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Unable to replace shielded RAILGUN wallet";
+      const message = messageFromError(
+        error,
+        "Unable to replace shielded RAILGUN wallet",
+        "railgun-wallet"
+      );
       setRailgunRepairStatus(message);
       setStatusMessage(message);
       setWalletState(markWalletError(walletState, message));
@@ -679,6 +806,12 @@ function WalletApp() {
 
     setIsSubmittingSmartPayment(true);
     setSmartPaymentStatus("Submitting ERC-4337 user operation");
+    recordDebugEvent({
+      level: "info",
+      source: "smart-payment",
+      message: "Submitting ERC-4337 user operation",
+      detail: `Recipient: ${draft.recipient}\nAmount: ${draft.amount} ETH\nBundler: ${policy.bundlerUrl.trim() || "off"}`
+    });
 
     try {
       const result = await sendSmartWalletEthPayment({
@@ -692,9 +825,21 @@ function WalletApp() {
           ? `Submitted: ${result.transactionHash}`
           : `Submitted user operation: ${result.userOperationHash}`
       );
+      recordDebugEvent({
+        level: "info",
+        source: "smart-payment",
+        message: result.transactionHash
+          ? `Submitted transaction ${result.transactionHash}`
+          : `Submitted user operation ${result.userOperationHash}`
+      });
     } catch (error) {
       setSmartPaymentStatus(
-        error instanceof Error ? error.message : "Unable to submit payment"
+        messageFromError(
+          error,
+          "Unable to submit payment",
+          "smart-payment",
+          `Recipient: ${draft.recipient}\nAmount: ${draft.amount} ETH\nBundler: ${policy.bundlerUrl.trim() || "off"}`
+        )
       );
     } finally {
       setIsSubmittingSmartPayment(false);
@@ -733,6 +878,13 @@ function WalletApp() {
 
     setIsSubmittingShield(true);
     setShieldStatus("Preparing RAILGUN shield transaction");
+    setAppNotice(null);
+    recordDebugEvent({
+      level: "info",
+      source: "shield",
+      message: "Preparing RAILGUN shield transaction",
+      detail: `Amount wei: ${amountWei.toString()}\nRailgun address: ${walletState.railgunAddress}\nBundler: ${policy.bundlerUrl.trim() || "off"}`
+    });
 
     try {
       const shieldCalls = await prepareNativeEthShieldCalls({
@@ -741,6 +893,12 @@ function WalletApp() {
         railgunAddress: walletState.railgunAddress
       });
       setShieldStatus("Submitting shield user operation");
+      recordDebugEvent({
+        level: "info",
+        source: "shield",
+        message: "Submitting shield user operation",
+        detail: `Calls: ${shieldCalls.length.toString()}`
+      });
       const result = await sendSmartWalletCalls({
         calls: shieldCalls,
         policy,
@@ -751,11 +909,27 @@ function WalletApp() {
           ? `Shield submitted: ${result.transactionHash}`
           : `Shield user operation submitted: ${result.userOperationHash}`
       );
+      recordDebugEvent({
+        level: "info",
+        source: "shield",
+        message: result.transactionHash
+          ? `Shield submitted: ${result.transactionHash}`
+          : `Shield user operation submitted: ${result.userOperationHash}`
+      });
       await syncPublicBalance();
     } catch (error) {
-      setShieldStatus(
-        error instanceof Error ? error.message : "Unable to submit shield"
+      const message = messageFromError(
+        error,
+        "Unable to submit shield",
+        "shield",
+        `Amount wei: ${amountWei.toString()}\nRailgun address: ${walletState.railgunAddress}`
       );
+      setShieldStatus(message);
+      setAppNotice({
+        kind: "error",
+        title: "Shield failed",
+        message: `${message} Open Debug for the full stack trace.`
+      });
     } finally {
       setIsSubmittingShield(false);
     }
@@ -772,13 +946,15 @@ function WalletApp() {
     setAppNotice(null);
     void clearEncryptedRailgunWallet()
       .then(() => setStatusMessage("Local wallet metadata and secrets cleared"))
-      .catch((error) =>
+      .catch((error) => {
         setStatusMessage(
-          error instanceof Error
-            ? error.message
-            : "Unable to clear encrypted RAILGUN wallet secrets"
-        )
-      );
+          messageFromError(
+            error,
+            "Unable to clear encrypted RAILGUN wallet secrets",
+            "settings"
+          )
+        );
+      });
   };
 
   const noticeAction = appNotice?.action;
@@ -942,6 +1118,10 @@ function WalletApp() {
             onThemeChange={setTheme}
             onResetWallet={resetLocalWallet}
           />
+        ) : null}
+
+        {activeTab === "debug" ? (
+          <DebugPanel entries={debugLog} onClear={clearDebugEvents} />
         ) : null}
 
         <PwaInstallPrompt />
