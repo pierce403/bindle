@@ -67,7 +67,7 @@ Important directories:
 - `src/privacy/`: outbound connection policy and privacy toolkit adapters.
 - `src/intents/`: local recipient route classification.
 - `src/theme/`: theme selection data.
-- `features.md`: canonical feature backlog and product TODO list.
+- `FEATURES.md`: canonical feature backlog and product TODO list.
 - `public/`: static files copied into builds, including `CNAME`.
 - `assets/bindle-logo-source.png`: generated source image for the app logo.
 - `public/manifest.webmanifest`, `public/service-worker.js`,
@@ -216,7 +216,7 @@ avoids requiring GitHub workflow scope.
 
 ## Current Missing Product Work
 
-Track product TODOs in `features.md`. Keep that file current rather than
+Track product TODOs in `FEATURES.md`. Keep that file current rather than
 duplicating the backlog here.
 
 ## Helios Notes
