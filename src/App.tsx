@@ -10,7 +10,11 @@ import { UnshieldedBalanceBanner } from "./components/UnshieldedBalanceBanner";
 import { WalletActionPanel } from "./components/WalletActionPanel";
 import { routeIntent, type IntentDraft, type RoutedIntent } from "./intents/router";
 import { defaultConnectionPolicy, type ConnectionPolicy } from "./privacy/connectionPolicy";
-import { startRailgunBrowserEngine, type RailgunEngineState } from "./railgun/client";
+import {
+  startPrivacyToolkit,
+  type PrivacyToolkitHandle,
+  type PrivacyToolkitState
+} from "./privacy/toolkit";
 import { defaultTheme, type ThemeSelection } from "./theme/theme";
 
 const initialDraft: IntentDraft = {
@@ -26,24 +30,36 @@ function App() {
     routeIntent(initialDraft)
   );
   const [policy, setPolicy] = useState<ConnectionPolicy>(defaultConnectionPolicy);
-  const [engineState, setEngineState] = useState<RailgunEngineState>("idle");
+  const [toolkitState, setToolkitState] = useState<PrivacyToolkitState>("idle");
+  const [toolkitHandle, setToolkitHandle] =
+    useState<PrivacyToolkitHandle | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
   const [theme, setTheme] = useState<ThemeSelection>(defaultTheme);
   const [activeAction, setActiveAction] = useState<WalletAction | null>(null);
   const [activeTab, setActiveTab] = useState<AppTab>("wallet");
   const hasRailgunWallet = false;
-  const rpcReady = engineState === "ready" && policy.ethereumRpcUrl.length > 0;
+  const rpcReady = toolkitState === "ready" && policy.ethereumRpcUrl.length > 0;
   const canShield = rpcReady && hasRailgunWallet;
 
-  const startEngine = async () => {
-    setEngineState("starting");
-    setStatusMessage("Starting");
+  const startToolkit = async () => {
+    if (toolkitState === "starting") {
+      return;
+    }
+
+    if (toolkitHandle) {
+      setStatusMessage(`${toolkitHandle.label} is already ready`);
+      return;
+    }
+
+    setToolkitState("starting");
+    setStatusMessage("Starting privacy toolkit");
 
     try {
-      await startRailgunBrowserEngine(policy, setStatusMessage);
-      setEngineState("ready");
+      const handle = await startPrivacyToolkit(policy, setStatusMessage);
+      setToolkitHandle(handle);
+      setToolkitState("ready");
     } catch (error) {
-      setEngineState("error");
+      setToolkitState("error");
       setStatusMessage(error instanceof Error ? error.message : "Unable to start");
     }
   };
@@ -107,9 +123,10 @@ function App() {
         {activeTab === "nodes" ? (
           <PrivacySwitchboard
             policy={policy}
-            engineState={engineState}
+            toolkitState={toolkitState}
             statusMessage={statusMessage}
-            onConnect={startEngine}
+            isStarting={toolkitState === "starting"}
+            onConnect={startToolkit}
             onChange={setPolicy}
           />
         ) : null}

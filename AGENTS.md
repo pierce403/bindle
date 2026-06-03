@@ -47,7 +47,9 @@ and privacy-oriented defaults.
 Current stack:
 
 - Vite, React, TypeScript.
-- RAILGUN Wallet SDK, loaded behind an explicit connection flow.
+- Kohaku-first privacy toolkit adapter boundary, defaulting to the Kohaku
+  RAILGUN adapter.
+- RAILGUN Wallet SDK fallback, loaded only behind an explicit adapter choice.
 - GitHub Pages from `main:/docs`.
 - Manual PWA manifest and service worker from `public/`.
 - Custom domain: `bindle.me`.
@@ -62,7 +64,7 @@ Important directories:
 
 - `src/`: source app code.
 - `src/railgun/`: browser RAILGUN engine adapter and artifact storage.
-- `src/privacy/`: outbound connection policy.
+- `src/privacy/`: outbound connection policy and privacy toolkit adapters.
 - `src/intents/`: local recipient route classification.
 - `src/theme/`: theme selection data.
 - `public/`: static files copied into builds, including `CNAME`.
@@ -93,6 +95,7 @@ Hard product rules:
 
 Privacy defaults:
 
+- Privacy toolkit: Kohaku RAILGUN.
 - Ethereum RPC: unset.
 - Private POI aggregator: unset.
 - Broadcaster: unset.
@@ -172,6 +175,21 @@ avoids requiring GitHub workflow scope.
 
 ## Known Issues And Pitfalls
 
+- Kohaku RAILGUN is currently pinned to `@kohaku-eth/railgun@0.0.1-alpha.22`
+  with `@kohaku-eth/provider@0.1.0-alpha.8` and
+  `@kohaku-eth/plugins@0.0.1-alpha.8`.
+- Do not use Kohaku's higher-level `createRailgunPlugin()` helper in Bindle
+  until indexer/POI endpoints are configurable. Its current implementation
+  wires a default Subsquid syncer, which violates Bindle's no-hidden-endpoints
+  rule.
+- Bindle's Kohaku adapter imports the generated WASM binding file directly
+  from `@kohaku-eth/railgun/dist/pkg/index.js` and initializes it with the
+  default export plus `initLogging()`. Importing the package root pulled the
+  plugin facade into Vite, which pulled `viem/isows` and failed the production
+  build in this repo.
+- The current Kohaku adapter uses `RailgunBuilder.withUtxoSyncer(UtxoSyncer.rpc(...))`
+  so startup contacts only the user-configured Ethereum RPC endpoint and
+  same-origin bundled WASM assets.
 - `@railgun-community/wallet@10.8.6` requires `ethers@6.14.3`; newer ethers
   versions conflict with the peer dependency.
 - The RAILGUN SDK bundle is large. It is intentionally lazy-loaded behind
@@ -201,7 +219,9 @@ avoids requiring GitHub workflow scope.
 - Real `0zk` address derivation and persistence.
 - ETH shield transaction generation through RAILGUN.
 - Balance sync from actual wallet state.
-- Helios adapter and compatibility tests against RAILGUN provider calls.
+- Kohaku-backed wallet lifecycle where possible; legacy Wallet SDK fallback
+  only where Kohaku is not usable for the path.
+- Helios adapter and compatibility tests against Kohaku/RAILGUN provider calls.
 - Provider resolver and broadcaster policy for outgoing decloaked routes.
 - LayerZero-style Pay routing for any-currency, any-network settlement.
 - Uniswap-based Swap flow.

@@ -12,6 +12,9 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@kohaku-eth/plugins": "0.0.1-alpha.8",
+    "@kohaku-eth/provider": "0.1.0-alpha.8",
+    "@kohaku-eth/railgun": "0.0.1-alpha.22",
     "@railgun-community/shared-models": "8.0.1",
     "@railgun-community/wallet": "10.8.6",
     "ethers": "6.14.3",

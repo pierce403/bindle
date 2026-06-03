@@ -1,21 +1,25 @@
 import { PlugZap, ShieldCheck, WifiOff } from "lucide-react";
 import {
+  type PrivacyToolkitId,
   summarizeOutbound,
   type ConnectionPolicy
 } from "../privacy/connectionPolicy";
+import { privacyToolkitOptions } from "../privacy/toolkit";
 
 type PrivacySwitchboardProps = {
   policy: ConnectionPolicy;
-  engineState: string;
+  toolkitState: string;
   statusMessage: string;
+  isStarting: boolean;
   onConnect: () => void;
   onChange: (policy: ConnectionPolicy) => void;
 };
 
 export function PrivacySwitchboard({
   policy,
-  engineState,
+  toolkitState,
   statusMessage,
+  isStarting,
   onConnect,
   onChange
 }: PrivacySwitchboardProps) {
@@ -26,10 +30,29 @@ export function PrivacySwitchboard({
       <div className="section-heading">
         <div>
           <h2 id="privacy-heading">Connections</h2>
-          <span>{engineState}</span>
+          <span>{toolkitState}</span>
         </div>
         <ShieldCheck size={21} aria-hidden="true" />
       </div>
+
+      <label className="field">
+        <span>Privacy toolkit</span>
+        <select
+          value={policy.privacyToolkit}
+          onChange={(event) =>
+            onChange({
+              ...policy,
+              privacyToolkit: event.currentTarget.value as PrivacyToolkitId
+            })
+          }
+        >
+          {privacyToolkitOptions.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <label className="field">
         <span>Ethereum RPC</span>
@@ -81,13 +104,18 @@ export function PrivacySwitchboard({
         ))}
       </div>
 
-      <button className="secondary-action wide" type="button" onClick={onConnect}>
+      <button
+        className="secondary-action wide"
+        type="button"
+        disabled={isStarting}
+        onClick={onConnect}
+      >
         {policy.ethereumRpcUrl ? (
           <PlugZap size={18} aria-hidden="true" />
         ) : (
           <WifiOff size={18} aria-hidden="true" />
         )}
-        Start engine
+        {isStarting ? "Starting" : "Start toolkit"}
       </button>
 
       {statusMessage ? <p className="status-message">{statusMessage}</p> : null}

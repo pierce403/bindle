@@ -6,7 +6,10 @@ export type OutboundClass =
   | "price-quotes"
   | "waku";
 
+export type PrivacyToolkitId = "kohaku-railgun" | "railgun-wallet-sdk";
+
 export type ConnectionPolicy = {
+  privacyToolkit: PrivacyToolkitId;
   ethereumRpcUrl: string;
   poiAggregatorUrls: string[];
   broadcasterUrl: string;
@@ -24,6 +27,7 @@ export type OutboundControl = {
 };
 
 export const defaultConnectionPolicy: ConnectionPolicy = {
+  privacyToolkit: "kohaku-railgun",
   ethereumRpcUrl: "",
   poiAggregatorUrls: [],
   broadcasterUrl: "",
