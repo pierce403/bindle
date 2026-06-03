@@ -23,6 +23,8 @@ not the default first-run experience.
   `ConnectionPolicy` endpoints only.
 - RAILGUN Wallet SDK remains isolated behind an explicit fallback adapter.
 - Browser-side legacy RAILGUN adapter with IndexedDB artifact persistence.
+- The privacy toolkit can auto-start after a real local `0zk` wallet exists
+  when the selected visible preset allows it.
 - Local wallet metadata state for passkey-first onboarding, with no private key
   or mnemonic storage in localStorage.
 - Encrypted local RAILGUN recovery phrase storage in IndexedDB. Bindle derives
@@ -64,6 +66,8 @@ not the default first-run experience.
 - Default endpoints are allowed only when they are visible in
   `ConnectionPolicy`, shown in Connections, replaceable by the user, and listed
   in preflight disclosure before sensitive actions.
+- Toolkit auto-start is allowed only when it is a visible, editable
+  `ConnectionPolicy` setting and a real local `0zk` wallet already exists.
 - The browser surface is informational. Do not expose wallet setup, balances,
   sends, shielding, or local wallet controls outside installed PWA display mode.
 - No hidden smart-wallet bundler, paymaster, passkey attestation, or recovery
@@ -180,10 +184,11 @@ Current presets:
 
 - Bindle default: visible public defaults for normal use. It currently sets
   Ethereum RPC to `https://ethereum-rpc.publicnode.com` and ERC-4337 bundler to
-  `https://public.pimlico.io/v2/1/rpc`. These services can see network
-  metadata and must not be presented as trustless or private.
+  `https://public.pimlico.io/v2/1/rpc`, and enables toolkit auto-start after
+  local `0zk` wallet creation. These services can see network metadata and must
+  not be presented as trustless or private.
 - Privacy max: all hosted endpoints empty/off for users bringing local or
-  self-hosted infrastructure.
+  self-hosted infrastructure. Toolkit auto-start is off.
 - Custom: preserves user-entered values while editing individual endpoints.
 - Local dev: localhost-style RPC and bundler endpoints for development.
 

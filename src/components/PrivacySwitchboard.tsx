@@ -74,6 +74,20 @@ export function PrivacySwitchboard({
         {endpointPresets[policy.endpointPreset].description}
       </p>
 
+      <label className="toggle-row">
+        <span>Auto-start toolkit</span>
+        <input
+          type="checkbox"
+          checked={policy.autoStartToolkit}
+          onChange={(event) =>
+            updateCustom({
+              ...policy,
+              autoStartToolkit: event.currentTarget.checked
+            })
+          }
+        />
+      </label>
+
       <label className="field">
         <span>Privacy toolkit</span>
         <select

@@ -28,6 +28,7 @@ test("default user mode has a visible sane preset selected", () => {
   expect(defaultConnectionPolicy.ethereumRpcUrl).toMatch(/^https:\/\//);
   expect(defaultConnectionPolicy.bundlerUrl).toMatch(/^https:\/\//);
   expect(defaultConnectionPolicy.paymasterUrl).toBe("");
+  expect(defaultConnectionPolicy.autoStartToolkit).toBe(true);
 });
 
 test("privacy max preset clears hosted endpoints", () => {
@@ -42,6 +43,7 @@ test("privacy max preset clears hosted endpoints", () => {
   expect(policy.priceQuoteUrl).toBe("");
   expect(policy.bundlerUrl).toBe("");
   expect(policy.paymasterUrl).toBe("");
+  expect(policy.autoStartToolkit).toBe(false);
   expect(policy.wakuEnabled).toBe(false);
 });
 
@@ -58,6 +60,7 @@ test("switching to custom preserves user-entered endpoint values", () => {
   expect(custom.endpointPreset).toBe("custom");
   expect(custom.ethereumRpcUrl).toBe("http://127.0.0.1:8545");
   expect(custom.bundlerUrl).toBe("http://127.0.0.1:4337");
+  expect(custom.autoStartToolkit).toBe(true);
 });
 
 test("outbound summary exposes every endpoint class", () => {

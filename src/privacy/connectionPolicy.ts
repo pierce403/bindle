@@ -42,6 +42,7 @@ export type ConnectionPolicy = {
   paymasterUrl: string;
   passkeyAttestationUrl: string;
   recoveryServiceUrl: string;
+  autoStartToolkit: boolean;
   wakuEnabled: boolean;
   debugLogging: boolean;
 };
@@ -73,6 +74,7 @@ const policyBase = {
   paymasterUrl: "",
   passkeyAttestationUrl: "",
   recoveryServiceUrl: "",
+  autoStartToolkit: true,
   wakuEnabled: false,
   debugLogging: false
 };
@@ -98,6 +100,7 @@ export const endpointPresets: Record<EndpointPresetId, EndpointPreset> = {
       "Starts with hosted endpoints empty/off for users bringing local or self-hosted infrastructure.",
     policy: {
       ...policyBase,
+      autoStartToolkit: false,
       endpointPreset: "privacy-max",
       providerMode: "direct-rpc",
       ethereumRpcUrl: "",
@@ -110,6 +113,7 @@ export const endpointPresets: Record<EndpointPresetId, EndpointPreset> = {
     description: "Keep current values and edit each endpoint manually.",
     policy: {
       ...policyBase,
+      autoStartToolkit: false,
       endpointPreset: "custom",
       providerMode: "direct-rpc",
       ethereumRpcUrl: "",

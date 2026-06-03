@@ -81,6 +81,8 @@ infrastructure.
       and stack traces for transient RAILGUN/Kohaku failures.
 - [x] Guard Kohaku RAILGUN WASM initialization so `initLogging` runs once per
       PWA session instead of trapping during shield prep after wallet creation.
+- [x] Auto-start the privacy toolkit after a real `0zk` wallet exists when the
+      selected visible preset allows it.
 
 ## Now
 
@@ -172,9 +174,10 @@ infrastructure.
       the default mobile PWA onboarding path.
 - [ ] Do not auto-resolve ENS, providers, contacts, avatars, prices, or metadata
       before the user takes an action that requires it.
-- [ ] Do not auto-start privacy toolkit, broadcasters, Waku, provider
-      resolvers, or other non-balance network services on page load or PWA
-      launch.
+- [ ] Do not auto-start broadcasters, Waku, provider resolvers, or hidden
+      network services on page load or PWA launch.
+- [ ] Do not auto-start the privacy toolkit unless the selected policy exposes
+      that behavior and a real local `0zk` wallet already exists.
 - [ ] Do not preload remote images, fonts, scripts, maps, avatars, token lists,
       or marketing assets from third parties.
 - [ ] Do not add push notifications, email capture, referral links, or growth

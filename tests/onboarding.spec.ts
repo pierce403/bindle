@@ -87,6 +87,7 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByLabel("ERC-4337 bundler")).toHaveValue(
       "https://public.pimlico.io/v2/1/rpc"
     );
+    await expect(page.getByLabel("Auto-start toolkit")).toBeChecked();
     await expect(page.getByText("default").first()).toBeVisible();
 
     await page.getByLabel("Active preset").selectOption("privacy-max");
@@ -94,6 +95,7 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByLabel("Ethereum execution RPC")).toHaveValue("");
     await expect(page.getByLabel("ERC-4337 bundler")).toHaveValue("");
     await expect(page.getByLabel("ERC-4337 paymaster")).toHaveValue("");
+    await expect(page.getByLabel("Auto-start toolkit")).not.toBeChecked();
     await expect(page.getByLabel("Passkey attestation")).toHaveValue("");
     await expect(page.getByLabel("Wallet recovery")).toHaveValue("");
     await expect(page.getByText("ERC-4337 bundler").first()).toBeVisible();
@@ -178,9 +180,6 @@ test.describe("passkey-first onboarding", () => {
       timeout: 30_000
     });
     await expect(page.getByLabel("Shielded wallet recovery phrase")).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Start toolkit" })
-    ).toBeVisible();
 
     await page.getByRole("button", { name: "Receive" }).click();
 
@@ -224,9 +223,9 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByText(/0zk[A-Za-z0-9]{16,}/).first()).toBeVisible({
       timeout: 30_000
     });
-    await expect(
-      page.getByRole("button", { name: "Start toolkit" })
-    ).toBeVisible();
+    await page.getByRole("button", { name: "Receive" }).click();
+    await expect(page.getByText("Shielded address ready")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Copy 0zk address" })).toBeVisible();
   });
 
   test("can replace a legacy or missing local 0zk key record", async ({
@@ -301,7 +300,17 @@ test.describe("passkey-first onboarding", () => {
               ? "0xde0b6b3a7640000"
               : request.method === "eth_blockNumber"
                 ? "0x100"
-                : null
+                : request.method === "eth_getLogs"
+                  ? []
+                  : request.method === "eth_call"
+                    ? "0x"
+                    : request.method === "eth_estimateGas"
+                      ? "0x5208"
+                      : request.method === "eth_gasPrice"
+                        ? "0x1"
+                        : request.method === "eth_getTransactionCount"
+                          ? "0x0"
+                          : null
       }));
 
       await route.fulfill({
@@ -486,7 +495,17 @@ test.describe("passkey-first onboarding", () => {
               ? "0xde0b6b3a7640000"
               : request.method === "eth_blockNumber"
                 ? "0x100"
-                : null
+                : request.method === "eth_getLogs"
+                  ? []
+                  : request.method === "eth_call"
+                    ? "0x"
+                    : request.method === "eth_estimateGas"
+                      ? "0x5208"
+                      : request.method === "eth_gasPrice"
+                        ? "0x1"
+                        : request.method === "eth_getTransactionCount"
+                          ? "0x0"
+                          : null
       }));
 
       await route.fulfill({
@@ -518,6 +537,13 @@ test.describe("passkey-first onboarding", () => {
 
     await page.goto("/");
     await page.getByRole("button", { name: "Create shielded wallet" }).click();
+
+    await page.getByRole("button", { name: "Debug" }).click();
+    await expect(page.getByLabel("Debug log entries")).toContainText(
+      "Starting kohaku-railgun",
+      { timeout: 30_000 }
+    );
+    await page.getByRole("button", { name: "Wallet" }).click();
 
     await expect(page.getByRole("heading", { name: "1 ETH" })).toBeVisible({
       timeout: 30_000

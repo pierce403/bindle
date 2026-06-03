@@ -1,5 +1,6 @@
 import {
   defaultConnectionPolicy,
+  endpointPresets,
   type ConnectionPolicy,
   type EndpointPresetId,
   type HeliosNetwork,
@@ -78,6 +79,10 @@ const normalizeConnectionPolicy = (value: unknown): ConnectionPolicy => {
     paymasterUrl: stringValue(parsed.paymasterUrl),
     passkeyAttestationUrl: stringValue(parsed.passkeyAttestationUrl),
     recoveryServiceUrl: stringValue(parsed.recoveryServiceUrl),
+    autoStartToolkit:
+      typeof parsed.autoStartToolkit === "boolean"
+        ? parsed.autoStartToolkit
+        : endpointPresets[endpointPreset].policy.autoStartToolkit,
     wakuEnabled: booleanValue(parsed.wakuEnabled),
     debugLogging: booleanValue(parsed.debugLogging)
   };

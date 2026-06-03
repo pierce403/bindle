@@ -441,7 +441,7 @@ function WalletApp() {
     };
   }, [walletState.railgunAddress, walletState.railgunKeyStore]);
 
-  const startToolkit = async () => {
+  const startToolkit = useCallback(async () => {
     if (toolkitStartRef.current || toolkitState === "starting") {
       return;
     }
@@ -498,7 +498,34 @@ function WalletApp() {
     } finally {
       toolkitStartRef.current = null;
     }
-  };
+  }, [policy, recordDebugEvent, toolkitHandle, toolkitState]);
+
+  useEffect(() => {
+    if (
+      !policy.autoStartToolkit ||
+      !policy.ethereumRpcUrl.trim() ||
+      !hasRecoverableRailgunKeyMaterial
+    ) {
+      return;
+    }
+
+    if (toolkitState !== "idle" && toolkitState !== "stopped") {
+      return;
+    }
+
+    if (toolkitHandle || toolkitStartRef.current) {
+      return;
+    }
+
+    void startToolkit();
+  }, [
+    policy.autoStartToolkit,
+    policy.ethereumRpcUrl,
+    startToolkit,
+    toolkitHandle,
+    toolkitState,
+    hasRecoverableRailgunKeyMaterial
+  ]);
 
   const updateConnectionPolicy = (nextPolicy: ConnectionPolicy) => {
     setPolicy(saveConnectionPolicy(nextPolicy));
