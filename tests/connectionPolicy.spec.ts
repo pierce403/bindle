@@ -157,3 +157,30 @@ test("public balance sync preflight discloses the selected RPC", () => {
     ])
   );
 });
+
+test("unshield review preflight requires a visible broadcaster", () => {
+  const disclosure = buildEndpointDisclosure(
+    defaultConnectionPolicy,
+    "unshield-review"
+  );
+
+  expect(disclosure).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: "ethereum-rpc",
+        configured: true,
+        required: true
+      }),
+      expect.objectContaining({
+        id: "railgun-broadcaster",
+        configured: false,
+        required: true,
+        source: "off"
+      }),
+      expect.objectContaining({
+        id: "railgun-poi",
+        required: false
+      })
+    ])
+  );
+});

@@ -221,6 +221,12 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByLabel("Unshielded ETH balance")).toContainText(
       "1 ETH"
     );
+    await expect(page.getByLabel("Unshielded ETH balance")).toContainText(
+      "Shield blocked: real 0zk address, recoverable RAILGUN keys."
+    );
+    await expect(
+      page.getByRole("button", { name: "Shield", exact: true })
+    ).toBeDisabled();
     await expect(page.getByText("public synced at block 256")).toBeVisible();
   });
 

@@ -6,6 +6,7 @@ type UnshieldedBalanceBannerProps = {
   canSync: boolean;
   isSyncing: boolean;
   syncDisclosure: string | null;
+  shieldDisclosure: string | null;
   onSync: () => void;
 };
 
@@ -15,9 +16,11 @@ export function UnshieldedBalanceBanner({
   canSync,
   isSyncing,
   syncDisclosure,
+  shieldDisclosure,
   onSync
 }: UnshieldedBalanceBannerProps) {
-  const buttonLabel = canShield
+  const showShieldAction = canShield || shieldDisclosure !== null;
+  const buttonLabel = showShieldAction
     ? "Shield"
     : canSync || isSyncing
       ? isSyncing
@@ -35,12 +38,13 @@ export function UnshieldedBalanceBanner({
           {syncDisclosure ? (
             <small>Sync may contact {syncDisclosure}</small>
           ) : null}
+          {shieldDisclosure ? <small>{shieldDisclosure}</small> : null}
         </div>
       </div>
       <button
         className="shield-button"
         type="button"
-        disabled={canShield ? false : !canSync || isSyncing}
+        disabled={showShieldAction ? !canShield : !canSync || isSyncing}
         onClick={canShield ? undefined : onSync}
       >
         {buttonLabel}

@@ -245,6 +245,12 @@ avoids requiring GitHub workflow scope.
   Ethereum mainnet RPC from `ConnectionPolicy`. Keep this behind an explicit
   user Sync action because `eth_getBalance` leaks the public funding address to
   the selected RPC.
+- Shield/unshield readiness lives in `src/railgun/shielding.ts`. Native ETH
+  shield call prep uses Kohaku's low-level `ShieldBuilder.shieldNative`, not the
+  higher-level helper that wires hidden Subsquid defaults. Do not enable Shield
+  submission until Bindle has recoverable RAILGUN spending/viewing key material
+  for the displayed `0zk` address; otherwise users could shield funds they
+  cannot unshield.
 - First-run setup is surfaced through `src/components/OnboardingWizard.tsx`.
   Keep new wallet prerequisites in that state-driven flow so users are not
   forced to discover setup steps by opening Receive or Connections manually.

@@ -17,6 +17,11 @@ import {
 } from "./privacy/connectionPolicyState";
 import { buildEndpointDisclosure } from "./privacy/preflightDisclosure";
 import {
+  assessShieldReadiness,
+  assessUnshieldReadiness,
+  summarizeMissingRequirements
+} from "./railgun/shielding";
+import {
   startPrivacyToolkit,
   type PrivacyToolkitHandle,
   type PrivacyToolkitState
@@ -135,9 +140,6 @@ function App() {
   const rpcReady = toolkitState === "ready" && policy.ethereumRpcUrl.length > 0;
   const bundlerReady = policy.bundlerUrl.trim().length > 0;
   const rpcConfigured = policy.ethereumRpcUrl.trim().length > 0;
-  const shieldConstructionReady = false;
-  const canShield =
-    rpcReady && walletState.smartWalletAddress !== null && shieldConstructionReady;
   const smartWalletStatus = walletState.smartWalletAddress
     ? "ready"
     : walletState.passkeyPresent
@@ -163,9 +165,42 @@ function App() {
     )
     .join(", ");
   const knownPublicBalance = publicBalanceText(publicBalance);
+  const publicBalanceWei =
+    publicBalance.status === "ready" ? publicBalance.balance.wei : null;
   const balanceLabel =
     publicBalance.status === "ready" && !hasRailgunWallet ? "Known ETH" : "Total ETH";
-  const shieldedStatus = hasRailgunWallet ? "not synced" : "0zk pending";
+  const shieldReadiness = assessShieldReadiness({
+    smartWalletAddress: walletState.smartWalletAddress,
+    railgunAddress: walletState.railgunAddress,
+    hasRecoverableRailgunKeyMaterial: false,
+    publicBalanceWei,
+    ethereumRpcUrl: policy.ethereumRpcUrl,
+    bundlerUrl: policy.bundlerUrl,
+    providerMode: policy.providerMode
+  });
+  const shieldSubmissionReady = false;
+  const canShield = shieldReadiness.ready && shieldSubmissionReady;
+  const unshieldReadiness = assessUnshieldReadiness({
+    railgunAddress: walletState.railgunAddress,
+    hasRecoverableRailgunKeyMaterial: false,
+    shieldedBalanceWei: null,
+    toolkitReady: toolkitState === "ready",
+    ethereumRpcUrl: policy.ethereumRpcUrl,
+    broadcasterUrl: policy.broadcasterUrl,
+    providerMode: policy.providerMode
+  });
+  const shieldDisclosure =
+    publicBalance.status === "ready"
+      ? shieldReadiness.ready
+        ? "Shield review path ready."
+        : `Shield blocked: ${summarizeMissingRequirements(shieldReadiness)}.`
+      : null;
+  const unshieldMissing = summarizeMissingRequirements(unshieldReadiness);
+  const shieldedStatus = hasRailgunWallet
+    ? unshieldReadiness.ready
+      ? "not synced"
+      : `unshield blocked: ${unshieldMissing}`
+    : "0zk pending";
   const canSyncPublicBalance =
     walletState.smartWalletAddress !== null &&
     rpcConfigured &&
@@ -431,6 +466,7 @@ function App() {
               syncDisclosure={
                 canSyncPublicBalance ? publicBalanceEndpointSummary : null
               }
+              shieldDisclosure={shieldDisclosure}
               onSync={() => void syncPublicBalance()}
             />
 

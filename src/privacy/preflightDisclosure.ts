@@ -13,6 +13,7 @@ export type IntendedWalletAction =
   | "send-review"
   | "public-smart-payment"
   | "private-send"
+  | "unshield-review"
   | "shield-sweep";
 
 export type EndpointDisclosure = {
@@ -72,8 +73,17 @@ const actionEndpointRequirements: Record<
     "railgun-broadcaster": "possible",
     "provider-resolution": "possible"
   },
+  "unshield-review": {
+    "ethereum-rpc": "required",
+    "helios-consensus-rpc": "possible",
+    "helios-checkpoint": "possible",
+    "railgun-poi": "possible",
+    "railgun-broadcaster": "required"
+  },
   "shield-sweep": {
     "ethereum-rpc": "required",
+    "helios-consensus-rpc": "possible",
+    "helios-checkpoint": "possible",
     "railgun-poi": "possible",
     "erc4337-bundler": "required",
     "erc4337-paymaster": "possible"

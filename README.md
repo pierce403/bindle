@@ -119,12 +119,25 @@ Smart Wallet funding address with the visible Ethereum mainnet RPC, and submit
 public ETH user operations through the visible ERC-4337 bundler.
 It can also explicitly sync the public ETH balance for that funding address
 through the visible RPC after disclosing the endpoint. Paymaster support is
-optional and only used when configured. Shielded RAILGUN address creation,
-shielding, shielded balance sync, and private RAILGUN sends remain pending.
+optional and only used when configured. Bindle can audit shield/unshield
+readiness and can prepare native ETH shield call data through Kohaku's low-level
+WASM binding, but the Shield button remains disabled until a recoverable
+RAILGUN spending/viewing key lifecycle creates or imports a real `0zk` address.
+Shielded balance sync, unshielding, and private RAILGUN sends remain pending.
 
 ## RAILGUN Integration Notes
 
 The RAILGUN Wallet SDK remains available as a fallback path for generating private keys and `0zk` addresses, scanning private balances, generating deposits, and creating proofs for private sends or unshielding where Kohaku is not yet usable. The SDK requires browser storage such as `level-js`, proof artifacts that should be downloaded and persisted instead of bundled, a SnarkJS Groth16 prover for browser builds, and explicit RPC provider loading.
+
+Current shield/unshield status:
+
+- Public ETH funding balance sync is real and explicit.
+- Native ETH shield call preparation is available through Kohaku low-level
+  `ShieldBuilder.shieldNative`.
+- Shield submission is intentionally blocked because Bindle has not yet wired a
+  recoverable `0zk` wallet key lifecycle.
+- Unshield is blocked until recoverable RAILGUN keys, shielded balance sync,
+  proof generation, and a visible broadcaster path are implemented.
 
 Primary references:
 

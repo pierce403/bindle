@@ -40,6 +40,11 @@ infrastructure.
       smart-wallet funding address.
 - [x] Add explicit public ETH balance sync for the smart-wallet funding address
       through the selected visible Ethereum RPC.
+- [x] Add shield/unshield readiness tests that keep funded public ETH blocked
+      until recoverable `0zk` wallet state, sync, and broadcaster prerequisites
+      exist.
+- [x] Add a Kohaku native ETH shield-call builder behind the local RAILGUN
+      boundary, without using Kohaku's hidden default Subsquid helper.
 - [x] Add visible endpoint presets for Bindle default, Privacy max, Custom, and
       Local dev.
 - [x] Persist explicit user/operator endpoint settings locally while preserving
@@ -58,6 +63,8 @@ infrastructure.
       than the primary first-run flow.
 - [ ] Build wallet create/import around Kohaku RAILGUN and Kohaku smart-wallet
       primitives where usable.
+- [ ] Add recoverable RAILGUN spending/viewing key lifecycle for the default
+      passkey smart-wallet onboarding path before enabling Shield.
 - [ ] Use the legacy RAILGUN Wallet SDK only for lifecycle paths Kohaku does not
       currently support.
 - [ ] Add a Kohaku-compatible browser smart-account adapter once `pq-account` or
@@ -164,7 +171,8 @@ infrastructure.
 
 ## Protocol Features
 
-- [ ] Generate ETH shield transactions.
+- [ ] Submit ETH shield transactions from the passkey smart wallet after a real
+      recoverable `0zk` wallet exists.
 - [ ] Sync shielded ETH balances from actual wallet state.
 - [ ] Implement private RAILGUN transfer review and proof generation.
 - [ ] Implement unshield-to-public-address review and proof generation.
