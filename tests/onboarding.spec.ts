@@ -1,8 +1,13 @@
 import { expect, test } from "@playwright/test";
+import { enableStandalonePwa } from "./support/pwa";
 
 const publicRecipient = "0x000000000000000000000000000000000000dEaD";
 
 test.describe("passkey-first onboarding", () => {
+  test.beforeEach(async ({ page }) => {
+    await enableStandalonePwa(page);
+  });
+
   test("starts from an honest passkey smart-wallet gate with no fake addresses", async ({
     page
   }) => {

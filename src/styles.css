@@ -149,6 +149,170 @@ button:disabled {
   z-index: 1;
 }
 
+.app-shell.landing-shell {
+  grid-template-columns: minmax(0, 1120px);
+  align-items: stretch;
+  overflow: auto;
+  padding: clamp(20px, 5vw, 56px);
+}
+
+.landing-page {
+  display: grid;
+  width: 100%;
+  gap: clamp(22px, 4vw, 38px);
+}
+
+.landing-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.landing-mode {
+  border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--border));
+  border-radius: 999px;
+  padding: 8px 12px;
+  color: color-mix(in srgb, var(--accent) 72%, #ffffff);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.landing-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+  gap: clamp(24px, 5vw, 52px);
+  align-items: center;
+  min-height: min(560px, 62vh);
+}
+
+.landing-copy {
+  display: grid;
+  gap: 18px;
+  max-width: 760px;
+}
+
+.landing-kicker {
+  color: color-mix(in srgb, var(--accent) 78%, #ffffff);
+  font-size: 0.82rem;
+  font-weight: 820;
+  text-transform: uppercase;
+}
+
+.landing-copy h1 {
+  margin: 0;
+  max-width: 13ch;
+  font-size: clamp(3rem, 6.6vw, 5.4rem);
+  line-height: 0.96;
+  letter-spacing: 0;
+}
+
+.landing-copy p {
+  max-width: 700px;
+  margin: 0;
+  color: var(--muted);
+  font-size: clamp(1rem, 2vw, 1.22rem);
+  line-height: 1.55;
+}
+
+.landing-install {
+  display: grid;
+  gap: 14px;
+  align-self: stretch;
+  align-content: center;
+  padding: clamp(20px, 4vw, 34px);
+  border-left: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+  background: linear-gradient(90deg, var(--accent-soft), transparent 74%);
+}
+
+.landing-install > svg {
+  color: var(--accent);
+}
+
+.landing-install > div {
+  display: grid;
+  gap: 8px;
+}
+
+.landing-install strong {
+  font-size: 1.22rem;
+}
+
+.landing-install span {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.landing-install .pwa-prompt {
+  position: static;
+  bottom: auto;
+  margin-top: 4px;
+}
+
+.landing-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.landing-feature,
+.landing-status {
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-raised) 82%, transparent);
+}
+
+.landing-feature {
+  display: grid;
+  gap: 10px;
+  min-height: 180px;
+  padding: 18px;
+  border-radius: 18px;
+}
+
+.landing-feature svg {
+  color: var(--accent);
+}
+
+.landing-feature strong {
+  font-size: 1rem;
+}
+
+.landing-feature span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.landing-status {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+  border-radius: 22px;
+}
+
+.landing-status div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.landing-status svg {
+  color: var(--accent);
+}
+
+.landing-status h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.landing-status ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 20px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .phone-frame {
   position: relative;
   width: min(100%, 430px);
@@ -208,7 +372,7 @@ button:disabled {
   padding: 4px 4px 14px;
 }
 
-.app-header .brand-copy,
+.brand-copy,
 .section-heading div {
   display: grid;
   gap: 3px;
@@ -1204,6 +1368,35 @@ button:disabled {
     padding: 0;
   }
 
+  .app-shell.landing-shell {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 18px;
+  }
+
+  .landing-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .landing-hero {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .landing-copy h1 {
+    max-width: 11ch;
+    font-size: clamp(2.7rem, 13vw, 4.4rem);
+  }
+
+  .landing-install {
+    border-top: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+    border-left: 0;
+  }
+
+  .landing-feature-grid {
+    grid-template-columns: 1fr;
+  }
+
   .phone-frame {
     width: 100%;
     min-height: 100vh;
@@ -1215,6 +1408,20 @@ button:disabled {
 }
 
 @media (max-width: 420px) {
+  .app-shell.landing-shell {
+    padding: 14px;
+  }
+
+  .landing-copy h1 {
+    font-size: 2.75rem;
+  }
+
+  .landing-install,
+  .landing-feature,
+  .landing-status {
+    border-radius: 16px;
+  }
+
   .phone-frame {
     padding: 14px 14px 96px;
   }

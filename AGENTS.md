@@ -58,6 +58,8 @@ Current stack:
   Bindle connects that account to shielded ETH through the privacy toolkit.
   Seed phrases, EOA imports, and legacy SDK wallet lifecycle paths are
   advanced compatibility or recovery flows, not the default UX.
+- Browser visits are informational only. `src/App.tsx` gates the wallet behind
+  installed PWA display mode and renders `BrowserLandingPage` otherwise.
 - Default theme: dark black/red paisley, with black/white and black/blue
   palettes plus light/dark modes.
 - Product direction follows Zodl/Zashi-style simplicity: a single home balance,
@@ -98,6 +100,8 @@ Hard product rules:
 - Default onboarding should be passkey-backed smart wallet creation from the
   phone PWA. Do not make seed phrases, EOAs, browser extensions, or fake
   wallet state the primary first-run path.
+- Do not expose wallet setup, balances, sends, shielding, or local wallet
+  controls from ordinary browser display mode.
 - No hidden endpoints, silent phone-home, or unlabelled hosted infrastructure.
 - Default endpoints are allowed only when they are visible in
   `ConnectionPolicy`, shown in Connections, replaceable by the user, and

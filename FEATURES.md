@@ -21,6 +21,8 @@ infrastructure.
       smart-wallet flow can submit transactions through those services.
 - [x] First-run PWA flow presents "Create Bindle with passkey" as the primary
       wallet creation action.
+- [x] Show a public information/install page outside PWA display mode and mount
+      the wallet only inside the installed PWA.
 - [x] Add a wallet-tab onboarding wizard that detects incomplete local setup and
       steps through passkey, endpoint configuration, toolkit startup, and
       shielded-wallet creation/import.

@@ -15,6 +15,8 @@ not the default first-run experience.
 - Vite, React, and TypeScript.
 - GitHub Pages-ready `docs` build output.
 - `bindle.me` custom domain marker in `public/CNAME`.
+- Browser visits show a public information and install page; the actual wallet
+  UI mounts only when the app is running in installed PWA display mode.
 - Kohaku-first privacy toolkit boundary in `src/privacy/toolkit.ts`.
 - Kohaku RAILGUN alpha packages pinned in `package.json`.
 - Browser-side Kohaku RAILGUN adapter that starts from visible
@@ -58,6 +60,8 @@ not the default first-run experience.
 - Default endpoints are allowed only when they are visible in
   `ConnectionPolicy`, shown in Connections, replaceable by the user, and listed
   in preflight disclosure before sensitive actions.
+- The browser surface is informational. Do not expose wallet setup, balances,
+  sends, shielding, or local wallet controls outside installed PWA display mode.
 - No hidden smart-wallet bundler, paymaster, passkey attestation, or recovery
   endpoint.
 - Empty states are allowed only when they represent the real first-run state.

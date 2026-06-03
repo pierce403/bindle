@@ -4,6 +4,7 @@ import { parseEther } from "viem";
 import { ActivityFeed } from "./components/ActivityFeed";
 import { BalancePanel, type WalletAction } from "./components/BalancePanel";
 import { BottomNav, type AppTab } from "./components/BottomNav";
+import { BrowserLandingPage } from "./components/BrowserLandingPage";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { PrivacySwitchboard } from "./components/PrivacySwitchboard";
 import { PwaInstallPrompt } from "./components/PwaInstallPrompt";
@@ -33,6 +34,7 @@ import {
   type PrivacyToolkitHandle,
   type PrivacyToolkitState
 } from "./privacy/toolkit";
+import { usePwaDisplayMode } from "./pwa/usePwaDisplayMode";
 import { defaultTheme, type ThemeSelection } from "./theme/theme";
 import {
   deriveSmartWalletAddressFromPasskey,
@@ -116,7 +118,7 @@ const publicBalanceNetworkStatus = (state: PublicBalanceState): string => {
   }
 };
 
-function App() {
+function WalletApp() {
   const [draft, setDraft] = useState<IntentDraft>(initialDraft);
   const [routedIntent, setRoutedIntent] = useState<RoutedIntent>(() =>
     routeIntent(initialDraft)
@@ -783,6 +785,16 @@ function App() {
       </section>
     </main>
   );
+}
+
+function App() {
+  const runningAsPwa = usePwaDisplayMode();
+
+  if (!runningAsPwa) {
+    return <BrowserLandingPage />;
+  }
+
+  return <WalletApp />;
 }
 
 export default App;
