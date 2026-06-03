@@ -1,0 +1,1 @@
+import{i as e}from"./index-4_M_2xVS.js";var t,n=e((()=>{t=globalThis||self}));export{n,t};
