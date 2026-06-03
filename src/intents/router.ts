@@ -3,7 +3,7 @@ import { findProviderRoute, type ProviderRoute } from "./providers";
 export type IntentDraft = {
   recipient: string;
   amount: string;
-  asset: "USDC" | "ETH" | "DAI";
+  asset: "ETH";
   note: string;
 };
 

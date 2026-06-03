@@ -5,7 +5,7 @@ export type ActivityItem = {
   name: string;
   handle: string;
   amount: string;
-  asset: "USDC" | "ETH" | "DAI";
+  asset: "ETH";
   note: string;
   direction: "in" | "out";
   route: string;
@@ -21,13 +21,16 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
     <section className="panel feed" aria-labelledby="activity-heading">
       <div className="section-heading">
         <h2 id="activity-heading">Activity</h2>
+        <button className="see-all" type="button" disabled>
+          See all
+        </button>
       </div>
 
       {items.length === 0 ? (
         <div className="empty-state">
           <Inbox size={22} aria-hidden="true" />
           <strong>No activity</strong>
-          <span>Synced wallet events will appear here.</span>
+          <span>Synced Railgun ETH events will appear here.</span>
         </div>
       ) : (
         <div className="activity-list">

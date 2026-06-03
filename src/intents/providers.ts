@@ -3,7 +3,7 @@ export type ProviderRoute = {
   name: string;
   handle: string;
   destination: string;
-  settlementAsset: "USDC" | "ETH" | "DAI";
+  settlementAsset: "ETH";
   railgunAction: "private-transfer" | "unshield-and-call";
   disclosure: "address-only" | "provider-memo" | "public-call";
 };
@@ -35,15 +35,6 @@ export const providerRoutes: ProviderRoute[] = [
     settlementAsset: "ETH",
     railgunAction: "unshield-and-call",
     disclosure: "address-only"
-  },
-  {
-    id: "provider-handle",
-    name: "Provider handle",
-    handle: "@provider",
-    destination: "resolver required",
-    settlementAsset: "ETH",
-    railgunAction: "unshield-and-call",
-    disclosure: "provider-memo"
   }
 ];
 
@@ -63,13 +54,6 @@ export const findProviderRoute = (recipient: string): ProviderRoute => {
 
   if (normalized.endsWith(".eth")) {
     return providerRoutes.find((route) => route.id === "ens") ?? providerRoutes[0];
-  }
-
-  if (normalized.startsWith("@")) {
-    return (
-      providerRoutes.find((route) => route.id === "provider-handle") ??
-      providerRoutes[0]
-    );
   }
 
   return providerRoutes[0];

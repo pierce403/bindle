@@ -53,6 +53,10 @@ Current stack:
 - Custom domain: `bindle.me`.
 - Default theme: dark black/red paisley, with black/white and black/blue
   palettes plus light/dark modes.
+- Product direction follows Zodl/Zashi-style simplicity: a single home balance,
+  obvious Receive/Send/Pay/Swap actions, an unshielded-balance warning, and
+  no fake activity. App-level sections use bottom navigation for wallet, node
+  connections, settings, and later chat; activity stays on the wallet home.
 
 Important directories:
 
@@ -77,6 +81,12 @@ Hard product rules:
 - No simulated transaction feed.
 - No seeded contacts.
 - No fake balances, fake `0zk` addresses, or invented liquidity.
+- The wallet home should bias toward Zodl-like simplicity: one main balance,
+  obvious Receive/Send/Pay/Swap actions, an unshielded-balance warning, and
+  activity below.
+- The primary active asset is ETH on Ethereum mainnet, shielded with RAILGUN.
+  Pay across networks/currencies, swaps, and XMTP chat are future work until
+  wired honestly.
 - No hard-coded third-party endpoints without explicit user or operator choice.
 - Empty states are allowed only when they represent the real first-run state.
 - Controls that are not wired must either be removed or clearly disabled.
@@ -193,6 +203,9 @@ avoids requiring GitHub workflow scope.
 - Balance sync from actual wallet state.
 - Helios adapter and compatibility tests against RAILGUN provider calls.
 - Provider resolver and broadcaster policy for outgoing decloaked routes.
+- LayerZero-style Pay routing for any-currency, any-network settlement.
+- Uniswap-based Swap flow.
+- XMTP chat or payment messaging.
 - Security cleanup or mitigation strategy for RAILGUN transitive dependencies.
 
 ## Helios Notes

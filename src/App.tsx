@@ -1,14 +1,16 @@
-import { useMemo, useState } from "react";
+import { ChevronDown, Eye, MoreHorizontal } from "lucide-react";
+import { useState } from "react";
 import { ActivityFeed } from "./components/ActivityFeed";
-import { BalancePanel } from "./components/BalancePanel";
-import { EthOnboarding } from "./components/EthOnboarding";
+import { BalancePanel, type WalletAction } from "./components/BalancePanel";
+import { BottomNav, type AppTab } from "./components/BottomNav";
 import { PrivacySwitchboard } from "./components/PrivacySwitchboard";
 import { PwaInstallPrompt } from "./components/PwaInstallPrompt";
-import { SendComposer } from "./components/SendComposer";
-import { ThemeControls } from "./components/ThemeControls";
+import { SettingsPanel } from "./components/SettingsPanel";
+import { UnshieldedBalanceBanner } from "./components/UnshieldedBalanceBanner";
+import { WalletActionPanel } from "./components/WalletActionPanel";
+import { routeIntent, type IntentDraft, type RoutedIntent } from "./intents/router";
 import { defaultConnectionPolicy, type ConnectionPolicy } from "./privacy/connectionPolicy";
 import { startRailgunBrowserEngine, type RailgunEngineState } from "./railgun/client";
-import { routeIntent, type IntentDraft, type RoutedIntent } from "./intents/router";
 import { defaultTheme, type ThemeSelection } from "./theme/theme";
 
 const initialDraft: IntentDraft = {
@@ -27,16 +29,11 @@ function App() {
   const [engineState, setEngineState] = useState<RailgunEngineState>("idle");
   const [statusMessage, setStatusMessage] = useState("");
   const [theme, setTheme] = useState<ThemeSelection>(defaultTheme);
-  const [shieldAmount, setShieldAmount] = useState("");
+  const [activeAction, setActiveAction] = useState<WalletAction | null>(null);
+  const [activeTab, setActiveTab] = useState<AppTab>("wallet");
   const hasRailgunWallet = false;
   const rpcReady = engineState === "ready" && policy.ethereumRpcUrl.length > 0;
-
-  const totals = useMemo(() => {
-    return {
-      shielded: "0.00 ETH",
-      public: "0.00 ETH"
-    };
-  }, []);
+  const canShield = rpcReady && hasRailgunWallet;
 
   const startEngine = async () => {
     setEngineState("starting");
@@ -62,48 +59,68 @@ function App() {
           <div className="brand-lockup">
             <img className="brand-mark" src="/logo.png" alt="" />
             <div className="brand-copy">
-              <span className="eyebrow">Bindle</span>
-              <strong>Pay privately</strong>
+              <strong>Bindle</strong>
+              <span className="eyebrow">ETH mainnet</span>
             </div>
+            <ChevronDown size={22} aria-hidden="true" />
+          </div>
+
+          <div className="header-actions">
+            <button className="icon-button ghost" type="button" title="Hide balance">
+              <Eye size={21} aria-hidden="true" />
+            </button>
+            <button className="icon-button ghost" type="button" title="More">
+              <MoreHorizontal size={22} aria-hidden="true" />
+            </button>
           </div>
         </header>
 
-        <ThemeControls theme={theme} onChange={setTheme} />
+        {activeTab === "wallet" ? (
+          <>
+            <BalancePanel
+              totalBalance={null}
+              fiatValue={null}
+              shieldedBalance={null}
+              networkLabel="Ethereum mainnet"
+              activeAction={activeAction}
+              onActionChange={setActiveAction}
+            />
 
-        <BalancePanel
-          shieldedBalance={totals.shielded}
-          publicBalance={totals.public}
-          canShield={rpcReady && hasRailgunWallet}
-        />
+            <UnshieldedBalanceBanner balance={null} canShield={canShield} />
 
-        <SendComposer
-          draft={draft}
-          routedIntent={routedIntent}
-          onDraftChange={setDraft}
-          onRouteChange={setRoutedIntent}
-        />
+            {activeAction ? (
+              <WalletActionPanel
+                action={activeAction}
+                draft={draft}
+                routedIntent={routedIntent}
+                hasRailgunWallet={hasRailgunWallet}
+                rpcReady={rpcReady}
+                onDraftChange={setDraft}
+                onRouteChange={setRoutedIntent}
+              />
+            ) : null}
 
-        <EthOnboarding
-          amount={shieldAmount}
-          hasRailgunAddress={hasRailgunWallet}
-          rpcReady={rpcReady}
-          onAmountChange={setShieldAmount}
-        />
+            <ActivityFeed items={[]} />
+          </>
+        ) : null}
 
-        <ActivityFeed items={[]} />
+        {activeTab === "nodes" ? (
+          <PrivacySwitchboard
+            policy={policy}
+            engineState={engineState}
+            statusMessage={statusMessage}
+            onConnect={startEngine}
+            onChange={setPolicy}
+          />
+        ) : null}
+
+        {activeTab === "settings" ? (
+          <SettingsPanel theme={theme} onThemeChange={setTheme} />
+        ) : null}
 
         <PwaInstallPrompt />
+        <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
       </section>
-
-      <aside className="desktop-rail">
-        <PrivacySwitchboard
-          policy={policy}
-          engineState={engineState}
-          statusMessage={statusMessage}
-          onConnect={startEngine}
-          onChange={setPolicy}
-        />
-      </aside>
     </main>
   );
 }
