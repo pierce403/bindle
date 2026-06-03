@@ -34,6 +34,10 @@ not the default first-run experience.
 
 Feature TODOs live in [FEATURES.md](FEATURES.md).
 
+## License
+
+Bindle is licensed under the [Apache License 2.0](LICENSE).
+
 ## Development
 
 ```bash
