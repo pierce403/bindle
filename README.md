@@ -2,6 +2,12 @@
 
 Bindle is a statically hosted TypeScript wallet interface for private Ethereum payments through RAILGUN. The product direction is deliberately simple: a Venmo-like pay/feed surface, shielded balances, and outgoing intents that can disclose only the routing leg needed to reach a provider or public address.
 
+The target onboarding flow is passkey-first: on phones, the PWA should default
+to creating a passkey-backed smart wallet, then use the privacy toolkit boundary
+to connect that wallet to RAILGUN shielded ETH. Seed phrases, EOA imports, and
+legacy RAILGUN Wallet SDK lifecycle paths are compatibility or recovery flows,
+not the default first-run experience.
+
 ## Current Shape
 
 - Vite, React, and TypeScript.
@@ -22,6 +28,8 @@ Bindle is a statically hosted TypeScript wallet interface for private Ethereum p
 - No seeded contacts.
 - No fake balances, fake `0zk` addresses, or invented liquidity.
 - No hard-coded third-party endpoints without explicit user or operator choice.
+- No hidden smart-wallet bundler, paymaster, passkey attestation, or recovery
+  endpoint.
 - Empty states are allowed only when they represent the real first-run state.
 
 Feature TODOs live in [FEATURES.md](FEATURES.md).
@@ -49,6 +57,7 @@ Bindle now routes privacy startup through a local adapter boundary:
 ```text
 Bindle UI
   -> local wallet/intents state
+  -> passkey-backed smart wallet by default
   -> privacy toolkit adapter
   -> Kohaku RAILGUN where available
   -> explicit ConnectionPolicy endpoints only
@@ -59,6 +68,11 @@ The default adapter is `kohaku-railgun`. It uses Kohaku's low-level RAILGUN WASM
 Important privacy constraint: Kohaku's higher-level `createRailgunPlugin()` helper currently wires a default Subsquid syncer. Bindle does not call that helper because hidden indexer traffic would violate the product rules. The current Kohaku adapter explicitly builds `RailgunBuilder` with `UtxoSyncer.rpc(...)` only.
 
 The `railgun-wallet-sdk` adapter remains as an explicit fallback for paths Kohaku does not cover yet, such as the older browser Wallet SDK engine and artifact store. App state should not talk to `@railgun-community/wallet` directly.
+
+Smart-wallet work should stay Kohaku-first as well. Bindle should prefer a
+passkey-backed smart account path where Kohaku supports it, with any ERC-4337
+bundler, paymaster, attestation, or recovery service exposed through
+`ConnectionPolicy` before it can be used.
 
 ## RAILGUN Integration Notes
 

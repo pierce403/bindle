@@ -53,6 +53,10 @@ Current stack:
 - GitHub Pages from `main:/docs`.
 - Manual PWA manifest and service worker from `public/`.
 - Custom domain: `bindle.me`.
+- Target first-run onboarding: mobile PWA passkey creates a smart wallet, then
+  Bindle connects that account to shielded ETH through the privacy toolkit.
+  Seed phrases, EOA imports, and legacy SDK wallet lifecycle paths are
+  advanced compatibility or recovery flows, not the default UX.
 - Default theme: dark black/red paisley, with black/white and black/blue
   palettes plus light/dark modes.
 - Product direction follows Zodl/Zashi-style simplicity: a single home balance,
@@ -90,7 +94,12 @@ Hard product rules:
 - The primary active asset is ETH on Ethereum mainnet, shielded with RAILGUN.
   Pay across networks/currencies, swaps, and XMTP chat are future work until
   wired honestly.
+- Default onboarding should be passkey-backed smart wallet creation from the
+  phone PWA. Do not make seed phrases, EOAs, browser extensions, or fake
+  wallet state the primary first-run path.
 - No hard-coded third-party endpoints without explicit user or operator choice.
+- No hidden smart-wallet bundler, paymaster, passkey attestation, or recovery
+  endpoint.
 - Empty states are allowed only when they represent the real first-run state.
 - Controls that are not wired must either be removed or clearly disabled.
 
@@ -191,6 +200,12 @@ avoids requiring GitHub workflow scope.
 - The current Kohaku adapter uses `RailgunBuilder.withUtxoSyncer(UtxoSyncer.rpc(...))`
   so startup contacts only the user-configured Ethereum RPC endpoint and
   same-origin bundled WASM assets.
+- Passkey-backed smart wallet work should stay behind the Kohaku/privacy
+  adapter boundary. Any ERC-4337 bundler, paymaster, passkey attestation, or
+  recovery service must be represented in `ConnectionPolicy` before it is used.
+- Platform passkeys may sync through Apple, Google, Microsoft, or another
+  account provider depending on device settings. UX and docs must disclose that
+  tradeoff instead of presenting passkeys as purely local by default.
 - `@railgun-community/wallet@10.8.6` requires `ethers@6.14.3`; newer ethers
   versions conflict with the peer dependency.
 - The RAILGUN SDK bundle is large. It is intentionally lazy-loaded behind

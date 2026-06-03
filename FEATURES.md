@@ -7,11 +7,20 @@ or default Waku connection.
 
 ## Now
 
+- [ ] Make mobile PWA onboarding default to a passkey-backed smart wallet,
+      not a seed phrase or browser extension.
+- [ ] Evaluate and wire Kohaku's smart-wallet/account path for passkey-backed
+      accounts before adding direct lifecycle state around the legacy RAILGUN
+      Wallet SDK.
+- [ ] Keep mnemonic import as an advanced compatibility/recovery path rather
+      than the primary first-run flow.
 - [ ] Implement local wallet/intents state above the privacy toolkit boundary.
-- [ ] Build wallet create/import around Kohaku RAILGUN where usable.
+- [ ] Build wallet create/import around Kohaku RAILGUN and Kohaku smart-wallet
+      primitives where usable.
 - [ ] Use the legacy RAILGUN Wallet SDK only for lifecycle paths Kohaku does not
       currently support.
-- [ ] Track real wallet status, real `0zk` address, created/imported timestamp,
+- [ ] Track real wallet status, smart-wallet address, real `0zk` address,
+      created/imported timestamp, passkey-present boolean,
       mnemonic-present boolean, and last error.
 - [ ] Persist only appropriate local metadata, with the storage boundary
       documented in code.
@@ -33,6 +42,8 @@ or default Waku connection.
       proving artifacts.
 - [ ] Add explicit provider resolver and broadcaster policy for outgoing
       decloaked routes.
+- [ ] Add explicit ERC-4337 bundler and paymaster policy before any smart-wallet
+      flow can submit transactions through those services.
 - [ ] Add Kohaku custom POI endpoint wiring only when endpoints are
       user/operator configured.
 - [ ] Add Helios as a future provider adapter behind `ConnectionPolicy`.
@@ -44,6 +55,13 @@ or default Waku connection.
       RPC metadata, RAILGUN note data, artifact downloads, and clipboard risk.
 - [ ] Keep mnemonic material out of localStorage and document where SDKs persist
       encrypted wallet/provider state.
+- [ ] Keep WebAuthn credential IDs, smart-wallet metadata, and RAILGUN viewing
+      or spending material out of localStorage unless a concrete storage threat
+      model justifies it.
+- [ ] Document that platform passkeys may sync through Apple, Google, Microsoft,
+      or other account providers depending on device settings.
+- [ ] Prefer user-verifying passkeys and disclose when a platform only offers a
+      weaker or roaming-authenticator path.
 - [ ] Add optional local passphrase encryption for any Bindle-owned wallet
       metadata that becomes sensitive.
 - [ ] Add wallet lock, unlock, and local session timeout controls.
@@ -75,6 +93,10 @@ or default Waku connection.
       broadcaster, quote API, Waku peer, IPFS gateway, or telemetry endpoint.
 - [ ] Do not add server-side accounts, custodial key storage, cloud seed backup,
       or hosted wallet recovery.
+- [ ] Do not hide passkey sync, attestation, account-recovery, or platform
+      dependency tradeoffs behind a "more secure" label.
+- [ ] Do not require a browser extension, seed phrase, or EOA private key for
+      the default mobile PWA onboarding path.
 - [ ] Do not auto-resolve ENS, providers, contacts, avatars, prices, or metadata
       before the user takes an action that requires it.
 - [ ] Do not auto-start network services on page load or PWA launch.
@@ -93,6 +115,12 @@ or default Waku connection.
 
 ## Wallet UX
 
+- [ ] First-run PWA flow should present "Create Bindle with passkey" as the
+      primary action on phones.
+- [ ] Add passkey availability detection and a clear fallback for unsupported
+      browsers without silently changing the custody model.
+- [ ] Show smart-wallet address and shielded `0zk` address as distinct things
+      when both exist.
 - [ ] Enable Review only when wallet exists, toolkit is ready, RPC is connected,
       recipient is valid, and amount is valid.
 - [ ] Validate decimal amount as greater than zero.
