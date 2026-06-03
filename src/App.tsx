@@ -1,5 +1,5 @@
 import { ChevronDown, Eye, MoreHorizontal } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityFeed } from "./components/ActivityFeed";
 import { BalancePanel, type WalletAction } from "./components/BalancePanel";
 import { BottomNav, type AppTab } from "./components/BottomNav";
@@ -10,12 +10,27 @@ import { UnshieldedBalanceBanner } from "./components/UnshieldedBalanceBanner";
 import { WalletActionPanel } from "./components/WalletActionPanel";
 import { routeIntent, type IntentDraft, type RoutedIntent } from "./intents/router";
 import { defaultConnectionPolicy, type ConnectionPolicy } from "./privacy/connectionPolicy";
+import { buildEndpointDisclosure } from "./privacy/preflightDisclosure";
 import {
   startPrivacyToolkit,
   type PrivacyToolkitHandle,
   type PrivacyToolkitState
 } from "./privacy/toolkit";
 import { defaultTheme, type ThemeSelection } from "./theme/theme";
+import {
+  detectPasskeyCapability,
+  createBindlePasskeyCredential,
+  type PasskeyCapability
+} from "./wallet/passkeys";
+import { deriveSmartWalletAddressFromPasskey } from "./wallet/smartAccountAdapter";
+import {
+  loadWalletState,
+  markPasskeyEnrolled,
+  markWalletError,
+  resetWalletState,
+  saveWalletState,
+  type WalletState
+} from "./wallet/walletState";
 
 const initialDraft: IntentDraft = {
   recipient: "",
@@ -33,16 +48,53 @@ function App() {
   const [toolkitState, setToolkitState] = useState<PrivacyToolkitState>("idle");
   const [toolkitHandle, setToolkitHandle] =
     useState<PrivacyToolkitHandle | null>(null);
+  const toolkitStartRef = useRef<Promise<PrivacyToolkitHandle> | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
   const [theme, setTheme] = useState<ThemeSelection>(defaultTheme);
   const [activeAction, setActiveAction] = useState<WalletAction | null>(null);
   const [activeTab, setActiveTab] = useState<AppTab>("wallet");
-  const hasRailgunWallet = false;
+  const [walletState, setWalletState] = useState<WalletState>(() =>
+    loadWalletState()
+  );
+  const [passkeyCapability, setPasskeyCapability] =
+    useState<PasskeyCapability>({
+      checked: false,
+      webAuthnSupported: false,
+      platformAuthenticatorAvailable: false,
+      userVerificationAvailable: false,
+      available: false,
+      message: "Checking passkey support"
+    });
+  const [isCreatingPasskey, setIsCreatingPasskey] = useState(false);
+  const hasRailgunWallet = walletState.railgunAddress !== null;
   const rpcReady = toolkitState === "ready" && policy.ethereumRpcUrl.length > 0;
-  const canShield = rpcReady && hasRailgunWallet;
+  const shieldConstructionReady = false;
+  const canShield =
+    rpcReady && walletState.smartWalletAddress !== null && shieldConstructionReady;
+  const smartWalletStatus = walletState.smartWalletAddress
+    ? "ready"
+    : walletState.passkeyPresent
+      ? "pending"
+      : "not created";
+  const railgunStatus = walletState.railgunAddress ? "ready" : "not created";
+  const sendEndpointDisclosure = buildEndpointDisclosure(policy, "send-review");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void detectPasskeyCapability().then((capability) => {
+      if (!cancelled) {
+        setPasskeyCapability(capability);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const startToolkit = async () => {
-    if (toolkitState === "starting") {
+    if (toolkitStartRef.current || toolkitState === "starting") {
       return;
     }
 
@@ -55,13 +107,55 @@ function App() {
     setStatusMessage("Starting privacy toolkit");
 
     try {
-      const handle = await startPrivacyToolkit(policy, setStatusMessage);
+      const startPromise = startPrivacyToolkit(policy, setStatusMessage);
+      toolkitStartRef.current = startPromise;
+      const handle = await startPromise;
       setToolkitHandle(handle);
       setToolkitState("ready");
     } catch (error) {
       setToolkitState("error");
       setStatusMessage(error instanceof Error ? error.message : "Unable to start");
+    } finally {
+      toolkitStartRef.current = null;
     }
+  };
+
+  const createPasskeyWallet = async () => {
+    if (!passkeyCapability.available || walletState.passkeyPresent) {
+      return;
+    }
+
+    setIsCreatingPasskey(true);
+
+    try {
+      const credentialId = await createBindlePasskeyCredential();
+      const passkeyState = markPasskeyEnrolled(walletState, credentialId);
+      const smartWalletAddress = await deriveSmartWalletAddressFromPasskey();
+
+      if (smartWalletAddress.status === "ready") {
+        const nextState = saveWalletState({
+          ...passkeyState,
+          status: "smart-wallet-planned",
+          smartWalletAddress: smartWalletAddress.address
+        });
+        setWalletState(nextState);
+      } else {
+        setWalletState(passkeyState);
+        setStatusMessage(smartWalletAddress.reason);
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to create passkey";
+      setWalletState(markWalletError(walletState, message));
+      setStatusMessage(message);
+    } finally {
+      setIsCreatingPasskey(false);
+    }
+  };
+
+  const resetLocalWallet = () => {
+    setWalletState(resetWalletState());
+    setStatusMessage("Local wallet metadata cleared");
   };
 
   return (
@@ -98,6 +192,10 @@ function App() {
               fiatValue={null}
               shieldedBalance={null}
               networkLabel="Ethereum mainnet"
+              smartWalletAddress={walletState.smartWalletAddress}
+              smartWalletStatus={smartWalletStatus}
+              railgunAddress={walletState.railgunAddress}
+              railgunStatus={railgunStatus}
               activeAction={activeAction}
               onActionChange={setActiveAction}
             />
@@ -111,6 +209,11 @@ function App() {
                 routedIntent={routedIntent}
                 hasRailgunWallet={hasRailgunWallet}
                 rpcReady={rpcReady}
+                walletState={walletState}
+                passkeyCapability={passkeyCapability}
+                isCreatingPasskey={isCreatingPasskey}
+                endpointDisclosures={sendEndpointDisclosure}
+                onCreatePasskey={() => void createPasskeyWallet()}
                 onDraftChange={setDraft}
                 onRouteChange={setRoutedIntent}
               />
@@ -132,7 +235,11 @@ function App() {
         ) : null}
 
         {activeTab === "settings" ? (
-          <SettingsPanel theme={theme} onThemeChange={setTheme} />
+          <SettingsPanel
+            theme={theme}
+            onThemeChange={setTheme}
+            onResetWallet={resetLocalWallet}
+          />
         ) : null}
 
         <PwaInstallPrompt />

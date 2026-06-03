@@ -81,6 +81,53 @@ export function PrivacySwitchboard({
         />
       </label>
 
+      <label className="field">
+        <span>ERC-4337 bundler</span>
+        <input
+          value={policy.bundlerUrl}
+          placeholder="optional"
+          onChange={(event) =>
+            onChange({ ...policy, bundlerUrl: event.currentTarget.value })
+          }
+        />
+      </label>
+
+      <label className="field">
+        <span>Paymaster</span>
+        <input
+          value={policy.paymasterUrl}
+          placeholder="optional"
+          onChange={(event) =>
+            onChange({ ...policy, paymasterUrl: event.currentTarget.value })
+          }
+        />
+      </label>
+
+      <label className="field">
+        <span>Passkey attestation</span>
+        <input
+          value={policy.passkeyAttestationUrl}
+          placeholder="none"
+          onChange={(event) =>
+            onChange({
+              ...policy,
+              passkeyAttestationUrl: event.currentTarget.value
+            })
+          }
+        />
+      </label>
+
+      <label className="field">
+        <span>Wallet recovery</span>
+        <input
+          value={policy.recoveryServiceUrl}
+          placeholder="none"
+          onChange={(event) =>
+            onChange({ ...policy, recoveryServiceUrl: event.currentTarget.value })
+          }
+        />
+      </label>
+
       <label className="toggle-row">
         <span>Waku</span>
         <input

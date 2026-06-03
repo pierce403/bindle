@@ -1,13 +1,18 @@
-import { Palette, Settings } from "lucide-react";
+import { Palette, RotateCcw, Settings } from "lucide-react";
 import { ThemeControls } from "./ThemeControls";
 import type { ThemeSelection } from "../theme/theme";
 
 type SettingsPanelProps = {
   theme: ThemeSelection;
   onThemeChange: (theme: ThemeSelection) => void;
+  onResetWallet: () => void;
 };
 
-export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
+export function SettingsPanel({
+  theme,
+  onThemeChange,
+  onResetWallet
+}: SettingsPanelProps) {
   return (
     <section className="panel settings-panel" aria-labelledby="settings-heading">
       <div className="section-heading">
@@ -27,6 +32,22 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
       </div>
 
       <ThemeControls theme={theme} onChange={onThemeChange} />
+
+      <div className="settings-row">
+        <div>
+          <strong>Wallet metadata</strong>
+          <span>Clears Bindle-owned local wallet metadata only.</span>
+        </div>
+        <button
+          className="secondary-action"
+          type="button"
+          onClick={onResetWallet}
+          title="Reset local wallet metadata"
+        >
+          <RotateCcw size={17} aria-hidden="true" />
+          Reset
+        </button>
+      </div>
     </section>
   );
 }

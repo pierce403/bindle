@@ -1,0 +1,1 @@
+import{i as e}from"./index-DGfTEu-I.js";var t,n=e((()=>{t=globalThis||self}));export{n,t};

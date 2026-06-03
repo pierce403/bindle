@@ -5,27 +5,45 @@ honest: no fake balances, fake `0zk` addresses, simulated activity, seeded
 contacts, hidden endpoints, analytics, default hosted RPC, default broadcaster,
 or default Waku connection.
 
+## Done
+
+- [x] Make mobile PWA onboarding default to a passkey-backed smart wallet,
+      not a seed phrase or browser extension.
+- [x] Evaluate Kohaku's smart-wallet/account path for passkey-backed accounts
+      before adding direct lifecycle state around the legacy RAILGUN Wallet SDK.
+- [x] Implement local wallet/intents state above the privacy toolkit boundary.
+- [x] Track real wallet status, smart-wallet address, real `0zk` address,
+      created/imported timestamp, passkey-present boolean,
+      mnemonic-present boolean, and last error.
+- [x] Persist only appropriate local metadata, with the storage boundary
+      documented in code.
+- [x] Add explicit ERC-4337 bundler and paymaster policy before any
+      smart-wallet flow can submit transactions through those services.
+- [x] First-run PWA flow presents "Create Bindle with passkey" as the primary
+      wallet creation action.
+- [x] Add passkey availability detection and a clear fallback for unsupported
+      browsers without silently changing the custody model.
+- [x] Show smart-wallet address and shielded `0zk` address as distinct things
+      when both exist or are pending.
+- [x] Add copy controls that render only for real wallet addresses.
+- [x] Add endpoint disclosure/preflight groundwork for send review.
+- [x] Gate Review on wallet presence, toolkit readiness, configured RPC,
+      valid recipient, valid amount, and required endpoint readiness.
+- [x] Validate decimal ETH amount as greater than zero.
+- [x] Validate recipient shape for `0zk`, `0x`, and `.eth`.
+- [x] Add tests that fail if default `ConnectionPolicy` grows a hosted endpoint.
+
 ## Now
 
-- [ ] Make mobile PWA onboarding default to a passkey-backed smart wallet,
-      not a seed phrase or browser extension.
-- [ ] Evaluate and wire Kohaku's smart-wallet/account path for passkey-backed
-      accounts before adding direct lifecycle state around the legacy RAILGUN
-      Wallet SDK.
 - [ ] Keep mnemonic import as an advanced compatibility/recovery path rather
       than the primary first-run flow.
-- [ ] Implement local wallet/intents state above the privacy toolkit boundary.
 - [ ] Build wallet create/import around Kohaku RAILGUN and Kohaku smart-wallet
       primitives where usable.
 - [ ] Use the legacy RAILGUN Wallet SDK only for lifecycle paths Kohaku does not
       currently support.
-- [ ] Track real wallet status, smart-wallet address, real `0zk` address,
-      created/imported timestamp, passkey-present boolean,
-      mnemonic-present boolean, and last error.
-- [ ] Persist only appropriate local metadata, with the storage boundary
-      documented in code.
+- [ ] Add a Kohaku-compatible browser smart-account adapter once `pq-account` or
+      equivalent passkey ERC-4337 address derivation is available.
 - [ ] Show the real `0zk` address in Receive and Balance once created/imported.
-- [ ] Add copy controls for real wallet addresses.
 
 ## Privacy And Connectivity
 
@@ -42,8 +60,6 @@ or default Waku connection.
       proving artifacts.
 - [ ] Add explicit provider resolver and broadcaster policy for outgoing
       decloaked routes.
-- [ ] Add explicit ERC-4337 bundler and paymaster policy before any smart-wallet
-      flow can submit transactions through those services.
 - [ ] Add Kohaku custom POI endpoint wiring only when endpoints are
       user/operator configured.
 - [ ] Add Helios as a future provider adapter behind `ConnectionPolicy`.
@@ -55,9 +71,9 @@ or default Waku connection.
       RPC metadata, RAILGUN note data, artifact downloads, and clipboard risk.
 - [ ] Keep mnemonic material out of localStorage and document where SDKs persist
       encrypted wallet/provider state.
-- [ ] Keep WebAuthn credential IDs, smart-wallet metadata, and RAILGUN viewing
-      or spending material out of localStorage unless a concrete storage threat
-      model justifies it.
+- [ ] Document the storage threat model for WebAuthn credential IDs and
+      smart-wallet metadata; keep RAILGUN viewing/spending material out of
+      localStorage.
 - [ ] Document that platform passkeys may sync through Apple, Google, Microsoft,
       or other account providers depending on device settings.
 - [ ] Prefer user-verifying passkeys and disclose when a platform only offers a
@@ -75,7 +91,6 @@ or default Waku connection.
 - [ ] Pin privacy-critical packages and document why each version changes.
 - [ ] Verify downloaded proving artifacts by SDK-supported hash checks before
       use.
-- [ ] Add tests that fail if default `ConnectionPolicy` grows a hosted endpoint.
 - [ ] Add tests that fail if the app renders fake balances, fake `0zk`
       addresses, seeded contacts, or simulated activity.
 - [ ] Add an explicit import warning that browser malware, extensions, and
@@ -115,16 +130,6 @@ or default Waku connection.
 
 ## Wallet UX
 
-- [ ] First-run PWA flow should present "Create Bindle with passkey" as the
-      primary action on phones.
-- [ ] Add passkey availability detection and a clear fallback for unsupported
-      browsers without silently changing the custody model.
-- [ ] Show smart-wallet address and shielded `0zk` address as distinct things
-      when both exist.
-- [ ] Enable Review only when wallet exists, toolkit is ready, RPC is connected,
-      recipient is valid, and amount is valid.
-- [ ] Validate decimal amount as greater than zero.
-- [ ] Validate recipient shape for `0zk`, `0x`, and `.eth`.
 - [ ] Keep ENS resolution as "resolved at send time" until RPC-backed
       resolution is wired.
 - [ ] Keep send review as an intent review until the full RAILGUN send path is

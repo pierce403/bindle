@@ -18,8 +18,15 @@ not the default first-run experience.
 - Browser-side Kohaku RAILGUN adapter that starts from explicit RPC only.
 - RAILGUN Wallet SDK remains isolated behind an explicit fallback adapter.
 - Browser-side legacy RAILGUN adapter with IndexedDB artifact persistence.
+- Local wallet metadata state for passkey-first onboarding, with no private key
+  or mnemonic storage.
+- Passkey enrollment shell that stores non-secret credential metadata and keeps
+  the ERC-4337 address pending until a real smart-account adapter derives it.
+- Send Review stays disabled until wallet, toolkit, RPC, recipient, amount, and
+  required endpoint preflight checks pass.
 - Local intent routing for `0zk`, `0x`, `.eth`, and `@provider` style recipients.
-- No default public RPC, quote, provider-resolution, broadcaster, or Waku endpoint.
+- No default public RPC, quote, provider-resolution, broadcaster, bundler,
+  paymaster, passkey attestation, recovery, or Waku endpoint.
 - Default dark black/red paisley theme, with black/white and black/blue variants plus light and dark modes.
 
 ## Product Rules
@@ -90,11 +97,12 @@ passkey-backed smart account path where Kohaku supports it, with any ERC-4337
 bundler, paymaster, attestation, or recovery service exposed through
 `ConnectionPolicy` before it can be used.
 
-The current app shows passkey onboarding as the intended first-run path but does
-not enroll credentials or derive a smart-wallet address yet. The Playwright
-onboarding tests assert that the current UI stays honest: no fake public
-address, no fake `0zk` address, no enabled shield sweep, and no enabled Review
-button before the real wallet/RPC path exists.
+The current app can enroll a browser passkey and records only local non-secret
+metadata. It does not derive a smart-wallet address yet: the pinned Kohaku
+packages do not expose a browser-ready `pq-account` or passkey ERC-4337 address
+derivation API. The UI therefore says "smart-wallet address pending" rather
+than inventing a public address or `0zk` address. Review and Shield remain
+disabled before the real wallet/RPC/4337/RAILGUN path exists.
 
 ## RAILGUN Integration Notes
 
@@ -119,6 +127,10 @@ Bindle should not silently phone home. The default connection policy leaves ever
 - Broadcaster: unset
 - Provider resolver: local table
 - Price quotes: manual
+- ERC-4337 bundler: unset
+- Paymaster: unset
+- Passkey attestation: none
+- Wallet recovery: none
 - Waku: off
 
 Production work should preserve that shape: add capabilities as explicit, inspectable endpoints rather than hidden third-party defaults.

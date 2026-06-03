@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 import { existsSync } from "node:fs";
 
-const baseURL = "http://127.0.0.1:5178";
+const baseURL = "http://localhost:5178";
 const localChromePath = ["/usr/bin/google-chrome", "/snap/bin/chromium"].find(
   (path) => existsSync(path)
 );
@@ -9,9 +9,10 @@ const localChromePath = ["/usr/bin/google-chrome", "/snap/bin/chromium"].find(
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: true,
+  workers: 1,
   reporter: process.env.CI ? "github" : "list",
   webServer: {
-    command: "pnpm dev --port 5178",
+    command: "pnpm exec vite --host localhost --port 5178",
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000

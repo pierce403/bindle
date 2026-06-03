@@ -2,6 +2,7 @@ import {
   ArrowDownToLine,
   ArrowRight,
   ArrowUpFromLine,
+  Copy,
   Repeat2
 } from "lucide-react";
 
@@ -12,7 +13,10 @@ type BalancePanelProps = {
   fiatValue: string | null;
   shieldedBalance: string | null;
   networkLabel: string;
-  railgunAddress?: string;
+  smartWalletAddress: string | null;
+  smartWalletStatus: string;
+  railgunAddress: string | null;
+  railgunStatus: string;
   activeAction: WalletAction | null;
   onActionChange: (action: WalletAction) => void;
 };
@@ -34,16 +38,47 @@ export function BalancePanel({
   fiatValue,
   shieldedBalance,
   networkLabel,
+  smartWalletAddress,
+  smartWalletStatus,
   railgunAddress,
+  railgunStatus,
   activeAction,
   onActionChange
 }: BalancePanelProps) {
+  const copyAddress = async (address: string) => {
+    await navigator.clipboard.writeText(address);
+  };
+
   return (
     <section className="balance-panel" aria-labelledby="balance-heading">
       <div className="wallet-topline">
         <div className="wallet-address">
+          <span>Public 4337</span>
+          <strong>{smartWalletAddress ?? smartWalletStatus}</strong>
+          {smartWalletAddress ? (
+            <button
+              className="mini-copy"
+              type="button"
+              title="Copy public smart-wallet address"
+              onClick={() => void copyAddress(smartWalletAddress)}
+            >
+              <Copy size={13} aria-hidden="true" />
+            </button>
+          ) : null}
+        </div>
+        <div className="wallet-address">
           <span>0zk</span>
-          <strong>{railgunAddress ?? "not created"}</strong>
+          <strong>{railgunAddress ?? railgunStatus}</strong>
+          {railgunAddress ? (
+            <button
+              className="mini-copy"
+              type="button"
+              title="Copy shielded 0zk address"
+              onClick={() => void copyAddress(railgunAddress)}
+            >
+              <Copy size={13} aria-hidden="true" />
+            </button>
+          ) : null}
         </div>
       </div>
 

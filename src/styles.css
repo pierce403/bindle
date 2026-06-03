@@ -332,6 +332,7 @@ button:disabled {
 
 .wallet-topline {
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .wallet-address {
@@ -343,6 +344,17 @@ button:disabled {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
+}
+
+.mini-copy {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff7f7;
 }
 
 .wallet-address span,
@@ -548,6 +560,40 @@ button:disabled {
   font-size: 0.88rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.preflight-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  background: var(--surface);
+}
+
+.preflight-card > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 760;
+}
+
+.preflight-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(90px, auto);
+  gap: 10px;
+}
+
+.preflight-row strong,
+.preflight-row span {
+  overflow: hidden;
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preflight-row span {
+  color: var(--muted);
+  text-align: right;
 }
 
 .provider-strip {

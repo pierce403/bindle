@@ -4,7 +4,11 @@ export type OutboundClass =
   | "railgun-broadcaster"
   | "provider-resolution"
   | "price-quotes"
-  | "waku";
+  | "waku"
+  | "erc4337-bundler"
+  | "erc4337-paymaster"
+  | "passkey-attestation"
+  | "wallet-recovery";
 
 export type PrivacyToolkitId = "kohaku-railgun" | "railgun-wallet-sdk";
 
@@ -15,6 +19,10 @@ export type ConnectionPolicy = {
   broadcasterUrl: string;
   providerResolverUrl: string;
   priceQuoteUrl: string;
+  bundlerUrl: string;
+  paymasterUrl: string;
+  passkeyAttestationUrl: string;
+  recoveryServiceUrl: string;
   wakuEnabled: boolean;
   debugLogging: boolean;
 };
@@ -33,6 +41,10 @@ export const defaultConnectionPolicy: ConnectionPolicy = {
   broadcasterUrl: "",
   providerResolverUrl: "",
   priceQuoteUrl: "",
+  bundlerUrl: "",
+  paymasterUrl: "",
+  passkeyAttestationUrl: "",
+  recoveryServiceUrl: "",
   wakuEnabled: false,
   debugLogging: false
 };
@@ -72,6 +84,30 @@ export const summarizeOutbound = (
     label: "Quotes",
     mode: policy.priceQuoteUrl ? "optional" : "off",
     value: policy.priceQuoteUrl || "manual"
+  },
+  {
+    id: "erc4337-bundler",
+    label: "ERC-4337 bundler",
+    mode: policy.bundlerUrl ? "optional" : "off",
+    value: policy.bundlerUrl || "not connected"
+  },
+  {
+    id: "erc4337-paymaster",
+    label: "Paymaster",
+    mode: policy.paymasterUrl ? "optional" : "off",
+    value: policy.paymasterUrl || "not connected"
+  },
+  {
+    id: "passkey-attestation",
+    label: "Passkey attestation",
+    mode: policy.passkeyAttestationUrl ? "optional" : "off",
+    value: policy.passkeyAttestationUrl || "none"
+  },
+  {
+    id: "wallet-recovery",
+    label: "Wallet recovery",
+    mode: policy.recoveryServiceUrl ? "optional" : "off",
+    value: policy.recoveryServiceUrl || "none"
   },
   {
     id: "waku",

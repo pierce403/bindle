@@ -6,11 +6,18 @@ test.describe("passkey-first onboarding", () => {
   test("starts from an honest passkey smart-wallet gate with no fake addresses", async ({
     page
   }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(window, "PublicKeyCredential", {
+        configurable: true,
+        value: undefined
+      });
+    });
+
     await page.goto("/");
 
     await expect(page.getByLabel("Bindle wallet")).toBeVisible();
     await expect(page.getByRole("heading", { name: "-- ETH" })).toBeVisible();
-    await expect(page.getByText("not created")).toBeVisible();
+    await expect(page.getByText("not created").first()).toBeVisible();
     await expect(page.getByLabel("Unshielded ETH balance")).toContainText(
       "not synced"
     );
@@ -21,11 +28,9 @@ test.describe("passkey-first onboarding", () => {
     await page.getByRole("button", { name: "Receive" }).click();
 
     await expect(page.getByRole("heading", { name: "Receive ETH" })).toBeVisible();
+    await expect(page.getByText("Passkey not available")).toBeVisible();
     await expect(
-      page.getByText("Passkey smart wallet not wired yet")
-    ).toBeVisible();
-    await expect(
-      page.getByText(/before showing a real public or 0zk address/)
+      page.getByText("Passkeys are not available in this browser")
     ).toBeVisible();
 
     const createWithPasskey = page.getByRole("button", {
@@ -64,8 +69,24 @@ test.describe("passkey-first onboarding", () => {
     await expect(review).toBeDisabled();
   });
 
-  test.fixme(
-    "enrolls a virtual passkey and shows the real smart-wallet public address",
+  test("shows ERC-4337 endpoints as off by default", async ({ page }) => {
+    await page.goto("/");
+
+    await page.getByRole("button", { name: "Nodes" }).click();
+
+    await expect(page.getByLabel("Ethereum RPC")).toHaveValue("");
+    await expect(page.getByLabel("ERC-4337 bundler")).toHaveValue("");
+    await expect(page.getByLabel("Paymaster")).toHaveValue("");
+    await expect(page.getByLabel("Passkey attestation")).toHaveValue("");
+    await expect(page.getByLabel("Wallet recovery")).toHaveValue("");
+    await expect(page.getByText("ERC-4337 bundler").first()).toBeVisible();
+    await expect(page.getByText("Paymaster").first()).toBeVisible();
+    await expect(page.getByText("Passkey attestation").first()).toBeVisible();
+    await expect(page.getByText("Wallet recovery").first()).toBeVisible();
+  });
+
+  test(
+    "enrolls a virtual passkey without inventing wallet addresses",
     async ({ page, context, browserName }) => {
       test.skip(
         browserName !== "chromium",
@@ -87,10 +108,15 @@ test.describe("passkey-first onboarding", () => {
 
       await page.goto("/");
       await page.getByRole("button", { name: "Receive" }).click();
+      await expect(
+        page.getByRole("button", { name: "Create Bindle with passkey" })
+      ).toBeEnabled();
       await page.getByRole("button", { name: "Create Bindle with passkey" }).click();
 
-      await expect(page.getByText("Passkey enrolled")).toBeVisible();
-      await expect(page.getByText(/0x[0-9a-fA-F]{40}/)).toBeVisible();
+      await expect(page.getByText("Passkey enrolled").first()).toBeVisible();
+      await expect(page.getByText("Smart-wallet address pending")).toBeVisible();
+      await expect(page.getByText(/0x[0-9a-fA-F]{40}/)).toHaveCount(0);
+      await expect(page.getByText(/0zk[A-Za-z0-9]{16,}/)).toHaveCount(0);
     }
   );
 

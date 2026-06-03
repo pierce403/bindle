@@ -2,6 +2,7 @@ import {
   ArrowDownToLine,
   ArrowRight,
   ArrowUpFromLine,
+  Copy,
   Fingerprint,
   LockKeyhole,
   Repeat2,
@@ -11,6 +12,10 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { routeIntent, type IntentDraft, type RoutedIntent } from "../intents/router";
+import { isValidEthAmount, isValidRecipientShape } from "../intents/validation";
+import type { EndpointDisclosure } from "../privacy/preflightDisclosure";
+import type { PasskeyCapability } from "../wallet/passkeys";
+import type { WalletState } from "../wallet/walletState";
 import type { WalletAction } from "./BalancePanel";
 
 type WalletActionPanelProps = {
@@ -19,6 +24,11 @@ type WalletActionPanelProps = {
   routedIntent: RoutedIntent;
   hasRailgunWallet: boolean;
   rpcReady: boolean;
+  walletState: WalletState;
+  passkeyCapability: PasskeyCapability;
+  isCreatingPasskey: boolean;
+  endpointDisclosures: EndpointDisclosure[];
+  onCreatePasskey: () => void;
   onDraftChange: (draft: IntentDraft) => void;
   onRouteChange: (intent: RoutedIntent) => void;
 };
@@ -29,6 +39,11 @@ export function WalletActionPanel({
   routedIntent,
   hasRailgunWallet,
   rpcReady,
+  walletState,
+  passkeyCapability,
+  isCreatingPasskey,
+  endpointDisclosures,
+  onCreatePasskey,
   onDraftChange,
   onRouteChange
 }: WalletActionPanelProps) {
@@ -37,12 +52,28 @@ export function WalletActionPanel({
   );
   const [sendMode, setSendMode] = useState<"shielded" | "public">("shielded");
   const hasRecipient = draft.recipient.trim().length > 0;
-  const hasAmount = Number(draft.amount) > 0;
-  const canReview = hasRecipient && hasAmount && hasRailgunWallet && rpcReady;
+  const hasAmount = isValidEthAmount(draft.amount);
+  const hasValidRecipient = isValidRecipientShape(draft.recipient);
+  const requiredEndpointsReady = endpointDisclosures.every(
+    (endpoint) => !endpoint.required || endpoint.configured
+  );
+  const canReview =
+    hasRecipient &&
+    hasValidRecipient &&
+    hasAmount &&
+    hasRailgunWallet &&
+    rpcReady &&
+    requiredEndpointsReady;
+  const canCreatePasskey =
+    passkeyCapability.available && !walletState.passkeyPresent && !isCreatingPasskey;
 
   const updateDraft = (nextDraft: IntentDraft) => {
     onDraftChange(nextDraft);
     onRouteChange(routeIntent(nextDraft));
+  };
+
+  const copyAddress = async (address: string) => {
+    await navigator.clipboard.writeText(address);
   };
 
   if (action === "receive") {
@@ -73,32 +104,73 @@ export function WalletActionPanel({
           </button>
         </div>
 
-        <div className="empty-state compact">
-          {receiveMode === "shielded" ? (
+        {receiveMode === "shielded" ? (
+          <div className="empty-state compact">
             <Fingerprint size={22} aria-hidden="true" />
-          ) : (
+            <strong>
+              {walletState.passkeyPresent
+                ? "Passkey enrolled"
+                : walletState.status === "error"
+                  ? "Passkey enrollment failed"
+                : passkeyCapability.available
+                  ? "Create Bindle with passkey"
+                  : "Passkey not available"}
+            </strong>
+            <span>
+              {walletState.passkeyPresent
+                ? "Smart-wallet address pending; shielded 0zk address not created."
+                : walletState.status === "error" && walletState.lastError
+                  ? walletState.lastError
+                : passkeyCapability.message}
+            </span>
+            <button
+              className="primary-action wide"
+              type="button"
+              disabled={!canCreatePasskey}
+              onClick={onCreatePasskey}
+              title={
+                canCreatePasskey
+                  ? "Create a local passkey credential"
+                  : "Passkey enrollment unavailable or already complete"
+              }
+            >
+              <Fingerprint size={18} aria-hidden="true" />
+              {isCreatingPasskey
+                ? "Creating passkey"
+                : walletState.passkeyPresent
+                  ? "Passkey enrolled"
+                  : "Create Bindle with passkey"}
+            </button>
+          </div>
+        ) : (
+          <div className="empty-state compact">
             <LockKeyhole size={22} aria-hidden="true" />
-          )}
-          <strong>
-            {receiveMode === "shielded"
-              ? "Passkey smart wallet not wired yet"
-              : "Public smart-wallet address pending"}
-          </strong>
-          <span>
-            {receiveMode === "shielded"
-              ? "Waiting for Kohaku passkey account support before showing a real public or 0zk address."
-              : "Create the passkey-backed smart wallet before receiving public ETH."}
-          </span>
-          <button
-            className="primary-action wide"
-            type="button"
-            disabled
-            title="Waiting for Kohaku passkey smart-account support"
-          >
-            <Fingerprint size={18} aria-hidden="true" />
-            Create Bindle with passkey
-          </button>
-        </div>
+            <strong>
+              {walletState.smartWalletAddress
+                ? "Smart-wallet address ready"
+                : walletState.passkeyPresent
+                  ? "Public smart-wallet address pending"
+                  : "No public smart wallet yet"}
+            </strong>
+            <span>
+              {walletState.smartWalletAddress
+                ? walletState.smartWalletAddress
+                : walletState.passkeyPresent
+                  ? "Kohaku passkey smart-account derivation is not wired."
+                  : "Create the passkey-backed smart wallet before receiving public ETH."}
+            </span>
+            {walletState.smartWalletAddress ? (
+              <button
+                className="secondary-action wide"
+                type="button"
+                onClick={() => void copyAddress(walletState.smartWalletAddress ?? "")}
+              >
+                <Copy size={18} aria-hidden="true" />
+                Copy address
+              </button>
+            ) : null}
+          </div>
+        )}
       </section>
     );
   }
@@ -217,6 +289,22 @@ export function WalletActionPanel({
           <span>Action</span>
           <strong>{hasRecipient ? routedIntent.privateLeg.action : "pending"}</strong>
         </div>
+      </div>
+
+      <div className="preflight-card" aria-label="Endpoint preflight">
+        <span>Could contact</span>
+        {endpointDisclosures.map((endpoint) => (
+          <div className="preflight-row" key={endpoint.id}>
+            <strong>{endpoint.label}</strong>
+            <span>
+              {endpoint.configured
+                ? endpoint.value
+                : endpoint.required
+                  ? "required, not connected"
+                  : "off"}
+            </span>
+          </div>
+        ))}
       </div>
 
       <button className="primary-action wide" type="button" disabled={!canReview}>

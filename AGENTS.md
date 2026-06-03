@@ -111,6 +111,10 @@ Privacy defaults:
 - Broadcaster: unset.
 - Provider resolver: local table.
 - Price quotes: manual.
+- ERC-4337 bundler: unset.
+- Paymaster: unset.
+- Passkey attestation: none.
+- Wallet recovery: none.
 - Waku: off.
 
 Production work should preserve this shape. Add networked capabilities as
@@ -220,6 +224,19 @@ avoids requiring GitHub workflow scope.
 - Platform passkeys may sync through Apple, Google, Microsoft, or another
   account provider depending on device settings. UX and docs must disclose that
   tradeoff instead of presenting passkeys as purely local by default.
+- Bindle now has local wallet metadata in `src/wallet/walletState.ts`.
+  localStorage is only for non-secret metadata: wallet status, public addresses
+  if real, passkey-present boolean, credential id metadata, timestamps, and
+  errors. Do not store EOA private keys, mnemonics, RAILGUN viewing/spending
+  material, WebAuthn private material, or provider secrets there.
+- Passkey enrollment is wired through browser WebAuthn in `src/wallet/passkeys.ts`.
+  The pinned Kohaku packages do not currently expose a browser-ready
+  `@kohaku-eth/pq-account` or equivalent passkey ERC-4337 address derivation
+  API, so `src/wallet/smartAccountAdapter.ts` must keep the smart-wallet address
+  pending until a real adapter is available.
+- `ConnectionPolicy` includes explicit empty/off fields for ERC-4337 bundler,
+  paymaster, passkey attestation, and wallet recovery. Do not add defaults for
+  these endpoints.
 - `@railgun-community/wallet@10.8.6` requires `ethers@6.14.3`; newer ethers
   versions conflict with the peer dependency.
 - The RAILGUN SDK bundle is large. It is intentionally lazy-loaded behind
@@ -251,11 +268,16 @@ avoids requiring GitHub workflow scope.
   mark. The canonical source is `assets/bindle-logo-source.png`; `pnpm icons`
   regenerates the public logo, favicon PNGs, and PWA icons.
 - Playwright is configured in `playwright.config.ts` and starts Vite on
-  `127.0.0.1:5178`. It prefers `/usr/bin/google-chrome`, then
-  `/snap/bin/chromium`, then Playwright's managed browser if one exists.
+  `localhost:5178`. WebAuthn rejects `127.0.0.1` as an invalid RP domain in the
+  virtual-passkey test, so keep the e2e origin on `localhost`. It prefers
+  `/usr/bin/google-chrome`, then
+  `/snap/bin/chromium`, then Playwright's managed browser if one exists. The
+  suite runs with one worker to avoid local Chrome Crash Reports lock failures
+  during parallel WebAuthn launches.
 - Current onboarding specs include passing assertions for honest first-run
-  passkey gating and skipped acceptance specs for future virtual-passkey
-  enrollment plus real public-ETH shield sweep.
+  passkey gating, virtual-passkey enrollment without fake addresses, no default
+  hosted endpoints, and a skipped acceptance spec for the future real
+  public-ETH shield sweep.
 
 ## Current Missing Product Work
 
