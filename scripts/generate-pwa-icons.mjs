@@ -1,118 +1,195 @@
-import { deflateSync } from "node:zlib";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { deflateSync, inflateSync } from "node:zlib";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
-const outputDirectory = new URL("../public/icons/", import.meta.url);
-const sampleGridSize = 3;
+const sourcePath = new URL("../assets/bindle-logo-source.png", import.meta.url);
+const publicDirectory = new URL("../public/", import.meta.url);
+const iconDirectory = new URL("../public/icons/", import.meta.url);
+const pngSignature = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a
+]);
 
-const colors = {
-  black: [5, 2, 2, 255],
-  deepBlack: [1, 1, 1, 255],
-  red: [226, 18, 42, 255],
-  redShadow: [118, 7, 18, 255]
+const paeth = (left, up, upLeft) => {
+  const estimate = left + up - upLeft;
+  const leftDistance = Math.abs(estimate - left);
+  const upDistance = Math.abs(estimate - up);
+  const upLeftDistance = Math.abs(estimate - upLeft);
+
+  if (leftDistance <= upDistance && leftDistance <= upLeftDistance) {
+    return left;
+  }
+
+  return upDistance <= upLeftDistance ? up : upLeft;
 };
 
-const mix = (from, to, amount) =>
-  from.map((channel, index) =>
-    Math.round(channel * (1 - amount) + to[index] * amount)
-  );
+const readPng = (buffer) => {
+  if (!buffer.subarray(0, pngSignature.length).equals(pngSignature)) {
+    throw new Error("Logo source is not a PNG file.");
+  }
 
-const rotatePoint = (x, y, angle) => {
-  const cos = Math.cos(angle);
-  const sin = Math.sin(angle);
-  return {
-    x: x * cos - y * sin,
-    y: x * sin + y * cos
-  };
+  let width = 0;
+  let height = 0;
+  let bitDepth = 0;
+  let colorType = 0;
+  let interlace = 0;
+  const idatChunks = [];
+
+  for (let offset = pngSignature.length; offset < buffer.length; ) {
+    const length = buffer.readUInt32BE(offset);
+    const type = buffer.toString("ascii", offset + 4, offset + 8);
+    const dataStart = offset + 8;
+    const data = buffer.subarray(dataStart, dataStart + length);
+    offset = dataStart + length + 4;
+
+    if (type === "IHDR") {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      bitDepth = data[8];
+      colorType = data[9];
+      interlace = data[12];
+    } else if (type === "IDAT") {
+      idatChunks.push(data);
+    } else if (type === "IEND") {
+      break;
+    }
+  }
+
+  if (bitDepth !== 8 || interlace !== 0 || ![2, 6].includes(colorType)) {
+    throw new Error("Logo source must be an 8-bit non-interlaced RGB/RGBA PNG.");
+  }
+
+  const channels = colorType === 6 ? 4 : 3;
+  const bytesPerPixel = channels;
+  const rowLength = width * channels;
+  const inflated = inflateSync(Buffer.concat(idatChunks));
+  const rgba = new Uint8Array(width * height * 4);
+  let sourceOffset = 0;
+  let previousRow = new Uint8Array(rowLength);
+
+  for (let y = 0; y < height; y += 1) {
+    const filter = inflated[sourceOffset];
+    sourceOffset += 1;
+
+    const row = new Uint8Array(rowLength);
+    for (let index = 0; index < rowLength; index += 1) {
+      const raw = inflated[sourceOffset + index];
+      const left = index >= bytesPerPixel ? row[index - bytesPerPixel] : 0;
+      const up = previousRow[index] ?? 0;
+      const upLeft =
+        index >= bytesPerPixel ? previousRow[index - bytesPerPixel] : 0;
+
+      if (filter === 0) {
+        row[index] = raw;
+      } else if (filter === 1) {
+        row[index] = (raw + left) & 0xff;
+      } else if (filter === 2) {
+        row[index] = (raw + up) & 0xff;
+      } else if (filter === 3) {
+        row[index] = (raw + Math.floor((left + up) / 2)) & 0xff;
+      } else if (filter === 4) {
+        row[index] = (raw + paeth(left, up, upLeft)) & 0xff;
+      } else {
+        throw new Error(`Unsupported PNG filter: ${filter}`);
+      }
+    }
+
+    for (let x = 0; x < width; x += 1) {
+      const rowIndex = x * channels;
+      const pixelIndex = (y * width + x) * 4;
+      rgba[pixelIndex] = row[rowIndex];
+      rgba[pixelIndex + 1] = row[rowIndex + 1];
+      rgba[pixelIndex + 2] = row[rowIndex + 2];
+      rgba[pixelIndex + 3] = channels === 4 ? row[rowIndex + 3] : 255;
+    }
+
+    sourceOffset += rowLength;
+    previousRow = row;
+  }
+
+  return { width, height, rgba };
 };
 
-const ellipseRing = (x, y, cx, cy, rx, ry, angle, width) => {
-  const rotated = rotatePoint(x - cx, y - cy, -angle);
-  const normalized =
-    (rotated.x * rotated.x) / (rx * rx) +
-    (rotated.y * rotated.y) / (ry * ry);
-  return Math.abs(Math.sqrt(normalized) - 1) <= width;
-};
+const sample = (image, x, y) => {
+  const clampedX = Math.max(0, Math.min(image.width - 1, x));
+  const clampedY = Math.max(0, Math.min(image.height - 1, y));
+  const x0 = Math.floor(clampedX);
+  const y0 = Math.floor(clampedY);
+  const x1 = Math.min(image.width - 1, x0 + 1);
+  const y1 = Math.min(image.height - 1, y0 + 1);
+  const xAmount = clampedX - x0;
+  const yAmount = clampedY - y0;
+  const color = [0, 0, 0, 0];
 
-const circleRing = (x, y, cx, cy, radius, width) =>
-  Math.abs(Math.hypot(x - cx, y - cy) - radius) <= width;
-
-const circleDot = (x, y, cx, cy, radius) =>
-  Math.hypot(x - cx, y - cy) <= radius;
-
-const yinBoundary = (y, radius) => {
-  const half = radius / 2;
-  if (y < 0) {
-    return Math.sqrt(Math.max(0, half * half - (y + half) ** 2));
-  }
-  return -Math.sqrt(Math.max(0, half * half - (y - half) ** 2));
-};
-
-const isRedHalf = (x, y, radius) => x >= yinBoundary(y, radius);
-
-const hasPaisleyStroke = (x, y, redHalf) => {
-  if (redHalf) {
-    return (
-      ellipseRing(x, y, 0.39, -0.12, 0.08, 0.18, -0.55, 0.055) ||
-      ellipseRing(x, y, 0.32, 0.34, 0.12, 0.22, 0.72, 0.05) ||
-      ellipseRing(x, y, 0.55, 0.22, 0.06, 0.14, -0.72, 0.06) ||
-      circleRing(x, y, 0.34, 0.1, 0.045, 0.026) ||
-      circleDot(x, y, 0.52, -0.22, 0.027) ||
-      circleDot(x, y, 0.18, 0.58, 0.024)
-    );
-  }
-
-  return (
-    ellipseRing(x, y, -0.35, -0.35, 0.12, 0.22, 0.72, 0.05) ||
-    ellipseRing(x, y, -0.52, 0.04, 0.08, 0.18, -0.55, 0.055) ||
-    ellipseRing(x, y, -0.24, -0.04, 0.06, 0.14, 0.72, 0.06) ||
-    circleRing(x, y, -0.34, 0.21, 0.045, 0.026) ||
-    circleDot(x, y, -0.52, -0.2, 0.027) ||
-    circleDot(x, y, -0.16, -0.6, 0.024)
-  );
-};
-
-const sampleLogo = (x, y, maskable) => {
-  const scale = maskable ? 0.82 : 0.96;
-  const px = x / scale;
-  const py = y / scale;
-  const distance = Math.hypot(px, py);
-  const symbolRadius = 0.78;
-
-  if (distance > 0.98) {
-    return colors.black;
-  }
-
-  if (distance > 0.9) {
-    return mix(colors.redShadow, colors.red, 0.68);
-  }
-
-  if (distance > symbolRadius) {
-    return colors.black;
-  }
-
-  const redHalf = isRedHalf(px, py, symbolRadius);
-  let color = redHalf ? colors.red : colors.deepBlack;
-
-  if (hasPaisleyStroke(px, py, redHalf)) {
-    color = redHalf ? colors.deepBlack : colors.red;
-  }
-
-  if (circleDot(px, py, 0, -symbolRadius / 2, 0.108)) {
-    color = colors.red;
-  }
-
-  if (circleDot(px, py, 0, symbolRadius / 2, 0.108)) {
-    color = colors.deepBlack;
-  }
-
-  if (
-    circleRing(px, py, 0, -symbolRadius / 2, 0.154, 0.026) ||
-    circleRing(px, py, 0, symbolRadius / 2, 0.154, 0.026)
-  ) {
-    color = redHalf ? colors.deepBlack : colors.red;
+  for (const [px, py, weight] of [
+    [x0, y0, (1 - xAmount) * (1 - yAmount)],
+    [x1, y0, xAmount * (1 - yAmount)],
+    [x0, y1, (1 - xAmount) * yAmount],
+    [x1, y1, xAmount * yAmount]
+  ]) {
+    const offset = (py * image.width + px) * 4;
+    color[0] += image.rgba[offset] * weight;
+    color[1] += image.rgba[offset + 1] * weight;
+    color[2] += image.rgba[offset + 2] * weight;
+    color[3] += image.rgba[offset + 3] * weight;
   }
 
   return color;
+};
+
+const resizeSquare = (source, size, scale = 1) => {
+  const bytesPerPixel = 4;
+  const stride = size * bytesPerPixel;
+  const pixels = Buffer.alloc((stride + 1) * size);
+  const cropSize = Math.min(source.width, source.height);
+  const cropX = (source.width - cropSize) / 2;
+  const cropY = (source.height - cropSize) / 2;
+  const inset = (size - size * scale) / 2;
+  const sampleCount = size <= 32 ? 9 : size <= 192 ? 5 : 3;
+  const background = [0, 0, 0, 255];
+
+  for (let y = 0; y < size; y += 1) {
+    const rowStart = y * (stride + 1);
+    pixels[rowStart] = 0;
+
+    for (let x = 0; x < size; x += 1) {
+      const color = [0, 0, 0, 0];
+
+      for (let sy = 0; sy < sampleCount; sy += 1) {
+        for (let sx = 0; sx < sampleCount; sx += 1) {
+          const localX = x + (sx + 0.5) / sampleCount;
+          const localY = y + (sy + 0.5) / sampleCount;
+          let sampled = background;
+
+          if (
+            localX >= inset &&
+            localY >= inset &&
+            localX <= size - inset &&
+            localY <= size - inset
+          ) {
+            const normalizedX = (localX - inset) / (size * scale);
+            const normalizedY = (localY - inset) / (size * scale);
+            sampled = sample(
+              source,
+              cropX + normalizedX * (cropSize - 1),
+              cropY + normalizedY * (cropSize - 1)
+            );
+          }
+
+          for (let channel = 0; channel < color.length; channel += 1) {
+            color[channel] += sampled[channel];
+          }
+        }
+      }
+
+      const divisor = sampleCount * sampleCount;
+      const offset = rowStart + 1 + x * bytesPerPixel;
+      pixels[offset] = Math.round(color[0] / divisor);
+      pixels[offset + 1] = Math.round(color[1] / divisor);
+      pixels[offset + 2] = Math.round(color[2] / divisor);
+      pixels[offset + 3] = Math.round(color[3] / divisor);
+    }
+  }
+
+  return pixels;
 };
 
 const crcTable = new Uint32Array(256);
@@ -141,39 +218,7 @@ const chunk = (type, data) => {
   return Buffer.concat([length, typeBuffer, data, checksum]);
 };
 
-const makePng = (size, maskable = false) => {
-  const bytesPerPixel = 4;
-  const stride = size * bytesPerPixel;
-  const pixels = Buffer.alloc((stride + 1) * size);
-
-  for (let y = 0; y < size; y += 1) {
-    const rowStart = y * (stride + 1);
-    pixels[rowStart] = 0;
-    for (let x = 0; x < size; x += 1) {
-      const color = [0, 0, 0, 0];
-
-      for (let sy = 0; sy < sampleGridSize; sy += 1) {
-        for (let sx = 0; sx < sampleGridSize; sx += 1) {
-          const normalizedX =
-            ((x + (sx + 0.5) / sampleGridSize) / size) * 2 - 1;
-          const normalizedY =
-            ((y + (sy + 0.5) / sampleGridSize) / size) * 2 - 1;
-          const sample = sampleLogo(normalizedX, normalizedY, maskable);
-          for (let channel = 0; channel < color.length; channel += 1) {
-            color[channel] += sample[channel];
-          }
-        }
-      }
-
-      const sampleCount = sampleGridSize * sampleGridSize;
-      const offset = rowStart + 1 + x * bytesPerPixel;
-      pixels[offset] = Math.round(color[0] / sampleCount);
-      pixels[offset + 1] = Math.round(color[1] / sampleCount);
-      pixels[offset + 2] = Math.round(color[2] / sampleCount);
-      pixels[offset + 3] = Math.round(color[3] / sampleCount);
-    }
-  }
-
+const makePng = (source, size, scale = 1) => {
   const header = Buffer.alloc(13);
   header.writeUInt32BE(size, 0);
   header.writeUInt32BE(size, 4);
@@ -184,19 +229,25 @@ const makePng = (size, maskable = false) => {
   header[12] = 0;
 
   return Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngSignature,
     chunk("IHDR", header),
-    chunk("IDAT", deflateSync(pixels, { level: 9 })),
+    chunk("IDAT", deflateSync(resizeSquare(source, size, scale), { level: 9 })),
     chunk("IEND", Buffer.alloc(0))
   ]);
 };
 
-mkdirSync(outputDirectory, { recursive: true });
+const source = readPng(readFileSync(sourcePath));
+mkdirSync(publicDirectory, { recursive: true });
+mkdirSync(iconDirectory, { recursive: true });
+
+writeFileSync(new URL("logo.png", publicDirectory), makePng(source, 512));
+writeFileSync(new URL("favicon-16.png", publicDirectory), makePng(source, 16));
+writeFileSync(new URL("favicon-32.png", publicDirectory), makePng(source, 32));
 
 for (const size of [192, 512]) {
-  writeFileSync(new URL(`icon-${size}.png`, outputDirectory), makePng(size));
+  writeFileSync(new URL(`icon-${size}.png`, iconDirectory), makePng(source, size));
   writeFileSync(
-    new URL(`maskable-${size}.png`, outputDirectory),
-    makePng(size, true)
+    new URL(`maskable-${size}.png`, iconDirectory),
+    makePng(source, size, 0.82)
   );
 }

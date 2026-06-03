@@ -1,1 +1,0 @@
-import{i as e}from"./index-DfH6Yc0P.js";var t,n=e((()=>{t=globalThis||self}));export{n,t};

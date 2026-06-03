@@ -62,9 +62,10 @@ Important directories:
 - `src/intents/`: local recipient route classification.
 - `src/theme/`: theme selection data.
 - `public/`: static files copied into builds, including `CNAME`.
+- `assets/bindle-logo-source.png`: generated source image for the app logo.
 - `public/manifest.webmanifest`, `public/service-worker.js`,
-  `public/logo.svg`, `public/favicon.svg`, and `public/icons/`: PWA
-  installability assets.
+  `public/logo.png`, `public/favicon-16.png`, `public/favicon-32.png`, and
+  `public/icons/`: PWA installability assets.
 - `docs/`: committed production build served by GitHub Pages.
 - `dist/`: local build output; ignored by git.
 - `scripts/generate-pwa-icons.mjs`: dependency-free PWA icon generator.
@@ -180,9 +181,9 @@ avoids requiring GitHub workflow scope.
 - `git` commands that write `.git` metadata may require sandbox escalation here.
 - PWA installability depends on `manifest.webmanifest`, 192x192 and 512x512 PNG
   icons, and a service worker with a fetch handler.
-- Bindle's logo is the black/red paisley yin-yang mark in `public/logo.svg`.
-  The favicon is `public/favicon.svg` with best-effort SVG animation, and the
-  PNG PWA icons are regenerated with `npm run icons`.
+- Bindle's logo is generated raster art based on a black/red paisley yin-yang
+  mark. The canonical source is `assets/bindle-logo-source.png`; `npm run icons`
+  regenerates the public logo, favicon PNGs, and PWA icons.
 
 ## Current Missing Product Work
 

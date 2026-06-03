@@ -60,7 +60,7 @@ function App() {
       <section className="phone-frame" aria-label="Bindle wallet">
         <header className="app-header">
           <div className="brand-lockup">
-            <img className="brand-mark" src="/logo.svg" alt="" />
+            <img className="brand-mark" src="/logo.png" alt="" />
             <div className="brand-copy">
               <span className="eyebrow">Bindle</span>
               <strong>Pay privately</strong>
