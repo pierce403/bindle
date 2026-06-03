@@ -94,7 +94,7 @@ export function BalancePanel({
       </div>
 
       <div className="balance-meta">
-        <span>Shielded with RAILGUN</span>
+        <span>Shielded ETH</span>
         <strong>{shieldedStatus}</strong>
       </div>
 

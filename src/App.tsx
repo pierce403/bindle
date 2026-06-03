@@ -18,7 +18,6 @@ import {
 import { buildEndpointDisclosure } from "./privacy/preflightDisclosure";
 import {
   assessShieldReadiness,
-  assessUnshieldReadiness,
   summarizeMissingRequirements
 } from "./railgun/shielding";
 import {
@@ -189,8 +188,8 @@ function App() {
   const hasRecoverableRailgunKeyMaterial =
     walletState.railgunAddress !== null &&
     walletState.railgunKeyStore === "encrypted-local";
-  const balanceLabel =
-    publicBalance.status === "ready" && !hasRailgunWallet ? "Known ETH" : "Total ETH";
+  const shieldedBalanceSynced = false;
+  const balanceLabel = shieldedBalanceSynced ? "Total ETH" : "Known ETH";
   const shieldReadiness = assessShieldReadiness({
     smartWalletAddress: walletState.smartWalletAddress,
     railgunAddress: walletState.railgunAddress,
@@ -202,27 +201,19 @@ function App() {
   });
   const shieldSubmissionReady = false;
   const canShield = shieldReadiness.ready && shieldSubmissionReady;
-  const unshieldReadiness = assessUnshieldReadiness({
-    railgunAddress: walletState.railgunAddress,
-    hasRecoverableRailgunKeyMaterial,
-    shieldedBalanceWei: null,
-    toolkitReady: toolkitState === "ready",
-    ethereumRpcUrl: policy.ethereumRpcUrl,
-    broadcasterUrl: policy.broadcasterUrl,
-    providerMode: policy.providerMode
-  });
   const shieldDisclosure =
     publicBalance.status === "ready"
       ? shieldReadiness.ready
         ? "Shield blocked: transaction submission is not wired yet."
         : `Shield blocked: ${summarizeMissingRequirements(shieldReadiness)}.`
       : null;
-  const unshieldMissing = summarizeMissingRequirements(unshieldReadiness);
-  const shieldedStatus = hasRailgunWallet
-    ? unshieldReadiness.ready
-      ? "not synced"
-      : `unshield blocked: ${unshieldMissing}`
-    : "0zk pending";
+  const shieldedStatus = !hasRailgunWallet
+    ? "0zk pending"
+    : !hasRecoverableRailgunKeyMaterial
+      ? "wallet secrets missing"
+      : toolkitState === "ready"
+        ? "not synced"
+        : "toolkit not started";
   const canSyncPublicBalance =
     walletState.smartWalletAddress !== null &&
     rpcConfigured &&
