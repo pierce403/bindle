@@ -591,8 +591,16 @@ button:disabled {
   gap: 12px;
   margin: 0 -18px 16px;
   padding: 18px;
-  background: linear-gradient(135deg, #4f2cc9, #6c3df0);
-  color: #fff7ff;
+  border-top: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  background:
+    radial-gradient(ellipse at 8% 20%, var(--accent-soft), transparent 34%),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--accent) 26%, var(--surface-raised)),
+      color-mix(in srgb, var(--accent) 12%, var(--surface-soft))
+    );
+  color: var(--text);
 }
 
 .unshielded-copy {
@@ -611,16 +619,16 @@ button:disabled {
 }
 
 .unshielded-copy span {
-  color: rgba(255, 247, 255, 0.76);
+  color: color-mix(in srgb, var(--text) 68%, transparent);
 }
 
 .shield-button {
   min-height: 48px;
-  border: 0;
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--border));
   border-radius: 16px;
   padding: 0 18px;
-  background: #120d0e;
-  color: #fff7ff;
+  background: var(--surface);
+  color: var(--text);
   font-weight: 820;
 }
 
