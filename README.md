@@ -9,8 +9,17 @@ Bindle is a statically hosted TypeScript wallet interface for private Ethereum p
 - `bindle.me` custom domain marker in `public/CNAME`.
 - RAILGUN Wallet SDK pinned in `package.json`.
 - Browser-side RAILGUN adapter with IndexedDB artifact persistence.
-- Local intent routing for `0zk`, `.eth`, `@coinbase`, and `@safe` style recipients.
+- Local intent routing for `0zk`, `0x`, `.eth`, and `@provider` style recipients.
 - No default public RPC, quote, provider-resolution, broadcaster, or Waku endpoint.
+- Default dark black/red paisley theme, with black/white and black/blue variants plus light and dark modes.
+
+## Product Rules
+
+- No simulated transaction feed.
+- No seeded contacts.
+- No fake balances, fake `0zk` addresses, or invented liquidity.
+- No hard-coded third-party endpoints without explicit user or operator choice.
+- Empty states are allowed only when they represent the real first-run state.
 
 ## Development
 
@@ -53,3 +62,7 @@ Bindle should not silently phone home. The default connection policy leaves ever
 - Waku: off
 
 Production work should preserve that shape: add capabilities as explicit, inspectable endpoints rather than hidden third-party defaults.
+
+## Helios Direction
+
+Helios is a viable candidate for reducing RPC trust because it runs as a Rust/WASM light client and exposes a local RPC surface. It does not eliminate outbound connections: it still needs an execution RPC that supports `eth_getProof`, a consensus RPC or trusted checkpoint path, and compatibility testing against the RAILGUN SDK calls Bindle needs.

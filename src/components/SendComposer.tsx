@@ -1,5 +1,4 @@
 import { Send, Shuffle, WalletCards } from "lucide-react";
-import { contacts } from "../data/activity";
 import { providerRoutes } from "../intents/providers";
 import { routeIntent, type IntentDraft, type RoutedIntent } from "../intents/router";
 
@@ -16,6 +15,9 @@ export function SendComposer({
   onDraftChange,
   onRouteChange
 }: SendComposerProps) {
+  const hasRecipient = draft.recipient.trim().length > 0;
+  const canReview = hasRecipient && Number(draft.amount) > 0;
+
   const updateDraft = (nextDraft: IntentDraft) => {
     onDraftChange(nextDraft);
     onRouteChange(routeIntent(nextDraft));
@@ -75,27 +77,15 @@ export function SendComposer({
         />
       </label>
 
-      <div className="quick-contacts">
-        {contacts.map((contact) => (
-          <button
-            type="button"
-            key={contact.handle}
-            onClick={() => updateDraft({ ...draft, recipient: contact.handle })}
-          >
-            {contact.name}
-          </button>
-        ))}
-      </div>
-
       <div className="route-card">
         <div>
           <span>Route</span>
-          <strong>{routedIntent.route.name}</strong>
+          <strong>{hasRecipient ? routedIntent.route.name : "pending"}</strong>
         </div>
         <Shuffle size={19} aria-hidden="true" />
         <div>
           <span>Action</span>
-          <strong>{routedIntent.privateLeg.action}</strong>
+          <strong>{hasRecipient ? routedIntent.privateLeg.action : "pending"}</strong>
         </div>
       </div>
 
@@ -105,7 +95,7 @@ export function SendComposer({
         ))}
       </div>
 
-      <button className="primary-action wide" type="button">
+      <button className="primary-action wide" type="button" disabled={!canReview}>
         <Send size={18} aria-hidden="true" />
         Review
       </button>

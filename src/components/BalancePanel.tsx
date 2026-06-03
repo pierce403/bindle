@@ -3,19 +3,21 @@ import { Eye, Plus, RefreshCcw } from "lucide-react";
 type BalancePanelProps = {
   shieldedBalance: string;
   publicBalance: string;
-  railgunAddress: string;
+  railgunAddress?: string;
+  canShield: boolean;
 };
 
 export function BalancePanel({
   shieldedBalance,
   publicBalance,
-  railgunAddress
+  railgunAddress,
+  canShield
 }: BalancePanelProps) {
   return (
     <section className="balance-panel" aria-labelledby="balance-heading">
       <div className="wallet-address">
         <span>0zk</span>
-        <strong>{railgunAddress}</strong>
+        <strong>{railgunAddress ?? "not created"}</strong>
       </div>
 
       <div className="balance-row">
@@ -34,9 +36,9 @@ export function BalancePanel({
       </div>
 
       <div className="balance-actions">
-        <button type="button" className="primary-action">
+        <button type="button" className="primary-action" disabled={!canShield}>
           <Plus size={18} aria-hidden="true" />
-          Shield
+          Shield ETH
         </button>
         <button type="button" className="secondary-action">
           <RefreshCcw size={18} aria-hidden="true" />

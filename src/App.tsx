@@ -1,19 +1,20 @@
 import { useMemo, useState } from "react";
-import { CircleDollarSign, LockKeyhole, MessageCircle, Settings } from "lucide-react";
 import { ActivityFeed } from "./components/ActivityFeed";
 import { BalancePanel } from "./components/BalancePanel";
+import { EthOnboarding } from "./components/EthOnboarding";
 import { PrivacySwitchboard } from "./components/PrivacySwitchboard";
 import { SendComposer } from "./components/SendComposer";
-import { activity } from "./data/activity";
+import { ThemeControls } from "./components/ThemeControls";
 import { defaultConnectionPolicy, type ConnectionPolicy } from "./privacy/connectionPolicy";
 import { startRailgunBrowserEngine, type RailgunEngineState } from "./railgun/client";
 import { routeIntent, type IntentDraft, type RoutedIntent } from "./intents/router";
+import { defaultTheme, type ThemeSelection } from "./theme/theme";
 
 const initialDraft: IntentDraft = {
-  recipient: "@coinbase/maya",
-  amount: "125.00",
-  asset: "USDC",
-  note: "Rent share"
+  recipient: "",
+  amount: "",
+  asset: "ETH",
+  note: ""
 };
 
 function App() {
@@ -24,21 +25,15 @@ function App() {
   const [policy, setPolicy] = useState<ConnectionPolicy>(defaultConnectionPolicy);
   const [engineState, setEngineState] = useState<RailgunEngineState>("idle");
   const [statusMessage, setStatusMessage] = useState("");
+  const [theme, setTheme] = useState<ThemeSelection>(defaultTheme);
+  const [shieldAmount, setShieldAmount] = useState("");
+  const hasRailgunWallet = false;
+  const rpcReady = engineState === "ready" && policy.ethereumRpcUrl.length > 0;
 
   const totals = useMemo(() => {
-    const incoming = activity
-      .filter((item) => item.direction === "in" && item.asset === "USDC")
-      .reduce((sum, item) => sum + Number(item.amount), 0);
-    const outgoing = activity
-      .filter((item) => item.direction === "out" && item.asset === "USDC")
-      .reduce((sum, item) => sum + Number(item.amount), 0);
-
     return {
-      shielded: `$${(2400 + incoming - outgoing).toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      })}`,
-      public: "0.18 ETH"
+      shielded: "0.00 ETH",
+      public: "0.00 ETH"
     };
   }, []);
 
@@ -56,38 +51,26 @@ function App() {
   };
 
   return (
-    <main className="app-shell">
+    <main
+      className="app-shell"
+      data-theme-accent={theme.accent}
+      data-theme-mode={theme.mode}
+    >
       <section className="phone-frame" aria-label="Bindle wallet">
         <header className="app-header">
           <div>
             <span className="eyebrow">Bindle</span>
             <strong>Pay privately</strong>
           </div>
-          <button className="icon-button" type="button" title="Settings">
-            <Settings size={20} aria-hidden="true" />
-          </button>
         </header>
+
+        <ThemeControls theme={theme} onChange={setTheme} />
 
         <BalancePanel
           shieldedBalance={totals.shielded}
           publicBalance={totals.public}
-          railgunAddress="bindle1q8k...n5h2"
+          canShield={rpcReady && hasRailgunWallet}
         />
-
-        <nav className="tab-bar" aria-label="Wallet tabs">
-          <button type="button" className="active">
-            <CircleDollarSign size={18} aria-hidden="true" />
-            Home
-          </button>
-          <button type="button">
-            <MessageCircle size={18} aria-hidden="true" />
-            Feed
-          </button>
-          <button type="button">
-            <LockKeyhole size={18} aria-hidden="true" />
-            Vault
-          </button>
-        </nav>
 
         <SendComposer
           draft={draft}
@@ -96,7 +79,14 @@ function App() {
           onRouteChange={setRoutedIntent}
         />
 
-        <ActivityFeed items={activity} />
+        <EthOnboarding
+          amount={shieldAmount}
+          hasRailgunAddress={hasRailgunWallet}
+          rpcReady={rpcReady}
+          onAmountChange={setShieldAmount}
+        />
+
+        <ActivityFeed items={[]} />
       </section>
 
       <aside className="desktop-rail">

@@ -10,40 +10,40 @@ export type ProviderRoute = {
 
 export const providerRoutes: ProviderRoute[] = [
   {
-    id: "0zk",
-    name: "RAILGUN address",
+    id: "railgun-private",
+    name: "Private RAILGUN address",
     handle: "0zk",
     destination: "recipient supplied",
-    settlementAsset: "USDC",
+    settlementAsset: "ETH",
     railgunAction: "private-transfer",
     disclosure: "address-only"
   },
   {
-    id: "coinbase",
-    name: "Coinbase",
-    handle: "@coinbase",
-    destination: "0x provider deposit contract",
-    settlementAsset: "USDC",
-    railgunAction: "unshield-and-call",
-    disclosure: "provider-memo"
-  },
-  {
-    id: "safe",
-    name: "Safe",
-    handle: "@safe",
-    destination: "0x Safe account",
+    id: "evm-address",
+    name: "Public EVM address",
+    handle: "0x",
+    destination: "recipient supplied",
     settlementAsset: "ETH",
     railgunAction: "unshield-and-call",
-    disclosure: "public-call"
+    disclosure: "address-only"
   },
   {
     id: "ens",
     name: "ENS",
     handle: ".eth",
-    destination: "resolved 0x address",
-    settlementAsset: "USDC",
+    destination: "resolved at send time",
+    settlementAsset: "ETH",
     railgunAction: "unshield-and-call",
     disclosure: "address-only"
+  },
+  {
+    id: "provider-handle",
+    name: "Provider handle",
+    handle: "@provider",
+    destination: "resolver required",
+    settlementAsset: "ETH",
+    railgunAction: "unshield-and-call",
+    disclosure: "provider-memo"
   }
 ];
 
@@ -54,19 +54,22 @@ export const findProviderRoute = (recipient: string): ProviderRoute => {
     return providerRoutes[0];
   }
 
-  if (normalized.endsWith(".eth")) {
-    return providerRoutes.find((route) => route.id === "ens") ?? providerRoutes[0];
-  }
-
-  if (normalized.startsWith("@coinbase")) {
+  if (normalized.startsWith("0x")) {
     return (
-      providerRoutes.find((route) => route.id === "coinbase") ??
+      providerRoutes.find((route) => route.id === "evm-address") ??
       providerRoutes[0]
     );
   }
 
-  if (normalized.startsWith("@safe")) {
-    return providerRoutes.find((route) => route.id === "safe") ?? providerRoutes[0];
+  if (normalized.endsWith(".eth")) {
+    return providerRoutes.find((route) => route.id === "ens") ?? providerRoutes[0];
+  }
+
+  if (normalized.startsWith("@")) {
+    return (
+      providerRoutes.find((route) => route.id === "provider-handle") ??
+      providerRoutes[0]
+    );
   }
 
   return providerRoutes[0];
