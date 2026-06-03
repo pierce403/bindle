@@ -6,6 +6,8 @@ packages:
 minimumReleaseAge: 1440
 ignoreDepScripts: true
 
+# Dependency lifecycle scripts are denied. These current transitive packages
+# have install/build scripts that must remain blocked unless reviewed.
 ignoredBuiltDependencies:
   - "@railgun-community/wallet"
   - blake-hash
