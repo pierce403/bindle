@@ -15,15 +15,22 @@ type OnboardingWizardProps = {
   walletState: WalletState;
   passkeyCapability: PasskeyCapability;
   isCreatingPasskey: boolean;
+  isDerivingSmartWallet: boolean;
   policy: ConnectionPolicy;
   toolkitState: PrivacyToolkitState;
   statusMessage: string;
   onCreatePasskey: () => void;
+  onDeriveSmartWallet: () => void;
   onOpenConnections: () => void;
   onStartToolkit: () => void;
 };
 
-type WizardStepId = "passkey" | "connections" | "toolkit" | "shielded";
+type WizardStepId =
+  | "passkey"
+  | "connections"
+  | "smart-wallet"
+  | "toolkit"
+  | "shielded";
 
 type WizardStep = {
   id: WizardStepId;
@@ -50,14 +57,18 @@ export function OnboardingWizard({
   walletState,
   passkeyCapability,
   isCreatingPasskey,
+  isDerivingSmartWallet,
   policy,
   toolkitState,
   statusMessage,
   onCreatePasskey,
+  onDeriveSmartWallet,
   onOpenConnections,
   onStartToolkit
 }: OnboardingWizardProps) {
   const passkeyDone = walletState.passkeyPresent;
+  const fundingCredentialReady =
+    walletState.passkeyCredentialId !== null && walletState.passkeyPublicKey !== null;
   const rpcConfigured = policy.ethereumRpcUrl.trim().length > 0;
   const toolkitReady = toolkitState === "ready";
   const smartWalletReady = walletState.smartWalletAddress !== null;
@@ -68,8 +79,12 @@ export function OnboardingWizard({
 
   const currentStep: WizardStepId = !passkeyDone
     ? "passkey"
+    : !fundingCredentialReady
+      ? "passkey"
     : !rpcConfigured
       ? "connections"
+      : !smartWalletReady
+        ? "smart-wallet"
       : !toolkitReady
         ? "toolkit"
         : "shielded";
@@ -78,8 +93,12 @@ export function OnboardingWizard({
     {
       id: "passkey",
       label: "Passkey",
-      detail: passkeyDone ? "passkey enrolled" : passkeyCapability.message,
-      done: passkeyDone,
+      detail: fundingCredentialReady
+        ? "funding passkey enrolled"
+        : passkeyDone
+          ? "legacy passkey needs public-key metadata"
+          : passkeyCapability.message,
+      done: fundingCredentialReady,
       blocked: passkeyUnavailable,
       Icon: Fingerprint
     },
@@ -89,6 +108,14 @@ export function OnboardingWizard({
       detail: rpcConfigured ? "RPC configured" : "no endpoints configured",
       done: rpcConfigured,
       Icon: PlugZap
+    },
+    {
+      id: "smart-wallet",
+      label: "Funding address",
+      detail: walletState.smartWalletAddress ?? "derive from passkey and RPC",
+      done: smartWalletReady,
+      blocked: !rpcConfigured || !fundingCredentialReady,
+      Icon: LockKeyhole
     },
     {
       id: "toolkit",
@@ -113,14 +140,19 @@ export function OnboardingWizard({
   ];
 
   const canCreatePasskey =
-    passkeyCapability.available && !passkeyDone && !isCreatingPasskey;
+    passkeyCapability.available && !fundingCredentialReady && !isCreatingPasskey;
+  const canDeriveSmartWallet =
+    fundingCredentialReady &&
+    rpcConfigured &&
+    !smartWalletReady &&
+    !isDerivingSmartWallet;
   const canStartToolkit =
     rpcConfigured && toolkitState !== "starting" && toolkitState !== "ready";
   const currentStatus =
     walletState.status === "error" && walletState.lastError
       ? walletState.lastError
       : currentStep === "shielded" && toolkitReady
-        ? "Kohaku passkey smart-account derivation is still pending."
+        ? "Public smart wallet is ready; shielded RAILGUN address creation is still pending."
         : statusMessage || steps.find((step) => step.id === currentStep)?.detail;
 
   return (
@@ -162,7 +194,11 @@ export function OnboardingWizard({
           onClick={onCreatePasskey}
         >
           <Fingerprint size={18} aria-hidden="true" />
-          {isCreatingPasskey ? "Creating passkey" : "Create passkey"}
+          {isCreatingPasskey
+            ? "Creating passkey"
+            : passkeyDone
+              ? "Create funding passkey"
+              : "Create passkey"}
         </button>
       ) : null}
 
@@ -174,6 +210,18 @@ export function OnboardingWizard({
         >
           <PlugZap size={18} aria-hidden="true" />
           Open Connections
+        </button>
+      ) : null}
+
+      {currentStep === "smart-wallet" ? (
+        <button
+          className="primary-action wide"
+          type="button"
+          disabled={!canDeriveSmartWallet}
+          onClick={onDeriveSmartWallet}
+        >
+          <LockKeyhole size={18} aria-hidden="true" />
+          {isDerivingSmartWallet ? "Creating address" : "Create funding address"}
         </button>
       ) : null}
 

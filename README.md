@@ -23,8 +23,11 @@ not the default first-run experience.
 - Wallet-tab onboarding wizard that appears while local setup is incomplete and
   advances through passkey, explicit endpoints, toolkit startup, and pending
   shielded-wallet work.
-- Passkey enrollment shell that stores non-secret credential metadata and keeps
-  the ERC-4337 address pending until a real smart-account adapter derives it.
+- Viem Coinbase Smart Wallet adapter for passkey-backed ERC-4337 funding
+  addresses and public ETH user operations through explicit RPC/bundler
+  endpoints.
+- Passkey enrollment stores non-secret credential id and public P-256 metadata;
+  WebAuthn private material stays inside the platform authenticator.
 - Send Review stays disabled until wallet, toolkit, RPC, recipient, amount, and
   required endpoint preflight checks pass.
 - Local intent routing for `0zk`, `0x`, `.eth`, and `@provider` style recipients.
@@ -100,12 +103,11 @@ passkey-backed smart account path where Kohaku supports it, with any ERC-4337
 bundler, paymaster, attestation, or recovery service exposed through
 `ConnectionPolicy` before it can be used.
 
-The current app can enroll a browser passkey and records only local non-secret
-metadata. It does not derive a smart-wallet address yet: the pinned Kohaku
-packages do not expose a browser-ready `pq-account` or passkey ERC-4337 address
-derivation API. The UI therefore says "smart-wallet address pending" rather
-than inventing a public address or `0zk` address. Review and Shield remain
-disabled before the real wallet/RPC/4337/RAILGUN path exists.
+The current app can enroll a browser passkey, derive a counterfactual Coinbase
+Smart Wallet funding address with a configured Ethereum mainnet RPC, and submit
+public ETH user operations through an explicitly configured ERC-4337 bundler.
+Paymaster support is optional and only used when configured. Shielded RAILGUN
+address creation and private RAILGUN sends remain pending.
 
 ## RAILGUN Integration Notes
 

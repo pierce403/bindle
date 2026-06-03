@@ -32,6 +32,10 @@ or default Waku connection.
 - [x] Add endpoint disclosure/preflight groundwork for send review.
 - [x] Gate Review on wallet presence, toolkit readiness, configured RPC,
       valid recipient, valid amount, and required endpoint readiness.
+- [x] Add Viem Coinbase Smart Wallet adapter for passkey-backed ERC-4337
+      funding address derivation on Ethereum mainnet.
+- [x] Add public ETH smart-wallet payment submission through explicit
+      RPC/bundler endpoints with optional configured paymaster.
 - [x] Validate decimal ETH amount as greater than zero.
 - [x] Validate recipient shape for `0zk`, `0x`, and `.eth`.
 - [x] Add tests that fail if default `ConnectionPolicy` grows a hosted endpoint.
@@ -46,6 +50,7 @@ or default Waku connection.
       currently support.
 - [ ] Add a Kohaku-compatible browser smart-account adapter once `pq-account` or
       equivalent passkey ERC-4337 address derivation is available.
+- [ ] Add real balance sync for the public smart-wallet funding address.
 - [ ] Show the real `0zk` address in Receive and Balance once created/imported.
 
 ## Privacy And Connectivity

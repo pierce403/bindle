@@ -113,7 +113,7 @@ test.describe("passkey-first onboarding", () => {
       await expect(page.getByRole("button", { name: "Create passkey" })).toBeEnabled();
       await page.getByRole("button", { name: "Create passkey" }).click();
 
-      await expect(page.getByText("passkey enrolled")).toBeVisible();
+      await expect(page.getByText("funding passkey enrolled")).toBeVisible();
       await expect(page.getByRole("button", { name: "Open Connections" })).toBeVisible();
       await expect(page.getByText("Smart-wallet address pending")).toBeVisible();
       await expect(page.getByText(/0x[0-9a-fA-F]{40}/)).toHaveCount(0);

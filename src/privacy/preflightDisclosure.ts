@@ -4,7 +4,11 @@ import {
   type OutboundClass
 } from "./connectionPolicy";
 
-export type IntendedWalletAction = "passkey-enroll" | "send-review" | "shield-sweep";
+export type IntendedWalletAction =
+  | "passkey-enroll"
+  | "send-review"
+  | "public-smart-payment"
+  | "shield-sweep";
 
 export type EndpointDisclosure = {
   id: OutboundClass;
@@ -28,6 +32,12 @@ const actionEndpointRequirements: Record<
     "railgun-broadcaster": "possible",
     "provider-resolution": "possible",
     "erc4337-bundler": "possible",
+    "erc4337-paymaster": "possible"
+  },
+  "public-smart-payment": {
+    "ethereum-rpc": "required",
+    "provider-resolution": "possible",
+    "erc4337-bundler": "required",
     "erc4337-paymaster": "possible"
   },
   "shield-sweep": {

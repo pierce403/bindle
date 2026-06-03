@@ -23,12 +23,17 @@ type WalletActionPanelProps = {
   draft: IntentDraft;
   routedIntent: RoutedIntent;
   hasRailgunWallet: boolean;
+  hasSmartWallet: boolean;
   rpcReady: boolean;
+  bundlerReady: boolean;
   walletState: WalletState;
   passkeyCapability: PasskeyCapability;
   isCreatingPasskey: boolean;
+  isSubmittingSmartPayment: boolean;
+  smartPaymentStatus: string;
   endpointDisclosures: EndpointDisclosure[];
   onCreatePasskey: () => void;
+  onSubmitSmartPayment: () => void;
   onDraftChange: (draft: IntentDraft) => void;
   onRouteChange: (intent: RoutedIntent) => void;
 };
@@ -38,12 +43,17 @@ export function WalletActionPanel({
   draft,
   routedIntent,
   hasRailgunWallet,
+  hasSmartWallet,
   rpcReady,
+  bundlerReady,
   walletState,
   passkeyCapability,
   isCreatingPasskey,
+  isSubmittingSmartPayment,
+  smartPaymentStatus,
   endpointDisclosures,
   onCreatePasskey,
+  onSubmitSmartPayment,
   onDraftChange,
   onRouteChange
 }: WalletActionPanelProps) {
@@ -51,23 +61,37 @@ export function WalletActionPanel({
     "shielded"
   );
   const [sendMode, setSendMode] = useState<"shielded" | "public">("shielded");
+  const [reviewingPayment, setReviewingPayment] = useState(false);
   const hasRecipient = draft.recipient.trim().length > 0;
   const hasAmount = isValidEthAmount(draft.amount);
   const hasValidRecipient = isValidRecipientShape(draft.recipient);
   const requiredEndpointsReady = endpointDisclosures.every(
     (endpoint) => !endpoint.required || endpoint.configured
   );
-  const canReview =
+  const canReviewShielded =
     hasRecipient &&
     hasValidRecipient &&
     hasAmount &&
     hasRailgunWallet &&
     rpcReady &&
     requiredEndpointsReady;
+  const canReviewPublic =
+    hasRecipient &&
+    hasValidRecipient &&
+    hasAmount &&
+    hasSmartWallet &&
+    rpcReady &&
+    bundlerReady &&
+    requiredEndpointsReady;
+  const canReview =
+    sendMode === "public" ? canReviewPublic : canReviewShielded;
   const canCreatePasskey =
-    passkeyCapability.available && !walletState.passkeyPresent && !isCreatingPasskey;
+    passkeyCapability.available &&
+    (!walletState.passkeyPresent || !walletState.passkeyPublicKey) &&
+    !isCreatingPasskey;
 
   const updateDraft = (nextDraft: IntentDraft) => {
+    setReviewingPayment(false);
     onDraftChange(nextDraft);
     onRouteChange(routeIntent(nextDraft));
   };
@@ -118,7 +142,9 @@ export function WalletActionPanel({
             </strong>
             <span>
               {walletState.passkeyPresent
-                ? "Smart-wallet address pending; shielded 0zk address not created."
+                ? walletState.passkeyPublicKey
+                  ? "Smart-wallet funding address can be created after RPC setup."
+                  : "Legacy passkey metadata needs a funding passkey."
                 : walletState.status === "error" && walletState.lastError
                   ? walletState.lastError
                 : passkeyCapability.message}
@@ -137,9 +163,11 @@ export function WalletActionPanel({
               <Fingerprint size={18} aria-hidden="true" />
               {isCreatingPasskey
                 ? "Creating passkey"
-                : walletState.passkeyPresent
+                : walletState.passkeyPresent && walletState.passkeyPublicKey
                   ? "Passkey enrolled"
-                  : "Create Bindle with passkey"}
+                  : walletState.passkeyPresent
+                    ? "Create funding passkey"
+                    : "Create Bindle with passkey"}
             </button>
           </div>
         ) : (
@@ -156,7 +184,7 @@ export function WalletActionPanel({
               {walletState.smartWalletAddress
                 ? walletState.smartWalletAddress
                 : walletState.passkeyPresent
-                  ? "Kohaku passkey smart-account derivation is not wired."
+                  ? "Create the funding address from the setup wizard after RPC is configured."
                   : "Create the passkey-backed smart wallet before receiving public ETH."}
             </span>
             {walletState.smartWalletAddress ? (
@@ -231,14 +259,20 @@ export function WalletActionPanel({
         <button
           type="button"
           aria-pressed={sendMode === "shielded"}
-          onClick={() => setSendMode("shielded")}
+          onClick={() => {
+            setReviewingPayment(false);
+            setSendMode("shielded");
+          }}
         >
           Shielded
         </button>
         <button
           type="button"
           aria-pressed={sendMode === "public"}
-          onClick={() => setSendMode("public")}
+          onClick={() => {
+            setReviewingPayment(false);
+            setSendMode("public");
+          }}
         >
           Public
         </button>
@@ -307,9 +341,51 @@ export function WalletActionPanel({
         ))}
       </div>
 
-      <button className="primary-action wide" type="button" disabled={!canReview}>
+      {reviewingPayment && sendMode === "public" ? (
+        <div className="review-card" aria-label="Review public payment">
+          <span>Review public payment</span>
+          <div>
+            <strong>From</strong>
+            <span>{walletState.smartWalletAddress}</span>
+          </div>
+          <div>
+            <strong>To</strong>
+            <span>{draft.recipient.trim()}</span>
+          </div>
+          <div>
+            <strong>Amount</strong>
+            <span>{draft.amount.trim()} ETH</span>
+          </div>
+          <button
+            className="primary-action wide"
+            type="button"
+            disabled={!canReviewPublic || isSubmittingSmartPayment}
+            onClick={onSubmitSmartPayment}
+          >
+            <Send size={18} aria-hidden="true" />
+            {isSubmittingSmartPayment ? "Submitting" : "Submit public payment"}
+          </button>
+        </div>
+      ) : null}
+
+      {smartPaymentStatus ? (
+        <p className="status-message">{smartPaymentStatus}</p>
+      ) : null}
+
+      <button
+        className="primary-action wide"
+        type="button"
+        disabled={!canReview}
+        onClick={() => {
+          if (sendMode === "public") {
+            setReviewingPayment(true);
+          }
+        }}
+      >
         <Send size={18} aria-hidden="true" />
-        Review
+        {sendMode === "public" && hasSmartWallet
+          ? "Review public payment"
+          : "Review"}
       </button>
     </section>
   );

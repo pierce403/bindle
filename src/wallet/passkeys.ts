@@ -1,3 +1,5 @@
+import { createWebAuthnCredential } from "viem/account-abstraction";
+
 export type PasskeyCapability = {
   checked: boolean;
   webAuthnSupported: boolean;
@@ -7,6 +9,11 @@ export type PasskeyCapability = {
   message: string;
 };
 
+export type BindlePasskeyCredential = {
+  id: string;
+  publicKey: `0x${string}`;
+};
+
 const unavailableCapability: PasskeyCapability = {
   checked: false,
   webAuthnSupported: false,
@@ -14,19 +21,6 @@ const unavailableCapability: PasskeyCapability = {
   userVerificationAvailable: false,
   available: false,
   message: "Checking passkey support"
-};
-
-const base64UrlEncode = (bytes: ArrayBuffer): string => {
-  const binary = String.fromCharCode(...new Uint8Array(bytes));
-
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
-};
-
-const randomBuffer = (length: number): ArrayBuffer => {
-  const buffer = new ArrayBuffer(length);
-  const value = new Uint8Array(buffer);
-  crypto.getRandomValues(value);
-  return buffer;
 };
 
 export const detectPasskeyCapability = async (): Promise<PasskeyCapability> => {
@@ -60,19 +54,14 @@ export const detectPasskeyCapability = async (): Promise<PasskeyCapability> => {
   };
 };
 
-export const createBindlePasskeyCredential = async (): Promise<string> => {
-  const credential = await navigator.credentials.create({
-    publicKey: {
-      challenge: randomBuffer(32),
+export const createBindlePasskeyCredential =
+  async (): Promise<BindlePasskeyCredential> => {
+    const credential = await createWebAuthnCredential({
+      name: "Bindle",
       rp: {
+        id: window.location.hostname,
         name: "Bindle"
       },
-      user: {
-        id: randomBuffer(16),
-        name: "bindle",
-        displayName: "Bindle"
-      },
-      pubKeyCredParams: [{ type: "public-key", alg: -7 }],
       authenticatorSelection: {
         authenticatorAttachment: "platform",
         residentKey: "preferred",
@@ -81,12 +70,20 @@ export const createBindlePasskeyCredential = async (): Promise<string> => {
       },
       attestation: "none",
       timeout: 60_000
-    }
-  });
+    });
 
-  if (!(credential instanceof PublicKeyCredential)) {
-    throw new Error("Passkey enrollment did not return a public-key credential");
-  }
+    return {
+      id: credential.id,
+      publicKey: credential.publicKey
+    };
+  };
 
-  return credential.id || base64UrlEncode(credential.rawId);
-};
+export const hasFundingCredential = (credential: {
+  passkeyCredentialId: string | null;
+  passkeyPublicKey: `0x${string}` | null;
+}): credential is {
+  passkeyCredentialId: string;
+  passkeyPublicKey: `0x${string}`;
+} =>
+  credential.passkeyCredentialId !== null &&
+  credential.passkeyPublicKey !== null;

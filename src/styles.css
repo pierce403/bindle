@@ -615,7 +615,8 @@ button:disabled {
   white-space: nowrap;
 }
 
-.preflight-card {
+.preflight-card,
+.review-card {
   display: grid;
   gap: 8px;
   border: 1px solid var(--border);
@@ -624,10 +625,29 @@ button:disabled {
   background: var(--surface);
 }
 
-.preflight-card > span {
+.preflight-card > span,
+.review-card > span {
   color: var(--muted);
   font-size: 0.78rem;
   font-weight: 760;
+}
+
+.review-card div {
+  display: grid;
+  grid-template-columns: minmax(0, 72px) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.review-card strong,
+.review-card span {
+  overflow: hidden;
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-card span {
+  color: var(--muted);
 }
 
 .preflight-row {

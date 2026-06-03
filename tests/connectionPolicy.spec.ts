@@ -3,6 +3,7 @@ import {
   defaultConnectionPolicy,
   summarizeOutbound
 } from "../src/privacy/connectionPolicy";
+import { buildEndpointDisclosure } from "../src/privacy/preflightDisclosure";
 
 const hostedUrlPattern = /^https?:\/\//i;
 
@@ -45,6 +46,33 @@ test("outbound summary includes ERC-4337 and passkey service classes", () => {
         id: "wallet-recovery",
         mode: "off",
         value: "none"
+      })
+    ])
+  );
+});
+
+test("public smart payments require explicit RPC and bundler endpoints", () => {
+  const disclosure = buildEndpointDisclosure(
+    defaultConnectionPolicy,
+    "public-smart-payment"
+  );
+
+  expect(disclosure).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: "ethereum-rpc",
+        configured: false,
+        required: true
+      }),
+      expect.objectContaining({
+        id: "erc4337-bundler",
+        configured: false,
+        required: true
+      }),
+      expect.objectContaining({
+        id: "erc4337-paymaster",
+        configured: false,
+        required: false
       })
     ])
   );

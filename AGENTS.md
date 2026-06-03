@@ -230,10 +230,11 @@ avoids requiring GitHub workflow scope.
   errors. Do not store EOA private keys, mnemonics, RAILGUN viewing/spending
   material, WebAuthn private material, or provider secrets there.
 - Passkey enrollment is wired through browser WebAuthn in `src/wallet/passkeys.ts`.
-  The pinned Kohaku packages do not currently expose a browser-ready
-  `@kohaku-eth/pq-account` or equivalent passkey ERC-4337 address derivation
-  API, so `src/wallet/smartAccountAdapter.ts` must keep the smart-wallet address
-  pending until a real adapter is available.
+  `src/wallet/smartAccountAdapter.ts` uses Viem's Coinbase Smart Wallet support
+  to derive a real passkey-backed ERC-4337 funding address and submit public ETH
+  user operations through explicit RPC/bundler endpoints. Kohaku's upstream
+  `pq-account` source is still not published as an npm package or wired as the
+  default adapter.
 - First-run setup is surfaced through `src/components/OnboardingWizard.tsx`.
   Keep new wallet prerequisites in that state-driven flow so users are not
   forced to discover setup steps by opening Receive or Connections manually.

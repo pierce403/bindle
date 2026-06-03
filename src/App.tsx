@@ -19,17 +19,20 @@ import {
 } from "./privacy/toolkit";
 import { defaultTheme, type ThemeSelection } from "./theme/theme";
 import {
+  deriveSmartWalletAddressFromPasskey,
+  sendSmartWalletEthPayment
+} from "./wallet/smartAccountAdapter";
+import {
   detectPasskeyCapability,
   createBindlePasskeyCredential,
   type PasskeyCapability
 } from "./wallet/passkeys";
-import { deriveSmartWalletAddressFromPasskey } from "./wallet/smartAccountAdapter";
 import {
   loadWalletState,
   markPasskeyEnrolled,
+  markSmartWalletReady,
   markWalletError,
   resetWalletState,
-  saveWalletState,
   type WalletState
 } from "./wallet/walletState";
 
@@ -67,8 +70,13 @@ function App() {
       message: "Checking passkey support"
     });
   const [isCreatingPasskey, setIsCreatingPasskey] = useState(false);
+  const [isDerivingSmartWallet, setIsDerivingSmartWallet] = useState(false);
+  const [isSubmittingSmartPayment, setIsSubmittingSmartPayment] = useState(false);
+  const [smartPaymentStatus, setSmartPaymentStatus] = useState("");
   const hasRailgunWallet = walletState.railgunAddress !== null;
+  const hasSmartWallet = walletState.smartWalletAddress !== null;
   const rpcReady = toolkitState === "ready" && policy.ethereumRpcUrl.length > 0;
+  const bundlerReady = policy.bundlerUrl.trim().length > 0;
   const shieldConstructionReady = false;
   const canShield =
     rpcReady && walletState.smartWalletAddress !== null && shieldConstructionReady;
@@ -80,7 +88,10 @@ function App() {
   const railgunStatus = walletState.railgunAddress ? "ready" : "not created";
   const onboardingComplete =
     walletState.smartWalletAddress !== null && walletState.railgunAddress !== null;
-  const sendEndpointDisclosure = buildEndpointDisclosure(policy, "send-review");
+  const sendEndpointDisclosure = buildEndpointDisclosure(
+    policy,
+    hasSmartWallet && !hasRailgunWallet ? "public-smart-payment" : "send-review"
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -123,28 +134,57 @@ function App() {
     }
   };
 
+  const deriveSmartWallet = async (state = walletState) => {
+    if (!state.passkeyCredentialId || !state.passkeyPublicKey) {
+      setStatusMessage(
+        "Create a funding passkey before deriving a smart-wallet address."
+      );
+      return state;
+    }
+
+    setIsDerivingSmartWallet(true);
+
+    try {
+      const smartWalletAddress = await deriveSmartWalletAddressFromPasskey(
+        policy,
+        state
+      );
+
+      if (smartWalletAddress.status === "ready") {
+        const nextState = markSmartWalletReady(state, smartWalletAddress.address);
+        setWalletState(nextState);
+        setStatusMessage("Smart-wallet funding address ready");
+        return nextState;
+      }
+
+      setStatusMessage(smartWalletAddress.reason);
+      return state;
+    } finally {
+      setIsDerivingSmartWallet(false);
+    }
+  };
+
   const createPasskeyWallet = async () => {
-    if (!passkeyCapability.available || walletState.passkeyPresent) {
+    if (
+      !passkeyCapability.available ||
+      (walletState.passkeyPresent && walletState.passkeyPublicKey)
+    ) {
       return;
     }
 
     setIsCreatingPasskey(true);
 
     try {
-      const credentialId = await createBindlePasskeyCredential();
-      const passkeyState = markPasskeyEnrolled(walletState, credentialId);
-      const smartWalletAddress = await deriveSmartWalletAddressFromPasskey();
+      const credential = await createBindlePasskeyCredential();
+      const passkeyState = markPasskeyEnrolled(walletState, credential);
+      setWalletState(passkeyState);
 
-      if (smartWalletAddress.status === "ready") {
-        const nextState = saveWalletState({
-          ...passkeyState,
-          status: "smart-wallet-planned",
-          smartWalletAddress: smartWalletAddress.address
-        });
-        setWalletState(nextState);
+      if (policy.ethereumRpcUrl.trim()) {
+        await deriveSmartWallet(passkeyState);
       } else {
-        setWalletState(passkeyState);
-        setStatusMessage(smartWalletAddress.reason);
+        setStatusMessage(
+          "Passkey enrolled. Configure Ethereum RPC to derive the funding address."
+        );
       }
     } catch (error) {
       const message =
@@ -153,6 +193,36 @@ function App() {
       setStatusMessage(message);
     } finally {
       setIsCreatingPasskey(false);
+    }
+  };
+
+  const submitSmartPayment = async () => {
+    if (!walletState.smartWalletAddress) {
+      setSmartPaymentStatus("Create the smart-wallet funding address first.");
+      return;
+    }
+
+    setIsSubmittingSmartPayment(true);
+    setSmartPaymentStatus("Submitting ERC-4337 user operation");
+
+    try {
+      const result = await sendSmartWalletEthPayment({
+        amount: draft.amount,
+        policy,
+        recipient: draft.recipient,
+        walletState
+      });
+      setSmartPaymentStatus(
+        result.transactionHash
+          ? `Submitted: ${result.transactionHash}`
+          : `Submitted user operation: ${result.userOperationHash}`
+      );
+    } catch (error) {
+      setSmartPaymentStatus(
+        error instanceof Error ? error.message : "Unable to submit payment"
+      );
+    } finally {
+      setIsSubmittingSmartPayment(false);
     }
   };
 
@@ -199,8 +269,10 @@ function App() {
                 toolkitState={toolkitState}
                 statusMessage={statusMessage}
                 onCreatePasskey={() => void createPasskeyWallet()}
+                onDeriveSmartWallet={() => void deriveSmartWallet()}
                 onOpenConnections={() => setActiveTab("nodes")}
                 onStartToolkit={() => void startToolkit()}
+                isDerivingSmartWallet={isDerivingSmartWallet}
               />
             ) : null}
 
@@ -225,12 +297,17 @@ function App() {
                 draft={draft}
                 routedIntent={routedIntent}
                 hasRailgunWallet={hasRailgunWallet}
+                hasSmartWallet={hasSmartWallet}
                 rpcReady={rpcReady}
+                bundlerReady={bundlerReady}
                 walletState={walletState}
                 passkeyCapability={passkeyCapability}
                 isCreatingPasskey={isCreatingPasskey}
+                isSubmittingSmartPayment={isSubmittingSmartPayment}
+                smartPaymentStatus={smartPaymentStatus}
                 endpointDisclosures={sendEndpointDisclosure}
                 onCreatePasskey={() => void createPasskeyWallet()}
+                onSubmitSmartPayment={() => void submitSmartPayment()}
                 onDraftChange={setDraft}
                 onRouteChange={setRoutedIntent}
               />
