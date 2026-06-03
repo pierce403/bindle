@@ -13,7 +13,10 @@ import { SettingsPanel } from "./components/SettingsPanel";
 import { UnshieldedBalanceBanner } from "./components/UnshieldedBalanceBanner";
 import { WalletActionPanel } from "./components/WalletActionPanel";
 import { routeIntent, type IntentDraft, type RoutedIntent } from "./intents/router";
-import type { ConnectionPolicy } from "./privacy/connectionPolicy";
+import {
+  markConnectionPolicyCustom,
+  type ConnectionPolicy
+} from "./privacy/connectionPolicy";
 import {
   loadConnectionPolicy,
   saveConnectionPolicy
@@ -35,6 +38,10 @@ import {
   type PrivacyToolkitHandle,
   type PrivacyToolkitState
 } from "./privacy/toolkit";
+import {
+  describeToolkitStartFailure,
+  type ToolkitRecoveryAction
+} from "./privacy/toolkitErrors";
 import { usePwaDisplayMode } from "./pwa/usePwaDisplayMode";
 import { defaultTheme, type ThemeSelection } from "./theme/theme";
 import {
@@ -78,6 +85,7 @@ type AppNotice = {
   kind: "error" | "warning";
   title: string;
   message: string;
+  action?: ToolkitRecoveryAction;
 } | null;
 
 type RailgunStorageMode = "browser-local" | "legacy-passphrase" | "missing";
@@ -383,14 +391,14 @@ function WalletApp() {
       setStatusMessage(`${handle.label} is ready`);
       setAppNotice(null);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to start";
-      const detail = `${lastToolkitStep}: ${message}`;
+      const failure = describeToolkitStartFailure(lastToolkitStep, error);
       setToolkitState("error");
-      setStatusMessage(detail);
+      setStatusMessage(failure.message);
       setAppNotice({
         kind: "error",
         title: "Toolkit failed",
-        message: detail
+        message: failure.message,
+        action: failure.action
       });
     } finally {
       toolkitStartRef.current = null;
@@ -399,6 +407,29 @@ function WalletApp() {
 
   const updateConnectionPolicy = (nextPolicy: ConnectionPolicy) => {
     setPolicy(saveConnectionPolicy(nextPolicy));
+  };
+
+  const handleNoticeAction = (action: ToolkitRecoveryAction) => {
+    if (action.kind === "switch-privacy-toolkit") {
+      updateConnectionPolicy(
+        markConnectionPolicyCustom({
+          ...policy,
+          privacyToolkit: action.toolkit
+        })
+      );
+      setToolkitHandle(null);
+      setToolkitState("idle");
+      setStatusMessage(
+        "Privacy toolkit set to RAILGUN Wallet SDK. Review Connections, then start the toolkit again."
+      );
+      setAppNotice({
+        kind: "warning",
+        title: "Toolkit changed",
+        message:
+          "Bindle is using the explicit RAILGUN Wallet SDK fallback for this browser session. Endpoints remain visible in Connections before anything starts."
+      });
+      setActiveTab("nodes");
+    }
   };
 
   const syncPublicBalance = async () => {
@@ -750,6 +781,8 @@ function WalletApp() {
       );
   };
 
+  const noticeAction = appNotice?.action;
+
   return (
     <main
       className="app-shell"
@@ -784,6 +817,15 @@ function WalletApp() {
           >
             <strong>{appNotice.title}</strong>
             <span>{appNotice.message}</span>
+            {noticeAction ? (
+              <button
+                className="notice-action"
+                type="button"
+                onClick={() => handleNoticeAction(noticeAction)}
+              >
+                {noticeAction.label}
+              </button>
+            ) : null}
           </section>
         ) : null}
 

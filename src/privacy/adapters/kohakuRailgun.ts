@@ -1,6 +1,7 @@
 import type { ConnectionPolicy } from "../connectionPolicy";
 import type { PrivacyToolkitHandle } from "../toolkit";
 import { createKohakuIndexedDbDatabase } from "../storage/kohakuDatabase";
+import { createKohakuWasmTrapError } from "../toolkitErrors";
 import { createExplicitRpcProvider } from "./rpcProvider";
 
 type KohakuRailgunTypes = typeof import("@kohaku-eth/railgun");
@@ -15,6 +16,17 @@ const loadKohakuRailgunWasm = (): Promise<KohakuRailgunWasmModule> =>
   import(
     "../../../node_modules/@kohaku-eth/railgun/dist/pkg/index.js"
   ) as Promise<KohakuRailgunWasmModule>;
+
+const withKohakuWasmTrapContext = async <T>(
+  operation: string,
+  action: () => Promise<T> | T
+): Promise<T> => {
+  try {
+    return await action();
+  } catch (error) {
+    throw createKohakuWasmTrapError(operation, error);
+  }
+};
 
 export const startKohakuRailgunAdapter = async (
   policy: ConnectionPolicy,
@@ -36,13 +48,18 @@ export const startKohakuRailgunAdapter = async (
   const kohaku = await loadKohakuRailgunWasm();
 
   onStatus("Initializing Kohaku RAILGUN WASM");
-  await kohaku.default();
-  kohaku.initLogging(policy.debugLogging ? "Debug" : "Warn");
+  await withKohakuWasmTrapContext("initializing the Kohaku RAILGUN WASM module", async () => {
+    await kohaku.default();
+    kohaku.initLogging(policy.debugLogging ? "Debug" : "Warn");
+  });
 
   onStatus("Connecting configured Ethereum RPC");
   const provider = createExplicitRpcProvider(ethereumRpcUrl);
   const chainId = await provider.getChainId();
-  const chain = kohaku.chainConfig(chainId);
+  const chain = await withKohakuWasmTrapContext(
+    `loading the Kohaku RAILGUN chain config for chain ID ${chainId}`,
+    () => kohaku.chainConfig(chainId)
+  );
 
   if (!chain) {
     throw new Error(`Kohaku RAILGUN does not support chain ID ${chainId}.`);
@@ -55,13 +72,20 @@ export const startKohakuRailgunAdapter = async (
   }
 
   const database = createKohakuIndexedDbDatabase(`railgun:${chain.id}`);
-  const syncer = kohaku.UtxoSyncer.rpc(chain, provider, 10n);
+  const syncer = await withKohakuWasmTrapContext(
+    "creating the Kohaku RAILGUN RPC syncer",
+    () => kohaku.UtxoSyncer.rpc(chain, provider, 10n)
+  );
 
   onStatus("Starting Kohaku RAILGUN provider with RPC-only sync");
-  const railgunProvider = await new kohaku.RailgunBuilder(chain, provider)
-    .withDatabase(database)
-    .withUtxoSyncer(syncer)
-    .build();
+  const railgunProvider = await withKohakuWasmTrapContext(
+    "building the Kohaku RAILGUN provider",
+    () =>
+      new kohaku.RailgunBuilder(chain, provider)
+        .withDatabase(database)
+        .withUtxoSyncer(syncer)
+        .build()
+  );
 
   onStatus("Kohaku RAILGUN provider ready");
 

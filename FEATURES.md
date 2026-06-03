@@ -75,6 +75,8 @@ infrastructure.
 - [x] Prompt users to replace missing or password-era local RAILGUN key records
       with a fresh browser-local `0zk` while preserving the passkey funding
       wallet.
+- [x] Convert Kohaku RAILGUN WASM traps into persistent, readable toolkit
+      errors with an explicit RAILGUN Wallet SDK fallback action.
 
 ## Now
 
@@ -88,6 +90,8 @@ infrastructure.
 - [ ] Sync shielded ETH balances after shield submission.
 - [ ] Add a Kohaku-compatible browser smart-account adapter once `pq-account` or
       equivalent passkey ERC-4337 address derivation is available.
+- [ ] Reproduce and report/fix the upstream Kohaku RAILGUN WASM initialization
+      `unreachable` trap so the default adapter can start reliably.
 
 ## Privacy And Connectivity
 

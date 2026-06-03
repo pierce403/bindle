@@ -707,6 +707,17 @@ button:disabled {
   line-height: 1.35;
 }
 
+.notice-action {
+  justify-self: start;
+  margin-top: 6px;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 44%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  color: var(--text);
+  font-weight: 750;
+}
+
 .action-panel,
 .onboarding-wizard,
 .railgun-repair,
