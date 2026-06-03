@@ -1,12 +1,11 @@
 import { HDNodeWallet, Mnemonic } from "ethers";
+import { loadKohakuRailgunBrowserModule } from "./kohakuRailgunModule";
 
 type KohakuRailgunTypes = typeof import("@kohaku-eth/railgun");
 type KohakuSignerModule = Pick<
   KohakuRailgunTypes,
-  "RailgunSigner" | "initLogging"
-> & {
-  default: () => Promise<unknown>;
-};
+  "RailgunSigner"
+>;
 
 type BrowserLocalRailgunWalletRecord = {
   id: "primary";
@@ -76,13 +75,8 @@ const primaryRecordId = "primary";
 let kohakuSignerModulePromise: Promise<KohakuSignerModule> | null = null;
 
 const loadKohakuSignerModule = (): Promise<KohakuSignerModule> => {
-  kohakuSignerModulePromise ??= import(
-    "../../node_modules/@kohaku-eth/railgun/dist/pkg/index.js"
-  ).then(async (kohaku) => {
-    const signerModule = kohaku as KohakuSignerModule;
-    await signerModule.default();
-    signerModule.initLogging("Warn");
-    return signerModule;
+  kohakuSignerModulePromise ??= loadKohakuRailgunBrowserModule({
+    logLevel: "Warn"
   });
 
   return kohakuSignerModulePromise;

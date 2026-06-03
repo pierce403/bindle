@@ -539,6 +539,21 @@ test.describe("passkey-first onboarding", () => {
       "ERC-4337 bundler"
     );
     await expect(page.getByRole("button", { name: "Submit shield" })).toBeEnabled();
+
+    await page.getByRole("button", { name: "Submit shield" }).click();
+    await page.getByRole("button", { name: "Debug" }).click();
+
+    await expect(page.getByLabel("Debug log entries")).toContainText(
+      "Preparing RAILGUN shield transaction",
+      { timeout: 30_000 }
+    );
+    await expect(page.getByLabel("Debug log entries")).toContainText(
+      "Submitting shield user operation",
+      { timeout: 30_000 }
+    );
+    await expect(page.getByLabel("Debug log entries")).not.toContainText(
+      "unreachable"
+    );
   });
 
   test.fixme(

@@ -2,20 +2,14 @@ import type { ConnectionPolicy } from "../connectionPolicy";
 import type { PrivacyToolkitHandle } from "../toolkit";
 import { createKohakuIndexedDbDatabase } from "../storage/kohakuDatabase";
 import { createKohakuWasmTrapError } from "../toolkitErrors";
+import { loadKohakuRailgunBrowserModule } from "../../railgun/kohakuRailgunModule";
 import { createExplicitRpcProvider } from "./rpcProvider";
 
 type KohakuRailgunTypes = typeof import("@kohaku-eth/railgun");
 type KohakuRailgunWasmModule = Pick<
   KohakuRailgunTypes,
-  "RailgunBuilder" | "UtxoSyncer" | "chainConfig" | "initLogging"
-> & {
-  default: () => Promise<unknown>;
-};
-
-const loadKohakuRailgunWasm = (): Promise<KohakuRailgunWasmModule> =>
-  import(
-    "../../../node_modules/@kohaku-eth/railgun/dist/pkg/index.js"
-  ) as Promise<KohakuRailgunWasmModule>;
+  "RailgunBuilder" | "UtxoSyncer" | "chainConfig"
+>;
 
 const withKohakuWasmTrapContext = async <T>(
   operation: string,
@@ -45,13 +39,14 @@ export const startKohakuRailgunAdapter = async (
   }
 
   onStatus("Loading Kohaku RAILGUN modules");
-  const kohaku = await loadKohakuRailgunWasm();
-
   onStatus("Initializing Kohaku RAILGUN WASM");
-  await withKohakuWasmTrapContext("initializing the Kohaku RAILGUN WASM module", async () => {
-    await kohaku.default();
-    kohaku.initLogging(policy.debugLogging ? "Debug" : "Warn");
-  });
+  const kohaku = await withKohakuWasmTrapContext(
+    "initializing the Kohaku RAILGUN WASM module",
+    () =>
+      loadKohakuRailgunBrowserModule({
+        logLevel: policy.debugLogging ? "Debug" : "Warn"
+      }) as Promise<KohakuRailgunWasmModule>
+  );
 
   onStatus("Connecting configured Ethereum RPC");
   const provider = createExplicitRpcProvider(ethereumRpcUrl);

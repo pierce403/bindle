@@ -79,6 +79,8 @@ infrastructure.
       errors with an explicit RAILGUN Wallet SDK fallback action.
 - [x] Add a browser-local Debug tab with persistent wallet/toolkit error logs
       and stack traces for transient RAILGUN/Kohaku failures.
+- [x] Guard Kohaku RAILGUN WASM initialization so `initLogging` runs once per
+      PWA session instead of trapping during shield prep after wallet creation.
 
 ## Now
 

@@ -1,5 +1,6 @@
 import type { ProviderMode } from "../privacy/connectionPolicy";
 import { createKohakuWasmTrapError } from "../privacy/toolkitErrors";
+import { loadKohakuRailgunBrowserModule } from "./kohakuRailgunModule";
 
 export type ReadinessItem = {
   id: string;
@@ -42,17 +43,19 @@ export type ShieldCall = {
 type KohakuRailgunTypes = typeof import("@kohaku-eth/railgun");
 type KohakuShieldModule = Pick<
   KohakuRailgunTypes,
-  "ShieldBuilder" | "chainConfig" | "initLogging"
-> & {
-  default: () => Promise<unknown>;
-};
+  "ShieldBuilder" | "chainConfig"
+>;
 
 const railgunAddressPattern = /^0zk[A-Za-z0-9]{16,}$/;
 
-const loadKohakuShieldModule = (): Promise<KohakuShieldModule> =>
-  import(
-    "../../node_modules/@kohaku-eth/railgun/dist/pkg/index.js"
-  ) as Promise<KohakuShieldModule>;
+const loadKohakuShieldModule = ({
+  debugLogging
+}: {
+  debugLogging: boolean;
+}): Promise<KohakuShieldModule> =>
+  loadKohakuRailgunBrowserModule({
+    logLevel: debugLogging ? "Debug" : "Warn"
+  });
 
 const withKohakuWasmTrapContext = async <T>(
   operation: string,
@@ -231,11 +234,10 @@ export const prepareNativeEthShieldCalls = async ({
     throw new Error("Shield amount must be greater than zero.");
   }
 
-  const kohaku = await loadKohakuShieldModule();
-  await withKohakuWasmTrapContext("preparing the native ETH shield transaction", async () => {
-    await kohaku.default();
-    kohaku.initLogging(debugLogging ? "Debug" : "Warn");
-  });
+  const kohaku = await withKohakuWasmTrapContext(
+    "initializing Kohaku RAILGUN for native ETH shielding",
+    () => loadKohakuShieldModule({ debugLogging })
+  );
 
   const chain = await withKohakuWasmTrapContext(
     `loading the Kohaku RAILGUN shield chain config for chain ID ${chainId}`,
