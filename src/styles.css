@@ -650,6 +650,54 @@ button:disabled {
   font-size: 0.86rem;
 }
 
+.pwa-prompt {
+  position: sticky;
+  bottom: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-raised) 94%, transparent);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.28);
+}
+
+.pwa-prompt-copy,
+.pwa-prompt-actions {
+  display: flex;
+  align-items: center;
+}
+
+.pwa-prompt-copy {
+  min-width: 0;
+  gap: 10px;
+}
+
+.pwa-prompt-copy div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.pwa-prompt-copy strong,
+.pwa-prompt-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pwa-prompt-copy span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.pwa-prompt-actions {
+  gap: 8px;
+}
+
 @media (max-width: 860px) {
   .app-shell {
     grid-template-columns: minmax(320px, 430px);
@@ -692,5 +740,13 @@ button:disabled {
 
   .onboarding-status {
     grid-template-columns: 1fr;
+  }
+
+  .pwa-prompt {
+    grid-template-columns: 1fr;
+  }
+
+  .pwa-prompt-actions {
+    justify-content: space-between;
   }
 }

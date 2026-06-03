@@ -49,6 +49,7 @@ Current stack:
 - Vite, React, TypeScript.
 - RAILGUN Wallet SDK, loaded behind an explicit connection flow.
 - GitHub Pages from `main:/docs`.
+- Manual PWA manifest and service worker from `public/`.
 - Custom domain: `bindle.me`.
 - Default theme: dark black/red paisley, with black/white and black/blue
   palettes plus light/dark modes.
@@ -61,8 +62,11 @@ Important directories:
 - `src/intents/`: local recipient route classification.
 - `src/theme/`: theme selection data.
 - `public/`: static files copied into builds, including `CNAME`.
+- `public/manifest.webmanifest`, `public/service-worker.js`, and
+  `public/icons/`: PWA installability assets.
 - `docs/`: committed production build served by GitHub Pages.
 - `dist/`: local build output; ignored by git.
+- `scripts/generate-pwa-icons.mjs`: dependency-free PWA icon generator.
 
 ## Product And Privacy Rules
 
@@ -107,9 +111,16 @@ Build and typecheck:
 npm run build
 ```
 
+Regenerate PWA icons:
+
+```bash
+npm run icons
+```
+
 Update GitHub Pages output after source changes:
 
 ```bash
+npm run icons
 npm run build
 rm -rf docs/assets
 cp -R dist/. docs/
@@ -143,6 +154,9 @@ avoids requiring GitHub workflow scope.
 - Use lucide icons for UI controls when an icon exists.
 - Do not add decorative UI that undermines the app's utilitarian wallet flow.
 - Do not use long-lived hidden endpoints or analytics scripts.
+- The service worker should only cache same-origin GET requests. Keep navigation
+  network-first and do not cache wallet RPC, broadcaster, provider resolver, or
+  other sensitive POST traffic.
 
 ## Known Issues And Pitfalls
 
@@ -163,6 +177,8 @@ avoids requiring GitHub workflow scope.
 - Pushing workflow files requires GitHub `workflow` scope. This repo currently
   avoids Actions-based Pages deployment.
 - `git` commands that write `.git` metadata may require sandbox escalation here.
+- PWA installability depends on `manifest.webmanifest`, 192x192 and 512x512 PNG
+  icons, and a service worker with a fetch handler.
 
 ## Current Missing Product Work
 

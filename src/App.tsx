@@ -3,6 +3,7 @@ import { ActivityFeed } from "./components/ActivityFeed";
 import { BalancePanel } from "./components/BalancePanel";
 import { EthOnboarding } from "./components/EthOnboarding";
 import { PrivacySwitchboard } from "./components/PrivacySwitchboard";
+import { PwaInstallPrompt } from "./components/PwaInstallPrompt";
 import { SendComposer } from "./components/SendComposer";
 import { ThemeControls } from "./components/ThemeControls";
 import { defaultConnectionPolicy, type ConnectionPolicy } from "./privacy/connectionPolicy";
@@ -87,6 +88,8 @@ function App() {
         />
 
         <ActivityFeed items={[]} />
+
+        <PwaInstallPrompt />
       </section>
 
       <aside className="desktop-rail">
