@@ -10,7 +10,11 @@ import { SettingsPanel } from "./components/SettingsPanel";
 import { UnshieldedBalanceBanner } from "./components/UnshieldedBalanceBanner";
 import { WalletActionPanel } from "./components/WalletActionPanel";
 import { routeIntent, type IntentDraft, type RoutedIntent } from "./intents/router";
-import { defaultConnectionPolicy, type ConnectionPolicy } from "./privacy/connectionPolicy";
+import type { ConnectionPolicy } from "./privacy/connectionPolicy";
+import {
+  loadConnectionPolicy,
+  saveConnectionPolicy
+} from "./privacy/connectionPolicyState";
 import { buildEndpointDisclosure } from "./privacy/preflightDisclosure";
 import {
   startPrivacyToolkit,
@@ -48,7 +52,9 @@ function App() {
   const [routedIntent, setRoutedIntent] = useState<RoutedIntent>(() =>
     routeIntent(initialDraft)
   );
-  const [policy, setPolicy] = useState<ConnectionPolicy>(defaultConnectionPolicy);
+  const [policy, setPolicy] = useState<ConnectionPolicy>(() =>
+    loadConnectionPolicy()
+  );
   const [toolkitState, setToolkitState] = useState<PrivacyToolkitState>("idle");
   const [toolkitHandle, setToolkitHandle] =
     useState<PrivacyToolkitHandle | null>(null);
@@ -77,6 +83,7 @@ function App() {
   const hasSmartWallet = walletState.smartWalletAddress !== null;
   const rpcReady = toolkitState === "ready" && policy.ethereumRpcUrl.length > 0;
   const bundlerReady = policy.bundlerUrl.trim().length > 0;
+  const rpcConfigured = policy.ethereumRpcUrl.trim().length > 0;
   const shieldConstructionReady = false;
   const canShield =
     rpcReady && walletState.smartWalletAddress !== null && shieldConstructionReady;
@@ -132,6 +139,10 @@ function App() {
     } finally {
       toolkitStartRef.current = null;
     }
+  };
+
+  const updateConnectionPolicy = (nextPolicy: ConnectionPolicy) => {
+    setPolicy(saveConnectionPolicy(nextPolicy));
   };
 
   const deriveSmartWallet = async (state = walletState) => {
@@ -298,6 +309,7 @@ function App() {
                 routedIntent={routedIntent}
                 hasRailgunWallet={hasRailgunWallet}
                 hasSmartWallet={hasSmartWallet}
+                rpcConfigured={rpcConfigured}
                 rpcReady={rpcReady}
                 bundlerReady={bundlerReady}
                 walletState={walletState}
@@ -307,6 +319,8 @@ function App() {
                 smartPaymentStatus={smartPaymentStatus}
                 endpointDisclosures={sendEndpointDisclosure}
                 onCreatePasskey={() => void createPasskeyWallet()}
+                onDeriveSmartWallet={() => void deriveSmartWallet()}
+                onOpenConnections={() => setActiveTab("nodes")}
                 onSubmitSmartPayment={() => void submitSmartPayment()}
                 onDraftChange={setDraft}
                 onRouteChange={setRoutedIntent}
@@ -324,7 +338,7 @@ function App() {
             statusMessage={statusMessage}
             isStarting={toolkitState === "starting"}
             onConnect={startToolkit}
-            onChange={setPolicy}
+            onChange={updateConnectionPolicy}
           />
         ) : null}
 

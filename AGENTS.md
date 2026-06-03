@@ -241,6 +241,9 @@ avoids requiring GitHub workflow scope.
 - `ConnectionPolicy` includes explicit empty/off fields for ERC-4337 bundler,
   paymaster, passkey attestation, and wallet recovery. Do not add defaults for
   these endpoints.
+- Explicit connection settings are persisted in
+  `src/privacy/connectionPolicyState.ts`. This is a local operator convenience,
+  not permission to add default RPC/bundler/paymaster URLs.
 - `@railgun-community/wallet@10.8.6` requires `ethers@6.14.3`; newer ethers
   versions conflict with the peer dependency.
 - The RAILGUN SDK bundle is large. It is intentionally lazy-loaded behind

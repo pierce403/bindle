@@ -36,6 +36,10 @@ or default Waku connection.
       funding address derivation on Ethereum mainnet.
 - [x] Add public ETH smart-wallet payment submission through explicit
       RPC/bundler endpoints with optional configured paymaster.
+- [x] Add a Receive Public funding flow that can create and copy the real
+      smart-wallet funding address.
+- [x] Persist explicit user/operator endpoint settings locally without adding
+      default hosted endpoints.
 - [x] Validate decimal ETH amount as greater than zero.
 - [x] Validate recipient shape for `0zk`, `0x`, and `.eth`.
 - [x] Add tests that fail if default `ConnectionPolicy` grows a hosted endpoint.

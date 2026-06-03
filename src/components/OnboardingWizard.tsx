@@ -6,6 +6,7 @@ import {
   PlugZap,
   ShieldCheck
 } from "lucide-react";
+import { useState } from "react";
 import type { ConnectionPolicy } from "../privacy/connectionPolicy";
 import type { PrivacyToolkitState } from "../privacy/toolkit";
 import type { PasskeyCapability } from "../wallet/passkeys";
@@ -66,6 +67,7 @@ export function OnboardingWizard({
   onOpenConnections,
   onStartToolkit
 }: OnboardingWizardProps) {
+  const [copiedFundingAddress, setCopiedFundingAddress] = useState(false);
   const passkeyDone = walletState.passkeyPresent;
   const fundingCredentialReady =
     walletState.passkeyCredentialId !== null && walletState.passkeyPublicKey !== null;
@@ -154,6 +156,14 @@ export function OnboardingWizard({
       : currentStep === "shielded" && toolkitReady
         ? "Public smart wallet is ready; shielded RAILGUN address creation is still pending."
         : statusMessage || steps.find((step) => step.id === currentStep)?.detail;
+  const copyFundingAddress = async () => {
+    if (!walletState.smartWalletAddress) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(walletState.smartWalletAddress);
+    setCopiedFundingAddress(true);
+  };
 
   return (
     <section
@@ -226,15 +236,31 @@ export function OnboardingWizard({
       ) : null}
 
       {currentStep === "toolkit" ? (
-        <button
-          className="primary-action wide"
-          type="button"
-          disabled={!canStartToolkit}
-          onClick={onStartToolkit}
-        >
-          <ShieldCheck size={18} aria-hidden="true" />
-          {toolkitState === "starting" ? "Starting toolkit" : "Start toolkit"}
-        </button>
+        <>
+          {walletState.smartWalletAddress ? (
+            <div className="funding-card" aria-label="Funding address">
+              <span>Fund this address with mainnet ETH</span>
+              <strong>{walletState.smartWalletAddress}</strong>
+              <button
+                className="secondary-action wide"
+                type="button"
+                onClick={() => void copyFundingAddress()}
+              >
+                <LockKeyhole size={18} aria-hidden="true" />
+                {copiedFundingAddress ? "Copied" : "Copy funding address"}
+              </button>
+            </div>
+          ) : null}
+          <button
+            className="primary-action wide"
+            type="button"
+            disabled={!canStartToolkit}
+            onClick={onStartToolkit}
+          >
+            <ShieldCheck size={18} aria-hidden="true" />
+            {toolkitState === "starting" ? "Starting toolkit" : "Start toolkit"}
+          </button>
+        </>
       ) : null}
 
       {currentStep === "shielded" ? (

@@ -116,10 +116,31 @@ test.describe("passkey-first onboarding", () => {
       await expect(page.getByText("funding passkey enrolled")).toBeVisible();
       await expect(page.getByRole("button", { name: "Open Connections" })).toBeVisible();
       await expect(page.getByText("Smart-wallet address pending")).toBeVisible();
+      await page.getByRole("button", { name: "Receive" }).click();
+      await page.getByRole("button", { name: "Public" }).click();
+      await expect(page.getByRole("button", { name: "Configure RPC" })).toBeVisible();
       await expect(page.getByText(/0x[0-9a-fA-F]{40}/)).toHaveCount(0);
       await expect(page.getByText(/0zk[A-Za-z0-9]{16,}/)).toHaveCount(0);
     }
   );
+
+  test("persists explicit connection settings locally", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Nodes" }).click();
+    await page.getByLabel("Ethereum RPC").fill("http://127.0.0.1:8545");
+    await page.getByLabel("ERC-4337 bundler").fill("http://127.0.0.1:4337");
+
+    await page.reload();
+    await page.getByRole("button", { name: "Nodes" }).click();
+
+    await expect(page.getByLabel("Ethereum RPC")).toHaveValue(
+      "http://127.0.0.1:8545"
+    );
+    await expect(page.getByLabel("ERC-4337 bundler")).toHaveValue(
+      "http://127.0.0.1:4337"
+    );
+    await expect(page.getByLabel("Paymaster")).toHaveValue("");
+  });
 
   test.fixme(
     "reviews a real public ETH shield sweep into the RAILGUN shielded area",

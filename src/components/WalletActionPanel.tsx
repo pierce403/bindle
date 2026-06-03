@@ -24,6 +24,7 @@ type WalletActionPanelProps = {
   routedIntent: RoutedIntent;
   hasRailgunWallet: boolean;
   hasSmartWallet: boolean;
+  rpcConfigured: boolean;
   rpcReady: boolean;
   bundlerReady: boolean;
   walletState: WalletState;
@@ -33,6 +34,8 @@ type WalletActionPanelProps = {
   smartPaymentStatus: string;
   endpointDisclosures: EndpointDisclosure[];
   onCreatePasskey: () => void;
+  onDeriveSmartWallet: () => void;
+  onOpenConnections: () => void;
   onSubmitSmartPayment: () => void;
   onDraftChange: (draft: IntentDraft) => void;
   onRouteChange: (intent: RoutedIntent) => void;
@@ -44,6 +47,7 @@ export function WalletActionPanel({
   routedIntent,
   hasRailgunWallet,
   hasSmartWallet,
+  rpcConfigured,
   rpcReady,
   bundlerReady,
   walletState,
@@ -53,6 +57,8 @@ export function WalletActionPanel({
   smartPaymentStatus,
   endpointDisclosures,
   onCreatePasskey,
+  onDeriveSmartWallet,
+  onOpenConnections,
   onSubmitSmartPayment,
   onDraftChange,
   onRouteChange
@@ -89,6 +95,10 @@ export function WalletActionPanel({
     passkeyCapability.available &&
     (!walletState.passkeyPresent || !walletState.passkeyPublicKey) &&
     !isCreatingPasskey;
+  const canCreateFundingAddress =
+    walletState.passkeyPublicKey !== null &&
+    rpcConfigured &&
+    !walletState.smartWalletAddress;
 
   const updateDraft = (nextDraft: IntentDraft) => {
     setReviewingPayment(false);
@@ -175,16 +185,22 @@ export function WalletActionPanel({
             <LockKeyhole size={22} aria-hidden="true" />
             <strong>
               {walletState.smartWalletAddress
-                ? "Smart-wallet address ready"
+                ? "Funding address ready"
+                : walletState.passkeyPublicKey
+                  ? "Funding address pending"
                 : walletState.passkeyPresent
-                  ? "Public smart-wallet address pending"
+                  ? "Funding passkey needed"
                   : "No public smart wallet yet"}
             </strong>
             <span>
               {walletState.smartWalletAddress
                 ? walletState.smartWalletAddress
+                : walletState.passkeyPublicKey
+                  ? rpcConfigured
+                    ? "Create the funding address, then send ETH to it from another wallet."
+                    : "Configure Ethereum RPC to create the funding address."
                 : walletState.passkeyPresent
-                  ? "Create the funding address from the setup wizard after RPC is configured."
+                  ? "Create a funding passkey to derive a public smart-wallet address."
                   : "Create the passkey-backed smart wallet before receiving public ETH."}
             </span>
             {walletState.smartWalletAddress ? (
@@ -195,6 +211,24 @@ export function WalletActionPanel({
               >
                 <Copy size={18} aria-hidden="true" />
                 Copy address
+              </button>
+            ) : canCreateFundingAddress ? (
+              <button
+                className="primary-action wide"
+                type="button"
+                onClick={onDeriveSmartWallet}
+              >
+                <LockKeyhole size={18} aria-hidden="true" />
+                Create funding address
+              </button>
+            ) : walletState.passkeyPublicKey ? (
+              <button
+                className="secondary-action wide"
+                type="button"
+                onClick={onOpenConnections}
+              >
+                <LockKeyhole size={18} aria-hidden="true" />
+                Configure RPC
               </button>
             ) : null}
           </div>

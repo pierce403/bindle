@@ -26,6 +26,8 @@ not the default first-run experience.
 - Viem Coinbase Smart Wallet adapter for passkey-backed ERC-4337 funding
   addresses and public ETH user operations through explicit RPC/bundler
   endpoints.
+- Receive Public gives a direct funding-address path: configure RPC, create
+  the funding address, then copy it for mainnet ETH deposits.
 - Passkey enrollment stores non-secret credential id and public P-256 metadata;
   WebAuthn private material stays inside the platform authenticator.
 - Send Review stays disabled until wallet, toolkit, RPC, recipient, amount, and
@@ -33,6 +35,8 @@ not the default first-run experience.
 - Local intent routing for `0zk`, `0x`, `.eth`, and `@provider` style recipients.
 - No default public RPC, quote, provider-resolution, broadcaster, bundler,
   paymaster, passkey attestation, recovery, or Waku endpoint.
+- Explicit endpoint settings are persisted locally in the browser after the user
+  enters them, so reloads do not silently remove configured RPC/bundler fields.
 - Default dark black/red paisley theme, with black/white and black/blue variants plus light and dark modes.
 
 ## Product Rules
