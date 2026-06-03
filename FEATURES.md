@@ -38,6 +38,8 @@ infrastructure.
       RPC/bundler endpoints with optional configured paymaster.
 - [x] Add a Receive Public funding flow that can create and copy the real
       smart-wallet funding address.
+- [x] Add explicit public ETH balance sync for the smart-wallet funding address
+      through the selected visible Ethereum RPC.
 - [x] Add visible endpoint presets for Bindle default, Privacy max, Custom, and
       Local dev.
 - [x] Persist explicit user/operator endpoint settings locally while preserving
@@ -60,7 +62,6 @@ infrastructure.
       currently support.
 - [ ] Add a Kohaku-compatible browser smart-account adapter once `pq-account` or
       equivalent passkey ERC-4337 address derivation is available.
-- [ ] Add real balance sync for the public smart-wallet funding address.
 - [ ] Show the real `0zk` address in Receive and Balance once created/imported.
 
 ## Privacy And Connectivity

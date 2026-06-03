@@ -159,6 +159,71 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByLabel("ERC-4337 paymaster")).toHaveValue("");
   });
 
+  test("syncs the public funding balance through the visible RPC", async ({
+    page
+  }) => {
+    await page.route("https://ethereum-rpc.publicnode.com/**", async (route) => {
+      const payload = JSON.parse(route.request().postData() ?? "{}") as
+        | { id: number; method: string }
+        | Array<{ id: number; method: string }>;
+      const requests = Array.isArray(payload) ? payload : [payload];
+      const responses = requests.map((request) => {
+        const result =
+          request.method === "eth_chainId"
+            ? "0x1"
+            : request.method === "eth_getBalance"
+              ? "0xde0b6b3a7640000"
+              : request.method === "eth_blockNumber"
+                ? "0x100"
+                : null;
+
+        return {
+          jsonrpc: "2.0",
+          id: request.id,
+          result
+        };
+      });
+
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(Array.isArray(payload) ? responses : responses[0])
+      });
+    });
+
+    await page.addInitScript((address) => {
+      window.localStorage.setItem(
+        "bindle.wallet.metadata.v1",
+        JSON.stringify({
+          status: "smart-wallet-planned",
+          smartWalletAddress: address,
+          railgunAddress: null,
+          passkeyPresent: true,
+          mnemonicPresent: false,
+          createdAt: "2026-06-03T00:00:00.000Z",
+          lastError: null,
+          custodyModel: "passkey-4337",
+          passkeyCredentialId: "test-passkey",
+          passkeyPublicKey: "0x04"
+        })
+      );
+    }, publicRecipient);
+
+    await page.goto("/");
+
+    await expect(page.getByRole("heading", { name: "-- ETH" })).toBeVisible();
+    await expect(page.getByLabel("Unshielded ETH balance")).toContainText(
+      "Sync may contact Ethereum RPC (default: https://ethereum-rpc.publicnode.com)"
+    );
+
+    await page.getByRole("button", { name: "Sync" }).click();
+
+    await expect(page.getByRole("heading", { name: "1 ETH" })).toBeVisible();
+    await expect(page.getByLabel("Unshielded ETH balance")).toContainText(
+      "1 ETH"
+    );
+    await expect(page.getByText("public synced at block 256")).toBeVisible();
+  });
+
   test.fixme(
     "reviews a real public ETH shield sweep into the RAILGUN shielded area",
     async ({ page }) => {

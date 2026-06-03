@@ -9,6 +9,7 @@ export type IntendedWalletAction =
   | "start-toolkit"
   | "passkey-enroll"
   | "create-smart-wallet"
+  | "public-balance-sync"
   | "send-review"
   | "public-smart-payment"
   | "private-send"
@@ -45,6 +46,11 @@ const actionEndpointRequirements: Record<
     "erc4337-bundler": "possible",
     "erc4337-paymaster": "possible",
     "passkey-attestation": "possible"
+  },
+  "public-balance-sync": {
+    "ethereum-rpc": "required",
+    "helios-consensus-rpc": "possible",
+    "helios-checkpoint": "possible"
   },
   "send-review": {
     "ethereum-rpc": "required",

@@ -752,6 +752,14 @@ button:disabled {
   color: color-mix(in srgb, var(--text) 68%, transparent);
 }
 
+.unshielded-copy small {
+  display: block;
+  color: color-mix(in srgb, var(--text) 48%, transparent);
+  font-size: 0.72rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
 .shield-button {
   min-height: 48px;
   border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--border));

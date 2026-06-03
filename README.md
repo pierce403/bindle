@@ -29,6 +29,8 @@ not the default first-run experience.
   endpoints.
 - Receive Public gives a direct funding-address path: configure RPC, create
   the funding address, then copy it for mainnet ETH deposits.
+- Public funding balance sync is explicit: the user taps Sync after seeing the
+  Ethereum RPC endpoint that may receive the public smart-wallet address.
 - Passkey enrollment stores non-secret credential id and public P-256 metadata;
   WebAuthn private material stays inside the platform authenticator.
 - Send Review stays disabled until wallet, toolkit, RPC, recipient, amount, and
@@ -115,8 +117,10 @@ bundler, paymaster, attestation, or recovery service exposed through
 The current app can enroll a browser passkey, derive a counterfactual Coinbase
 Smart Wallet funding address with the visible Ethereum mainnet RPC, and submit
 public ETH user operations through the visible ERC-4337 bundler.
-Paymaster support is optional and only used when configured. Shielded RAILGUN
-address creation and private RAILGUN sends remain pending.
+It can also explicitly sync the public ETH balance for that funding address
+through the visible RPC after disclosing the endpoint. Paymaster support is
+optional and only used when configured. Shielded RAILGUN address creation,
+shielding, shielded balance sync, and private RAILGUN sends remain pending.
 
 ## RAILGUN Integration Notes
 

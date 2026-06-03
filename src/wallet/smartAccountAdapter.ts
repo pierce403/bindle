@@ -1,5 +1,4 @@
-import { createPublicClient, http, isAddress, parseEther, type Address } from "viem";
-import { mainnet } from "viem/chains";
+import { http, isAddress, parseEther, type Address } from "viem";
 import {
   createBundlerClient,
   createPaymasterClient,
@@ -7,6 +6,7 @@ import {
   toWebAuthnAccount
 } from "viem/account-abstraction";
 import type { ConnectionPolicy } from "../privacy/connectionPolicy";
+import { createVisibleMainnetClient } from "./mainnetClient";
 import type { WalletState } from "./walletState";
 
 export type SmartAccountAdapterStatus = {
@@ -44,30 +44,6 @@ export const viemCoinbaseSmartAccountSupport: SmartAccountAdapterStatus = {
     "Viem supports WebAuthn owners for Coinbase Smart Wallet accounts and can derive a counterfactual ERC-4337 funding address from explicit RPC configuration."
 };
 
-const createExplicitMainnetClient = async (policy: ConnectionPolicy) => {
-  const ethereumRpcUrl = policy.ethereumRpcUrl.trim();
-
-  if (!ethereumRpcUrl) {
-    throw new Error(
-      "Configure an Ethereum mainnet RPC before creating the funding address."
-    );
-  }
-
-  const client = createPublicClient({
-    chain: mainnet,
-    transport: http(ethereumRpcUrl)
-  });
-  const chainId = await client.getChainId();
-
-  if (chainId !== mainnet.id) {
-    throw new Error(
-      `Configured RPC is chain ${chainId}; Bindle expects Ethereum mainnet.`
-    );
-  }
-
-  return client;
-};
-
 const getFundingCredential = (walletState: WalletState) => {
   if (!walletState.passkeyCredentialId || !walletState.passkeyPublicKey) {
     throw new Error(
@@ -85,7 +61,7 @@ const createSmartAccount = async (
   policy: ConnectionPolicy,
   walletState: WalletState
 ) => {
-  const client = await createExplicitMainnetClient(policy);
+  const client = await createVisibleMainnetClient(policy);
   const owner = toWebAuthnAccount({
     credential: getFundingCredential(walletState)
   });
@@ -131,7 +107,7 @@ const resolveRecipient = async (
   }
 
   if (normalized.toLowerCase().endsWith(".eth")) {
-    const client = await createExplicitMainnetClient(policy);
+    const client = await createVisibleMainnetClient(policy);
     const address = await client.getEnsAddress({ name: normalized });
 
     if (!address) {

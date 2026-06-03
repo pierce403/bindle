@@ -130,3 +130,30 @@ test("start toolkit preflight includes direct and Helios endpoint classes", () =
     ])
   );
 });
+
+test("public balance sync preflight discloses the selected RPC", () => {
+  const disclosure = buildEndpointDisclosure(
+    defaultConnectionPolicy,
+    "public-balance-sync"
+  );
+
+  expect(disclosure).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: "ethereum-rpc",
+        configured: true,
+        required: true,
+        source: "default",
+        value: endpointPresets["bindle-default"].policy.ethereumRpcUrl
+      }),
+      expect.objectContaining({
+        id: "helios-consensus-rpc",
+        required: false
+      }),
+      expect.objectContaining({
+        id: "helios-checkpoint",
+        required: false
+      })
+    ])
+  );
+});

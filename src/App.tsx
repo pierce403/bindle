@@ -27,6 +27,10 @@ import {
   sendSmartWalletEthPayment
 } from "./wallet/smartAccountAdapter";
 import {
+  fetchPublicEthBalance,
+  type PublicEthBalance
+} from "./wallet/publicBalance";
+import {
   detectPasskeyCapability,
   createBindlePasskeyCredential,
   type PasskeyCapability
@@ -45,6 +49,49 @@ const initialDraft: IntentDraft = {
   amount: "",
   asset: "ETH",
   note: ""
+};
+
+type PublicBalanceState =
+  | { status: "missing-wallet" | "missing-rpc" | "idle" | "syncing" }
+  | { status: "ready"; balance: PublicEthBalance }
+  | { status: "error"; message: string };
+
+const initialPublicBalanceState = (): PublicBalanceState =>
+  loadWalletState().smartWalletAddress
+    ? { status: "idle" }
+    : { status: "missing-wallet" };
+
+const publicBalanceText = (state: PublicBalanceState): string | null => {
+  switch (state.status) {
+    case "ready":
+      return state.balance.formatted;
+    case "syncing":
+      return "syncing";
+    case "error":
+      return "sync failed";
+    case "missing-rpc":
+      return "RPC required";
+    case "missing-wallet":
+    case "idle":
+      return null;
+  }
+};
+
+const publicBalanceNetworkStatus = (state: PublicBalanceState): string => {
+  switch (state.status) {
+    case "ready":
+      return `public synced at block ${state.balance.blockNumber.toString()}`;
+    case "syncing":
+      return "syncing public ETH";
+    case "error":
+      return "public sync failed";
+    case "missing-rpc":
+      return "RPC required";
+    case "missing-wallet":
+      return "funding wallet pending";
+    case "idle":
+      return "public balance not synced";
+  }
 };
 
 function App() {
@@ -79,6 +126,10 @@ function App() {
   const [isDerivingSmartWallet, setIsDerivingSmartWallet] = useState(false);
   const [isSubmittingSmartPayment, setIsSubmittingSmartPayment] = useState(false);
   const [smartPaymentStatus, setSmartPaymentStatus] = useState("");
+  const [publicBalance, setPublicBalance] = useState<PublicBalanceState>(
+    initialPublicBalanceState
+  );
+  const publicBalanceRequestRef = useRef(0);
   const hasRailgunWallet = walletState.railgunAddress !== null;
   const hasSmartWallet = walletState.smartWalletAddress !== null;
   const rpcReady = toolkitState === "ready" && policy.ethereumRpcUrl.length > 0;
@@ -99,6 +150,26 @@ function App() {
     policy,
     hasSmartWallet && !hasRailgunWallet ? "public-smart-payment" : "send-review"
   );
+  const publicBalanceDisclosure = buildEndpointDisclosure(
+    policy,
+    "public-balance-sync"
+  );
+  const publicBalanceEndpointSummary = publicBalanceDisclosure
+    .filter((endpoint) => endpoint.configured || endpoint.required)
+    .map((endpoint) =>
+      endpoint.configured
+        ? `${endpoint.label} (${endpoint.source}: ${endpoint.value})`
+        : `${endpoint.label} (${endpoint.required ? "required, off" : "off"})`
+    )
+    .join(", ");
+  const knownPublicBalance = publicBalanceText(publicBalance);
+  const balanceLabel =
+    publicBalance.status === "ready" && !hasRailgunWallet ? "Known ETH" : "Total ETH";
+  const shieldedStatus = hasRailgunWallet ? "not synced" : "0zk pending";
+  const canSyncPublicBalance =
+    walletState.smartWalletAddress !== null &&
+    rpcConfigured &&
+    publicBalance.status !== "syncing";
 
   useEffect(() => {
     let cancelled = false;
@@ -113,6 +184,20 @@ function App() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!walletState.smartWalletAddress) {
+      setPublicBalance({ status: "missing-wallet" });
+      return;
+    }
+
+    if (!policy.ethereumRpcUrl.trim()) {
+      setPublicBalance({ status: "missing-rpc" });
+      return;
+    }
+
+    setPublicBalance({ status: "idle" });
+  }, [walletState.smartWalletAddress, policy.ethereumRpcUrl, policy.providerMode]);
 
   const startToolkit = async () => {
     if (toolkitStartRef.current || toolkitState === "starting") {
@@ -143,6 +228,43 @@ function App() {
 
   const updateConnectionPolicy = (nextPolicy: ConnectionPolicy) => {
     setPolicy(saveConnectionPolicy(nextPolicy));
+  };
+
+  const syncPublicBalance = async () => {
+    const smartWalletAddress = walletState.smartWalletAddress;
+
+    if (!smartWalletAddress) {
+      setPublicBalance({ status: "missing-wallet" });
+      return;
+    }
+
+    if (!policy.ethereumRpcUrl.trim()) {
+      setPublicBalance({ status: "missing-rpc" });
+      return;
+    }
+
+    const requestId = publicBalanceRequestRef.current + 1;
+    publicBalanceRequestRef.current = requestId;
+    setPublicBalance({ status: "syncing" });
+    setStatusMessage("Syncing public ETH balance");
+
+    try {
+      const balance = await fetchPublicEthBalance(policy, smartWalletAddress);
+
+      if (publicBalanceRequestRef.current === requestId) {
+        setPublicBalance({ status: "ready", balance });
+        setStatusMessage(
+          `Public ETH balance synced at block ${balance.blockNumber.toString()}`
+        );
+      }
+    } catch (error) {
+      if (publicBalanceRequestRef.current === requestId) {
+        const message =
+          error instanceof Error ? error.message : "Unable to sync public balance";
+        setPublicBalance({ status: "error", message });
+        setStatusMessage(message);
+      }
+    }
   };
 
   const deriveSmartWallet = async (state = walletState) => {
@@ -288,9 +410,10 @@ function App() {
             ) : null}
 
             <BalancePanel
-              totalBalance={null}
-              fiatValue={null}
-              shieldedBalance={null}
+              totalBalance={knownPublicBalance}
+              balanceLabel={balanceLabel}
+              networkStatus={publicBalanceNetworkStatus(publicBalance)}
+              shieldedStatus={shieldedStatus}
               networkLabel="Ethereum mainnet"
               smartWalletAddress={walletState.smartWalletAddress}
               smartWalletStatus={smartWalletStatus}
@@ -300,7 +423,16 @@ function App() {
               onActionChange={setActiveAction}
             />
 
-            <UnshieldedBalanceBanner balance={null} canShield={canShield} />
+            <UnshieldedBalanceBanner
+              balance={knownPublicBalance}
+              canShield={canShield}
+              canSync={canSyncPublicBalance}
+              isSyncing={publicBalance.status === "syncing"}
+              syncDisclosure={
+                canSyncPublicBalance ? publicBalanceEndpointSummary : null
+              }
+              onSync={() => void syncPublicBalance()}
+            />
 
             {activeAction ? (
               <WalletActionPanel

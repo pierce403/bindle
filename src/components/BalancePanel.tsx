@@ -10,8 +10,9 @@ export type WalletAction = "receive" | "send" | "pay" | "swap";
 
 type BalancePanelProps = {
   totalBalance: string | null;
-  fiatValue: string | null;
-  shieldedBalance: string | null;
+  balanceLabel: string;
+  networkStatus: string | null;
+  shieldedStatus: string;
   networkLabel: string;
   smartWalletAddress: string | null;
   smartWalletStatus: string;
@@ -35,8 +36,9 @@ const walletActions: Array<{
 
 export function BalancePanel({
   totalBalance,
-  fiatValue,
-  shieldedBalance,
+  balanceLabel,
+  networkStatus,
+  shieldedStatus,
   networkLabel,
   smartWalletAddress,
   smartWalletStatus,
@@ -83,17 +85,17 @@ export function BalancePanel({
       </div>
 
       <div className="balance-display">
-        <span>Total ETH</span>
+        <span>{balanceLabel}</span>
         <h1 id="balance-heading">{totalBalance ?? "-- ETH"}</h1>
         <div className="network-pill">
-          <span>{fiatValue ?? "not synced"}</span>
+          <span>{networkStatus ?? "not synced"}</span>
           <strong>{networkLabel}</strong>
         </div>
       </div>
 
       <div className="balance-meta">
         <span>Shielded with RAILGUN</span>
-        <strong>{shieldedBalance ?? "not synced"}</strong>
+        <strong>{shieldedStatus}</strong>
       </div>
 
       <div className="wallet-action-grid" aria-label="Wallet actions">

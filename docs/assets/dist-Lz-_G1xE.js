@@ -1,0 +1,1 @@
+import{g as e}from"./index-Css8tDMf.js";var t,n=e((()=>{t=globalThis||self}));export{n,t};

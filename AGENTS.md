@@ -240,6 +240,11 @@ avoids requiring GitHub workflow scope.
   user operations through explicit RPC/bundler endpoints. Kohaku's upstream
   `pq-account` source is still not published as an npm package or wired as the
   default adapter.
+- Public smart-wallet funding balance sync lives in `src/wallet/publicBalance.ts`
+  and uses `src/wallet/mainnetClient.ts` so it can only call the visible
+  Ethereum mainnet RPC from `ConnectionPolicy`. Keep this behind an explicit
+  user Sync action because `eth_getBalance` leaks the public funding address to
+  the selected RPC.
 - First-run setup is surfaced through `src/components/OnboardingWizard.tsx`.
   Keep new wallet prerequisites in that state-driven flow so users are not
   forced to discover setup steps by opening Receive or Connections manually.
