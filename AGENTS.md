@@ -121,38 +121,46 @@ explicit, inspectable endpoints rather than hidden defaults.
 Install dependencies:
 
 ```bash
-npm install
+corepack enable
+pnpm install
 ```
 
 Run local dev server:
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
-Build and typecheck:
+Protected build and typecheck:
 
 ```bash
-npm run build
+SOCKET_SECURITY_API_TOKEN=... pnpm build
+pnpm typecheck
+```
+
+Local app-only build when Socket is unavailable:
+
+```bash
+pnpm build:app
 ```
 
 Run browser onboarding tests:
 
 ```bash
-npm run test:e2e
+pnpm test:e2e
 ```
 
 Regenerate PWA icons:
 
 ```bash
-npm run icons
+pnpm icons
 ```
 
 Update GitHub Pages output after source changes:
 
 ```bash
-npm run icons
-npm run build
+pnpm icons
+SOCKET_SECURITY_API_TOKEN=... pnpm build
 rm -rf docs/assets
 cp -R dist/. docs/
 ```
@@ -219,11 +227,19 @@ avoids requiring GitHub workflow scope.
 - The SDK references Node built-ins in browser builds. Vite uses
   `vite-plugin-node-polyfills`, plus a local `src/shims/vm.ts` shim to avoid
   bundling `vm-browserify`'s direct `eval` path.
-- `npm audit` reports vulnerabilities through the current RAILGUN dependency
-  graph. Non-breaking `npm audit fix --omit=dev` did not resolve them. Do not
-  use `--force` without a deliberate SDK compatibility review.
-- Running `npm audit fix --omit=dev` may prune dev dependencies locally. Run
-  `npm install` afterward before building.
+- `pnpm audit` reports vulnerabilities through the current RAILGUN dependency
+  graph. Do not force automated audit fixes without a deliberate SDK
+  compatibility review.
+- Bindle is pnpm-only. `packageManager` pins pnpm, `.npmrc` enables pnpm's
+  package-manager strict mode, and `scripts/require-pnpm.mjs` blocks npm/yarn
+  installs.
+- `pnpm build` is Socket-protected: it runs `socket ci` before `build:app`.
+  `SOCKET_SECURITY_API_TOKEN` is required for that protected path. Use
+  `pnpm build:app` only for local no-network compilation.
+- `pnpm-workspace.yaml` sets `ignoreDepScripts: true` so dependency lifecycle
+  scripts do not execute during install, sets `minimumReleaseAge: 1440`, and
+  records the reviewed transitive dependency build scripts that pnpm should
+  continue to ignore.
 - The GitHub CLI snap may fail to use SSH in this environment. The remote is
   HTTPS: `https://github.com/pierce403/bindle.git`.
 - Pushing workflow files requires GitHub `workflow` scope. This repo currently
@@ -232,7 +248,7 @@ avoids requiring GitHub workflow scope.
 - PWA installability depends on `manifest.webmanifest`, 192x192 and 512x512 PNG
   icons, and a service worker with a fetch handler.
 - Bindle's logo is generated raster art based on a black/red paisley yin-yang
-  mark. The canonical source is `assets/bindle-logo-source.png`; `npm run icons`
+  mark. The canonical source is `assets/bindle-logo-source.png`; `pnpm icons`
   regenerates the public logo, favicon PNGs, and PWA icons.
 - Playwright is configured in `playwright.config.ts` and starts Vite on
   `127.0.0.1:5178`. It prefers `/usr/bin/google-chrome`, then

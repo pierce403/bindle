@@ -3,12 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.34.1",
   "description": "A privacy centric Railgun wallet interface for Ethereum.",
   "scripts": {
+    "preinstall": "node scripts/require-pnpm.mjs",
     "dev": "vite --host 127.0.0.1",
-    "build": "tsc -b && vite build",
+    "build": "pnpm run socket:ci && pnpm run build:app",
+    "build:app": "tsc -b && vite build",
     "icons": "node scripts/generate-pwa-icons.mjs",
     "preview": "vite preview --host 127.0.0.1",
+    "socket:ci": "socket ci",
     "test:e2e": "playwright test",
     "typecheck": "tsc -b"
   },
@@ -32,6 +36,7 @@
     "@types/react-dom": "19.2.3",
     "@types/snarkjs": "0.7.9",
     "@vitejs/plugin-react": "6.0.2",
+    "socket": "1.1.112",
     "typescript": "6.0.3",
     "vite": "8.0.16",
     "vite-plugin-node-polyfills": "0.28.0"

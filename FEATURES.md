@@ -151,4 +151,5 @@ or default Waku connection.
 - [ ] Keep Kohaku versions pinned until the API stabilizes.
 - [ ] Revisit direct Kohaku WASM binding import when the package root no longer
       pulls browser-incompatible plugin dependencies.
-- [ ] Avoid `npm audit fix --force` without an SDK compatibility review.
+- [ ] Avoid forced package-manager audit fixes without an SDK compatibility
+      review.

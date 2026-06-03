@@ -1,0 +1,19 @@
+packages:
+  - "."
+
+# Hold newly published package versions before they can enter the lockfile.
+# This reduces exposure to fast-moving npm compromise windows.
+minimumReleaseAge: 1440
+ignoreDepScripts: true
+
+ignoredBuiltDependencies:
+  - "@railgun-community/wallet"
+  - blake-hash
+  - bufferutil
+  - es5-ext
+  - keccak
+  - secp256k1
+  - utf-8-validate
+  - web3
+  - web3-bzz
+  - web3-shh

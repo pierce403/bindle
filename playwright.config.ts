@@ -11,7 +11,7 @@ export default defineConfig({
   fullyParallel: true,
   reporter: process.env.CI ? "github" : "list",
   webServer: {
-    command: "npm run dev -- --port 5178",
+    command: "pnpm dev --port 5178",
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000
