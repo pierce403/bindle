@@ -24,6 +24,8 @@ Bindle is a statically hosted TypeScript wallet interface for private Ethereum p
 - No hard-coded third-party endpoints without explicit user or operator choice.
 - Empty states are allowed only when they represent the real first-run state.
 
+Feature TODOs live in [features.md](features.md).
+
 ## Development
 
 ```bash
