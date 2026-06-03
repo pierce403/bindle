@@ -72,6 +72,9 @@ infrastructure.
       every audited outbound class.
 - [x] Submit native ETH shield transactions from the passkey smart wallet using
       Kohaku shield-call data and visible ERC-4337 RPC/bundler policy.
+- [x] Prompt users to replace missing or password-era local RAILGUN key records
+      with a fresh browser-local `0zk` while preserving the passkey funding
+      wallet.
 
 ## Now
 

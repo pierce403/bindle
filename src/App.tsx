@@ -8,6 +8,7 @@ import { BrowserLandingPage } from "./components/BrowserLandingPage";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { PrivacySwitchboard } from "./components/PrivacySwitchboard";
 import { PwaInstallPrompt } from "./components/PwaInstallPrompt";
+import { RailgunKeyRecoveryPrompt } from "./components/RailgunKeyRecoveryPrompt";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { UnshieldedBalanceBanner } from "./components/UnshieldedBalanceBanner";
 import { WalletActionPanel } from "./components/WalletActionPanel";
@@ -51,6 +52,7 @@ import {
   type PasskeyCapability
 } from "./wallet/passkeys";
 import {
+  clearRailgunWalletState,
   loadWalletState,
   markPasskeyEnrolled,
   markRailgunWalletReady,
@@ -156,8 +158,15 @@ function WalletApp() {
   const [smartPaymentStatus, setSmartPaymentStatus] = useState("");
   const [isSubmittingShield, setIsSubmittingShield] = useState(false);
   const [shieldStatus, setShieldStatus] = useState("");
+  const [isReplacingRailgunWallet, setIsReplacingRailgunWallet] = useState(false);
+  const [railgunRepairStatus, setRailgunRepairStatus] = useState("");
+  const [railgunRepairPreviousAddress, setRailgunRepairPreviousAddress] =
+    useState<string | null>(null);
+  const [railgunReplacementRecoveryPhrase, setRailgunReplacementRecoveryPhrase] =
+    useState<string | null>(null);
   const [railgunStorageMode, setRailgunStorageMode] =
     useState<RailgunStorageMode>("missing");
+  const [railgunStorageChecked, setRailgunStorageChecked] = useState(false);
   const [publicBalance, setPublicBalance] = useState<PublicBalanceState>(
     initialPublicBalanceState
   );
@@ -202,6 +211,13 @@ function WalletApp() {
     walletState.railgunAddress !== null &&
     walletState.railgunKeyStore === "encrypted-local" &&
     railgunStorageMode === "browser-local";
+  const railgunRepairMode =
+    railgunStorageChecked &&
+    walletState.railgunAddress !== null &&
+    walletState.railgunKeyStore === "encrypted-local" &&
+    railgunStorageMode !== "browser-local"
+      ? railgunStorageMode
+      : null;
   const shieldedBalanceSynced = false;
   const balanceLabel = shieldedBalanceSynced ? "Total ETH" : "Known ETH";
   const shieldReadiness = assessShieldReadiness({
@@ -218,6 +234,8 @@ function WalletApp() {
     publicBalance.status === "ready"
       ? shieldReadiness.ready
         ? "Shield ready. Review amount and endpoints before signing."
+        : railgunRepairMode
+          ? "Shield blocked: replace the incompatible local 0zk wallet before shielding."
         : `Shield blocked: ${summarizeMissingRequirements(shieldReadiness)}.`
       : null;
   const shieldedStatus = !hasRailgunWallet
@@ -231,6 +249,9 @@ function WalletApp() {
     walletState.smartWalletAddress !== null &&
     rpcConfigured &&
     publicBalance.status !== "syncing";
+  const showRailgunRepairPrompt =
+    (railgunRepairMode !== null && walletState.railgunAddress !== null) ||
+    railgunReplacementRecoveryPhrase !== null;
 
   useEffect(() => {
     let cancelled = false;
@@ -265,10 +286,13 @@ function WalletApp() {
 
     if (!walletState.railgunAddress || walletState.railgunKeyStore === null) {
       setRailgunStorageMode("missing");
+      setRailgunStorageChecked(true);
       return () => {
         cancelled = true;
       };
     }
+
+    setRailgunStorageChecked(false);
 
     void getEncryptedRailgunWalletStorageMode().then((mode) => {
       if (cancelled) {
@@ -276,6 +300,7 @@ function WalletApp() {
       }
 
       setRailgunStorageMode(mode);
+      setRailgunStorageChecked(true);
 
       if (mode === "legacy-passphrase") {
         setAppNotice((currentNotice) =>
@@ -480,6 +505,8 @@ function WalletApp() {
     setIsCreatingRailgunWallet(true);
     setStatusMessage("Creating shielded RAILGUN wallet");
     setAppNotice(null);
+    setRailgunRepairPreviousAddress(null);
+    setRailgunReplacementRecoveryPhrase(null);
 
     try {
       const wallet = await createEncryptedRailgunWallet();
@@ -490,6 +517,7 @@ function WalletApp() {
       );
       setWalletState(nextState);
       setRailgunStorageMode("browser-local");
+      setRailgunStorageChecked(true);
       setStatusMessage("Shielded RAILGUN wallet created");
       return wallet.recoveryPhrase;
     } catch (error) {
@@ -527,6 +555,9 @@ function WalletApp() {
       );
       setWalletState(nextState);
       setRailgunStorageMode("browser-local");
+      setRailgunStorageChecked(true);
+      setRailgunRepairPreviousAddress(null);
+      setRailgunReplacementRecoveryPhrase(null);
       setStatusMessage("Shielded RAILGUN wallet imported");
     } catch (error) {
       const message =
@@ -537,6 +568,53 @@ function WalletApp() {
       setStatusMessage(message);
     } finally {
       setIsImportingRailgunWallet(false);
+    }
+  };
+
+  const replaceIncompatibleRailgunWallet = async () => {
+    if (!railgunRepairMode || isReplacingRailgunWallet) {
+      return;
+    }
+
+    setIsReplacingRailgunWallet(true);
+    setRailgunRepairPreviousAddress(walletState.railgunAddress);
+    setRailgunReplacementRecoveryPhrase(null);
+    setRailgunRepairStatus("Wiping incompatible local RAILGUN key record");
+    setStatusMessage("Replacing shielded RAILGUN wallet");
+    setAppNotice(null);
+
+    try {
+      await clearEncryptedRailgunWallet();
+      const clearedState = clearRailgunWalletState(walletState);
+      setWalletState(clearedState);
+      setRailgunStorageMode("missing");
+      setRailgunStorageChecked(true);
+      setRailgunRepairStatus("Generating fresh browser-local 0zk wallet");
+
+      const wallet = await createEncryptedRailgunWallet();
+      const nextState = markRailgunWalletReady(
+        clearedState,
+        wallet.railgunAddress,
+        "created"
+      );
+      setWalletState(nextState);
+      setRailgunStorageMode("browser-local");
+      setRailgunStorageChecked(true);
+      setRailgunReplacementRecoveryPhrase(wallet.recoveryPhrase);
+      setRailgunRepairStatus(
+        "New 0zk wallet ready. Save the recovery phrase before shielding."
+      );
+      setStatusMessage("New shielded RAILGUN wallet created");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unable to replace shielded RAILGUN wallet";
+      setRailgunRepairStatus(message);
+      setStatusMessage(message);
+      setWalletState(markWalletError(walletState, message));
+    } finally {
+      setIsReplacingRailgunWallet(false);
     }
   };
 
@@ -633,6 +711,10 @@ function WalletApp() {
   const resetLocalWallet = () => {
     setWalletState(resetWalletState());
     setRailgunStorageMode("missing");
+    setRailgunStorageChecked(true);
+    setRailgunRepairStatus("");
+    setRailgunRepairPreviousAddress(null);
+    setRailgunReplacementRecoveryPhrase(null);
     setStatusMessage("Local wallet metadata cleared");
     setAppNotice(null);
     void clearEncryptedRailgunWallet()
@@ -681,6 +763,24 @@ function WalletApp() {
             <strong>{appNotice.title}</strong>
             <span>{appNotice.message}</span>
           </section>
+        ) : null}
+
+        {showRailgunRepairPrompt ? (
+          <RailgunKeyRecoveryPrompt
+            mode={railgunRepairMode ?? "missing"}
+            oldRailgunAddress={
+              railgunRepairMode
+                ? walletState.railgunAddress ?? ""
+                : railgunRepairPreviousAddress ?? ""
+            }
+            replacementRailgunAddress={
+              railgunReplacementRecoveryPhrase ? walletState.railgunAddress : null
+            }
+            isReplacing={isReplacingRailgunWallet}
+            status={railgunRepairStatus}
+            replacementRecoveryPhrase={railgunReplacementRecoveryPhrase}
+            onReplace={() => void replaceIncompatibleRailgunWallet()}
+          />
         ) : null}
 
         {activeTab === "wallet" ? (

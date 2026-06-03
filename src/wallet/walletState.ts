@@ -154,6 +154,29 @@ export const resetWalletState = (): WalletState => {
   return emptyWalletState;
 };
 
+export const clearRailgunWalletState = (currentState: WalletState): WalletState => {
+  const status = currentState.smartWalletAddress
+    ? "smart-wallet-planned"
+    : currentState.passkeyPresent
+      ? "passkey-ready"
+      : "none";
+
+  return saveWalletState({
+    ...currentState,
+    status,
+    railgunAddress: null,
+    railgunKeyStore: null,
+    mnemonicPresent: false,
+    railgunWalletCreatedAt: null,
+    railgunWalletImportedAt: null,
+    lastError: null,
+    custodyModel:
+      currentState.passkeyPresent || currentState.smartWalletAddress
+        ? "passkey-4337"
+        : null
+  });
+};
+
 export const markPasskeyEnrolled = (
   currentState: WalletState,
   credential: { id: string; publicKey: `0x${string}` | null }

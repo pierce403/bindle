@@ -28,6 +28,10 @@ not the default first-run experience.
 - Encrypted local RAILGUN recovery phrase storage in IndexedDB. Bindle derives
   Kohaku RAILGUN spending/viewing keys from the phrase locally to display a
   real `0zk` address.
+- A stale `0zk` repair prompt appears when saved RAILGUN metadata points at
+  missing or password-era local key storage. It can wipe only the incompatible
+  RAILGUN local state, preserve the passkey funding wallet, and generate a new
+  browser-local `0zk` target.
 - Wallet-tab onboarding wizard that appears while local setup is incomplete and
   advances through passkey, visible endpoints, funding address creation,
   shielded wallet creation/import, and toolkit startup.
@@ -148,6 +152,9 @@ Current shield/unshield status:
 - RAILGUN wallet creation/import is real and local. The recovery phrase is
   encrypted into IndexedDB with a non-extractable browser-local WebCrypto key;
   localStorage stores only the public `0zk` address and a key-store marker.
+- Password-era or missing local RAILGUN key records are not accepted for new
+  shielding. The app prompts to replace them with a fresh browser-local `0zk`;
+  this does not recover or move funds already shielded to the old address.
 - Native ETH shield call preparation is available through Kohaku low-level
   `ShieldBuilder.shieldNative`.
 - Shield submission is wired from the passkey smart wallet through visible

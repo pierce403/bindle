@@ -709,6 +709,7 @@ button:disabled {
 
 .action-panel,
 .onboarding-wizard,
+.railgun-repair,
 .settings-panel {
   margin-bottom: 16px;
 }
@@ -762,6 +763,20 @@ button:disabled {
 
 .wizard-step.blocked {
   border-color: color-mix(in srgb, var(--warning) 42%, var(--border));
+}
+
+.railgun-repair {
+  border-color: color-mix(in srgb, var(--warning) 44%, var(--border));
+  background:
+    radial-gradient(ellipse at 14% 0%, color-mix(in srgb, var(--warning) 18%, transparent), transparent 38%),
+    var(--surface-raised);
+}
+
+.repair-warning {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
 }
 
 .section-heading h2 {

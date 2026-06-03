@@ -229,6 +229,60 @@ test.describe("passkey-first onboarding", () => {
     ).toBeVisible();
   });
 
+  test("can replace a legacy or missing local 0zk key record", async ({
+    page
+  }) => {
+    const oldRailgunAddress = "0zkoldlocalkeyrecord123456789";
+
+    await page.addInitScript(
+      ({ smartWalletAddress, railgunAddress }) => {
+        window.localStorage.setItem(
+          "bindle.wallet.metadata.v1",
+          JSON.stringify({
+            status: "railgun-ready",
+            smartWalletAddress,
+            railgunAddress,
+            railgunKeyStore: "encrypted-local",
+            passkeyPresent: true,
+            mnemonicPresent: true,
+            createdAt: "2026-06-03T00:00:00.000Z",
+            railgunWalletCreatedAt: "2026-06-03T00:00:00.000Z",
+            railgunWalletImportedAt: null,
+            lastError: null,
+            custodyModel: "passkey-4337",
+            passkeyCredentialId: "test-passkey",
+            passkeyPublicKey: "0x04"
+          })
+        );
+      },
+      {
+        smartWalletAddress: publicRecipient,
+        railgunAddress: oldRailgunAddress
+      }
+    );
+
+    await page.goto("/");
+
+    await expect(page.getByLabel("Repair shielded wallet")).toContainText(
+      "0zk wallet secrets missing"
+    );
+    await expect(page.getByLabel("Incompatible 0zk address")).toContainText(
+      oldRailgunAddress
+    );
+
+    await page.getByRole("button", { name: "Wipe and regenerate 0zk" }).click();
+
+    await expect(page.getByLabel("Repair shielded wallet")).toContainText(
+      "New 0zk wallet created",
+      { timeout: 30_000 }
+    );
+    await expect(page.getByLabel("New shielded wallet recovery phrase")).toBeVisible();
+    await expect(page.getByLabel("New 0zk address")).toContainText(/0zk[A-Za-z0-9]{16,}/);
+    await expect(page.getByLabel("Incompatible 0zk address")).toContainText(
+      oldRailgunAddress
+    );
+  });
+
   test("keeps toolkit startup errors visible after navigation", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Nodes" }).click();
