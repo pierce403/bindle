@@ -16,6 +16,8 @@ test.describe("passkey-first onboarding", () => {
     await page.goto("/");
 
     await expect(page.getByLabel("Bindle wallet")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Set Up Bindle" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Create passkey" })).toBeDisabled();
     await expect(page.getByRole("heading", { name: "-- ETH" })).toBeVisible();
     await expect(page.getByText("not created").first()).toBeVisible();
     await expect(page.getByLabel("Unshielded ETH balance")).toContainText(
@@ -30,7 +32,7 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByRole("heading", { name: "Receive ETH" })).toBeVisible();
     await expect(page.getByText("Passkey not available")).toBeVisible();
     await expect(
-      page.getByText("Passkeys are not available in this browser")
+      page.getByText("Passkeys are not available in this browser").first()
     ).toBeVisible();
 
     const createWithPasskey = page.getByRole("button", {
@@ -107,13 +109,12 @@ test.describe("passkey-first onboarding", () => {
       });
 
       await page.goto("/");
-      await page.getByRole("button", { name: "Receive" }).click();
-      await expect(
-        page.getByRole("button", { name: "Create Bindle with passkey" })
-      ).toBeEnabled();
-      await page.getByRole("button", { name: "Create Bindle with passkey" }).click();
+      await expect(page.getByRole("heading", { name: "Set Up Bindle" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Create passkey" })).toBeEnabled();
+      await page.getByRole("button", { name: "Create passkey" }).click();
 
-      await expect(page.getByText("Passkey enrolled").first()).toBeVisible();
+      await expect(page.getByText("passkey enrolled")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Open Connections" })).toBeVisible();
       await expect(page.getByText("Smart-wallet address pending")).toBeVisible();
       await expect(page.getByText(/0x[0-9a-fA-F]{40}/)).toHaveCount(0);
       await expect(page.getByText(/0zk[A-Za-z0-9]{16,}/)).toHaveCount(0);

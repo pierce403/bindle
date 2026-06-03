@@ -234,6 +234,9 @@ avoids requiring GitHub workflow scope.
   `@kohaku-eth/pq-account` or equivalent passkey ERC-4337 address derivation
   API, so `src/wallet/smartAccountAdapter.ts` must keep the smart-wallet address
   pending until a real adapter is available.
+- First-run setup is surfaced through `src/components/OnboardingWizard.tsx`.
+  Keep new wallet prerequisites in that state-driven flow so users are not
+  forced to discover setup steps by opening Receive or Connections manually.
 - `ConnectionPolicy` includes explicit empty/off fields for ERC-4337 bundler,
   paymaster, passkey attestation, and wallet recovery. Do not add defaults for
   these endpoints.

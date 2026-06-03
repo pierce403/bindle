@@ -21,6 +21,9 @@ or default Waku connection.
       smart-wallet flow can submit transactions through those services.
 - [x] First-run PWA flow presents "Create Bindle with passkey" as the primary
       wallet creation action.
+- [x] Add a wallet-tab onboarding wizard that detects incomplete local setup and
+      steps through passkey, endpoint configuration, toolkit startup, and
+      pending shielded-wallet work.
 - [x] Add passkey availability detection and a clear fallback for unsupported
       browsers without silently changing the custody model.
 - [x] Show smart-wallet address and shielded `0zk` address as distinct things

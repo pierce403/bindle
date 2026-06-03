@@ -256,6 +256,7 @@ button:disabled {
 .provider-strip span,
 .empty-state span,
 .step span,
+.wizard-step span,
 .wallet-action span,
 .settings-row span {
   color: var(--muted);
@@ -475,8 +476,60 @@ button:disabled {
 }
 
 .action-panel,
+.onboarding-wizard,
 .settings-panel {
   margin-bottom: 16px;
+}
+
+.onboarding-wizard {
+  gap: 14px;
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+  background:
+    radial-gradient(ellipse at 12% 0%, var(--accent-soft), transparent 38%),
+    var(--surface-raised);
+}
+
+.wizard-steps {
+  display: grid;
+  gap: 8px;
+}
+
+.wizard-step {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 20px;
+  gap: 10px;
+  align-items: center;
+  min-height: 58px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.wizard-step div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.wizard-step strong,
+.wizard-step span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wizard-step.done {
+  border-color: color-mix(in srgb, var(--positive) 40%, var(--border));
+}
+
+.wizard-step.now {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: var(--accent-soft);
+}
+
+.wizard-step.blocked {
+  border-color: color-mix(in srgb, var(--warning) 42%, var(--border));
 }
 
 .section-heading h2 {

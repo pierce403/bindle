@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityFeed } from "./components/ActivityFeed";
 import { BalancePanel, type WalletAction } from "./components/BalancePanel";
 import { BottomNav, type AppTab } from "./components/BottomNav";
+import { OnboardingWizard } from "./components/OnboardingWizard";
 import { PrivacySwitchboard } from "./components/PrivacySwitchboard";
 import { PwaInstallPrompt } from "./components/PwaInstallPrompt";
 import { SettingsPanel } from "./components/SettingsPanel";
@@ -77,6 +78,8 @@ function App() {
       ? "pending"
       : "not created";
   const railgunStatus = walletState.railgunAddress ? "ready" : "not created";
+  const onboardingComplete =
+    walletState.smartWalletAddress !== null && walletState.railgunAddress !== null;
   const sendEndpointDisclosure = buildEndpointDisclosure(policy, "send-review");
 
   useEffect(() => {
@@ -187,6 +190,20 @@ function App() {
 
         {activeTab === "wallet" ? (
           <>
+            {!onboardingComplete ? (
+              <OnboardingWizard
+                walletState={walletState}
+                passkeyCapability={passkeyCapability}
+                isCreatingPasskey={isCreatingPasskey}
+                policy={policy}
+                toolkitState={toolkitState}
+                statusMessage={statusMessage}
+                onCreatePasskey={() => void createPasskeyWallet()}
+                onOpenConnections={() => setActiveTab("nodes")}
+                onStartToolkit={() => void startToolkit()}
+              />
+            ) : null}
+
             <BalancePanel
               totalBalance={null}
               fiatValue={null}

@@ -20,6 +20,9 @@ not the default first-run experience.
 - Browser-side legacy RAILGUN adapter with IndexedDB artifact persistence.
 - Local wallet metadata state for passkey-first onboarding, with no private key
   or mnemonic storage.
+- Wallet-tab onboarding wizard that appears while local setup is incomplete and
+  advances through passkey, explicit endpoints, toolkit startup, and pending
+  shielded-wallet work.
 - Passkey enrollment shell that stores non-secret credential metadata and keeps
   the ERC-4337 address pending until a real smart-account adapter derives it.
 - Send Review stays disabled until wallet, toolkit, RPC, recipient, amount, and
