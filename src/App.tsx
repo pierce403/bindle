@@ -214,9 +214,13 @@ function WalletApp() {
   const railgunRepairMode =
     railgunStorageChecked &&
     walletState.railgunAddress !== null &&
-    walletState.railgunKeyStore === "encrypted-local" &&
-    railgunStorageMode !== "browser-local"
-      ? railgunStorageMode
+    (walletState.railgunKeyStore !== "encrypted-local" ||
+      railgunStorageMode !== "browser-local")
+      ? walletState.railgunKeyStore === "encrypted-local"
+        ? railgunStorageMode === "legacy-passphrase"
+          ? "legacy-passphrase"
+          : "missing"
+        : "missing"
       : null;
   const shieldedBalanceSynced = false;
   const balanceLabel = shieldedBalanceSynced ? "Total ETH" : "Known ETH";
@@ -284,9 +288,27 @@ function WalletApp() {
   useEffect(() => {
     let cancelled = false;
 
-    if (!walletState.railgunAddress || walletState.railgunKeyStore === null) {
+    if (!walletState.railgunAddress) {
       setRailgunStorageMode("missing");
       setRailgunStorageChecked(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (walletState.railgunKeyStore === null) {
+      setRailgunStorageMode("missing");
+      setRailgunStorageChecked(true);
+      setAppNotice((currentNotice) =>
+        currentNotice?.kind === "error"
+          ? currentNotice
+          : {
+              kind: "warning",
+              title: "Shielded wallet secrets missing",
+              message:
+                "This browser has a 0zk address saved but no local RAILGUN key-store marker. Regenerate the shielded wallet before funding it."
+            }
+      );
       return () => {
         cancelled = true;
       };

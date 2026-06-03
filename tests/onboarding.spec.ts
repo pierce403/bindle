@@ -283,6 +283,73 @@ test.describe("passkey-first onboarding", () => {
     );
   });
 
+  test("prompts repair instead of generic recoverable key blocking for old metadata", async ({
+    page
+  }) => {
+    await page.route("https://ethereum-rpc.publicnode.com/**", async (route) => {
+      const payload = JSON.parse(route.request().postData() ?? "{}") as
+        | { id: number; method: string }
+        | Array<{ id: number; method: string }>;
+      const requests = Array.isArray(payload) ? payload : [payload];
+      const responses = requests.map((request) => ({
+        jsonrpc: "2.0",
+        id: request.id,
+        result:
+          request.method === "eth_chainId"
+            ? "0x1"
+            : request.method === "eth_getBalance"
+              ? "0xde0b6b3a7640000"
+              : request.method === "eth_blockNumber"
+                ? "0x100"
+                : null
+      }));
+
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(Array.isArray(payload) ? responses : responses[0])
+      });
+    });
+
+    await page.addInitScript(
+      ({ smartWalletAddress, railgunAddress }) => {
+        window.localStorage.setItem(
+          "bindle.wallet.metadata.v1",
+          JSON.stringify({
+            status: "railgun-ready",
+            smartWalletAddress,
+            railgunAddress,
+            railgunKeyStore: null,
+            passkeyPresent: true,
+            mnemonicPresent: true,
+            createdAt: "2026-06-03T00:00:00.000Z",
+            railgunWalletCreatedAt: "2026-06-03T00:00:00.000Z",
+            railgunWalletImportedAt: null,
+            lastError: null,
+            custodyModel: "passkey-4337",
+            passkeyCredentialId: "test-passkey",
+            passkeyPublicKey: "0x04"
+          })
+        );
+      },
+      {
+        smartWalletAddress: publicRecipient,
+        railgunAddress: "0zkoldmetadataonly123456789"
+      }
+    );
+
+    await page.goto("/");
+
+    await expect(page.getByLabel("Repair shielded wallet")).toContainText(
+      "0zk wallet secrets missing"
+    );
+    await expect(page.getByLabel("Unshielded ETH balance")).toContainText(
+      "Shield blocked: replace the incompatible local 0zk wallet before shielding."
+    );
+    await expect(page.getByLabel("Unshielded ETH balance")).not.toContainText(
+      "recoverable RAILGUN keys"
+    );
+  });
+
   test("keeps toolkit startup errors visible after navigation", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Nodes" }).click();

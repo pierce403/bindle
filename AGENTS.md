@@ -249,11 +249,11 @@ avoids requiring GitHub workflow scope.
   WebCrypto key. Do not reintroduce user-entered wallet passwords in onboarding;
   passkey-backed key wrapping belongs at a later layer. Keep localStorage
   limited to public metadata.
-- If saved `0zk` metadata points at missing IndexedDB secrets or a legacy
-  password-era record, `RailgunKeyRecoveryPrompt` lets the user wipe only the
-  incompatible RAILGUN local state and regenerate a fresh browser-local `0zk`.
-  Keep the warning that this does not recover funds already shielded to the old
-  address.
+- If saved `0zk` metadata points at a missing key-store marker, missing
+  IndexedDB secrets, or a legacy password-era record,
+  `RailgunKeyRecoveryPrompt` lets the user wipe only the incompatible RAILGUN
+  local state and regenerate a fresh browser-local `0zk`. Keep the warning that
+  this does not recover funds already shielded to the old address.
 - Passkey enrollment is wired through browser WebAuthn in `src/wallet/passkeys.ts`.
   `src/wallet/smartAccountAdapter.ts` uses Viem's Coinbase Smart Wallet support
   to derive a real passkey-backed ERC-4337 funding address and submit public ETH
