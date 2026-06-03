@@ -9,11 +9,10 @@
   "scripts": {
     "preinstall": "node scripts/require-pnpm.mjs",
     "dev": "vite --host 127.0.0.1",
-    "build": "pnpm run socket:ci && pnpm run build:app",
+    "build": "pnpm run build:app",
     "build:app": "tsc -b && vite build",
     "icons": "node scripts/generate-pwa-icons.mjs",
     "preview": "vite preview --host 127.0.0.1",
-    "socket:ci": "socket ci",
     "test:e2e": "playwright test",
     "typecheck": "tsc -b"
   },
@@ -38,7 +37,6 @@
     "@types/react-dom": "19.2.3",
     "@types/snarkjs": "0.7.9",
     "@vitejs/plugin-react": "6.0.2",
-    "socket": "1.1.112",
     "typescript": "6.0.3",
     "vite": "8.0.16",
     "vite-plugin-node-polyfills": "0.28.0"

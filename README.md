@@ -90,19 +90,18 @@ For GitHub Pages branch publishing, rebuild and copy the production output into
 `docs` before committing:
 
 ```bash
-SOCKET_SECURITY_API_TOKEN=... pnpm build
+pnpm build
 cp -R dist/. docs/
 ```
 
-`pnpm build` is the protected build path. It runs `socket ci` first and fails if
-Socket.dev reports that the dependency snapshot violates the configured Socket
-security or license policy. Use `pnpm build:app` only for local no-network
-compilation when a Socket API token is unavailable.
+`pnpm build` is now the normal local production build path and does not require
+a third-party security-scanner account or API token.
 
 pnpm supply-chain hardening lives in `pnpm-workspace.yaml`. `ignoreDepScripts`
 is enabled so dependency `preinstall`, `install`, and `postinstall` scripts do
 not execute during installs, and `minimumReleaseAge` holds newly published
-package versions for 24 hours before they can enter the lockfile.
+package versions for 24 hours before they can enter the lockfile. Those
+protections do not require a third-party API key.
 
 ## Privacy Toolkit Architecture
 

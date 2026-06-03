@@ -143,17 +143,11 @@ Run local dev server:
 pnpm dev
 ```
 
-Protected build and typecheck:
+Build and typecheck:
 
 ```bash
-SOCKET_SECURITY_API_TOKEN=... pnpm build
+pnpm build
 pnpm typecheck
-```
-
-Local app-only build when Socket is unavailable:
-
-```bash
-pnpm build:app
 ```
 
 Run browser onboarding tests:
@@ -172,7 +166,7 @@ Update GitHub Pages output after source changes:
 
 ```bash
 pnpm icons
-SOCKET_SECURITY_API_TOKEN=... pnpm build
+pnpm build
 rm -rf docs/assets
 cp -R dist/. docs/
 ```
@@ -296,9 +290,6 @@ avoids requiring GitHub workflow scope.
 - Bindle is pnpm-only. `packageManager` pins pnpm, `.npmrc` enables pnpm's
   package-manager strict mode, and `scripts/require-pnpm.mjs` blocks npm/yarn
   installs.
-- `pnpm build` is Socket-protected: it runs `socket ci` before `build:app`.
-  `SOCKET_SECURITY_API_TOKEN` is required for that protected path. Use
-  `pnpm build:app` only for local no-network compilation.
 - `pnpm-workspace.yaml` sets `ignoreDepScripts: true` so dependency lifecycle
   scripts do not execute during install, sets `minimumReleaseAge: 1440`, and
   records the reviewed transitive dependency build scripts that pnpm should
