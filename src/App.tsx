@@ -24,6 +24,7 @@ import {
 import {
   clearEncryptedRailgunWallet,
   createEncryptedRailgunWallet,
+  getEncryptedRailgunWalletStorageMode,
   importEncryptedRailgunWallet
 } from "./railgun/railgunWallet";
 import {
@@ -66,6 +67,12 @@ type PublicBalanceState =
   | { status: "missing-wallet" | "missing-rpc" | "idle" | "syncing" }
   | { status: "ready"; balance: PublicEthBalance }
   | { status: "error"; message: string };
+
+type AppNotice = {
+  kind: "error" | "warning";
+  title: string;
+  message: string;
+} | null;
 
 const initialPublicBalanceState = (): PublicBalanceState =>
   loadWalletState().smartWalletAddress
@@ -118,6 +125,7 @@ function App() {
     useState<PrivacyToolkitHandle | null>(null);
   const toolkitStartRef = useRef<Promise<PrivacyToolkitHandle> | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
+  const [appNotice, setAppNotice] = useState<AppNotice>(null);
   const [theme, setTheme] = useState<ThemeSelection>(defaultTheme);
   const [activeAction, setActiveAction] = useState<WalletAction | null>(null);
   const [activeTab, setActiveTab] = useState<AppTab>("wallet");
@@ -248,6 +256,52 @@ function App() {
     setPublicBalance({ status: "idle" });
   }, [walletState.smartWalletAddress, policy.ethereumRpcUrl, policy.providerMode]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!walletState.railgunAddress || walletState.railgunKeyStore === null) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void getEncryptedRailgunWalletStorageMode().then((mode) => {
+      if (cancelled) {
+        return;
+      }
+
+      if (mode === "legacy-passphrase") {
+        setAppNotice((currentNotice) =>
+          currentNotice?.kind === "error"
+            ? currentNotice
+            : {
+                kind: "warning",
+                title: "Legacy shielded wallet storage",
+                message:
+                  "This 0zk address was created by an older password-protected build. Reset local wallet state or import the recovery phrase again before funding it."
+              }
+        );
+      }
+
+      if (mode === "missing") {
+        setAppNotice((currentNotice) =>
+          currentNotice?.kind === "error"
+            ? currentNotice
+            : {
+                kind: "warning",
+                title: "Shielded wallet secrets missing",
+                message:
+                  "This browser has a 0zk address saved but no matching local RAILGUN secrets. Import the recovery phrase again before funding it."
+              }
+        );
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [walletState.railgunAddress, walletState.railgunKeyStore]);
+
   const startToolkit = async () => {
     if (toolkitStartRef.current || toolkitState === "starting") {
       return;
@@ -260,16 +314,30 @@ function App() {
 
     setToolkitState("starting");
     setStatusMessage("Starting privacy toolkit");
+    setAppNotice(null);
+    let lastToolkitStep = "Starting privacy toolkit";
 
     try {
-      const startPromise = startPrivacyToolkit(policy, setStatusMessage);
+      const startPromise = startPrivacyToolkit(policy, (message) => {
+        lastToolkitStep = message;
+        setStatusMessage(message);
+      });
       toolkitStartRef.current = startPromise;
       const handle = await startPromise;
       setToolkitHandle(handle);
       setToolkitState("ready");
+      setStatusMessage(`${handle.label} is ready`);
+      setAppNotice(null);
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to start";
+      const detail = `${lastToolkitStep}: ${message}`;
       setToolkitState("error");
-      setStatusMessage(error instanceof Error ? error.message : "Unable to start");
+      setStatusMessage(detail);
+      setAppNotice({
+        kind: "error",
+        title: "Toolkit failed",
+        message: detail
+      });
     } finally {
       toolkitStartRef.current = null;
     }
@@ -378,18 +446,17 @@ function App() {
     }
   };
 
-  const createRailgunWallet = async (
-    passphrase: string
-  ): Promise<string | null> => {
+  const createRailgunWallet = async (): Promise<string | null> => {
     if (isCreatingRailgunWallet || walletState.railgunAddress) {
       return null;
     }
 
     setIsCreatingRailgunWallet(true);
     setStatusMessage("Creating shielded RAILGUN wallet");
+    setAppNotice(null);
 
     try {
-      const wallet = await createEncryptedRailgunWallet({ passphrase });
+      const wallet = await createEncryptedRailgunWallet();
       const nextState = markRailgunWalletReady(
         walletState,
         wallet.railgunAddress,
@@ -412,8 +479,7 @@ function App() {
   };
 
   const importRailgunWallet = async (
-    recoveryPhrase: string,
-    passphrase: string
+    recoveryPhrase: string
   ): Promise<void> => {
     if (isImportingRailgunWallet || walletState.railgunAddress) {
       return;
@@ -421,11 +487,11 @@ function App() {
 
     setIsImportingRailgunWallet(true);
     setStatusMessage("Importing shielded RAILGUN wallet");
+    setAppNotice(null);
 
     try {
       const wallet = await importEncryptedRailgunWallet({
-        recoveryPhrase,
-        passphrase
+        recoveryPhrase
       });
       const nextState = markRailgunWalletReady(
         walletState,
@@ -479,6 +545,7 @@ function App() {
   const resetLocalWallet = () => {
     setWalletState(resetWalletState());
     setStatusMessage("Local wallet metadata cleared");
+    setAppNotice(null);
     void clearEncryptedRailgunWallet()
       .then(() => setStatusMessage("Local wallet metadata and secrets cleared"))
       .catch((error) =>
@@ -516,6 +583,16 @@ function App() {
             </button>
           </div>
         </header>
+
+        {appNotice ? (
+          <section
+            className={`app-notice ${appNotice.kind}`}
+            aria-label={`${appNotice.title} notice`}
+          >
+            <strong>{appNotice.title}</strong>
+            <span>{appNotice.message}</span>
+          </section>
+        ) : null}
 
         {activeTab === "wallet" ? (
           <>

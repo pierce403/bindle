@@ -475,6 +475,36 @@ button:disabled {
   background: var(--surface-raised);
 }
 
+.app-notice {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.app-notice.error {
+  border-color: color-mix(in srgb, var(--negative) 48%, var(--border));
+}
+
+.app-notice.warning {
+  border-color: color-mix(in srgb, var(--warning) 48%, var(--border));
+}
+
+.app-notice strong {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.app-notice span {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
 .action-panel,
 .onboarding-wizard,
 .settings-panel {

@@ -8,7 +8,23 @@ type KohakuSignerModule = Pick<
   default: () => Promise<unknown>;
 };
 
-type EncryptedRailgunWalletRecord = {
+type BrowserLocalRailgunWalletRecord = {
+  id: "primary";
+  version: 2;
+  railgunAddress: string;
+  keyIndex: number;
+  chainId: string;
+  createdAt: string;
+  updatedAt: string;
+  source: "created" | "imported";
+  keyStorage: "browser-local";
+  cipher: "AES-GCM";
+  iv: string;
+  ciphertext: string;
+  wrappingKey: CryptoKey;
+};
+
+type LegacyPassphraseRailgunWalletRecord = {
   id: "primary";
   version: 1;
   railgunAddress: string;
@@ -24,6 +40,10 @@ type EncryptedRailgunWalletRecord = {
   iv: string;
   ciphertext: string;
 };
+
+type EncryptedRailgunWalletRecord =
+  | BrowserLocalRailgunWalletRecord
+  | LegacyPassphraseRailgunWalletRecord;
 
 type RailgunSecretPayload = {
   version: 1;
@@ -52,8 +72,6 @@ export type UnlockedRailgunWallet = RailgunWalletResult & {
 const databaseName = "bindle-railgun-wallet-secrets";
 const objectStoreName = "wallets";
 const primaryRecordId = "primary";
-const passphraseMinimumLength = 12;
-const pbkdfIterations = 250_000;
 
 let kohakuSignerModulePromise: Promise<KohakuSignerModule> | null = null;
 
@@ -143,77 +161,50 @@ const bytesToArrayBuffer = (bytes: Uint8Array): ArrayBuffer => {
 const normalizeRecoveryPhrase = (phrase: string): string =>
   phrase.trim().replace(/\s+/g, " ").toLowerCase();
 
-const assertPassphrase = (passphrase: string): void => {
-  if (passphrase.length < passphraseMinimumLength) {
-    throw new Error("Use a local passphrase with at least 12 characters.");
-  }
-};
-
 const assertRecoveryPhrase = (phrase: string): void => {
   if (!Mnemonic.isValidMnemonic(phrase)) {
     throw new Error("Recovery phrase is not a valid BIP-39 mnemonic.");
   }
 };
 
-const deriveEncryptionKey = async (
-  passphrase: string,
-  salt: Uint8Array,
-  iterations = pbkdfIterations
-): Promise<CryptoKey> => {
-  const material = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(passphrase),
-    "PBKDF2",
-    false,
-    ["deriveKey"]
-  );
-
-  return crypto.subtle.deriveKey(
-    {
-      name: "PBKDF2",
-      hash: "SHA-256",
-      salt: bytesToArrayBuffer(salt),
-      iterations
-    },
-    material,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["encrypt", "decrypt"]
-  );
-};
+const createBrowserLocalEncryptionKey = (): Promise<CryptoKey> =>
+  crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, [
+    "encrypt",
+    "decrypt"
+  ]);
 
 const encryptSecretPayload = async (
-  payload: RailgunSecretPayload,
-  passphrase: string
-): Promise<Pick<EncryptedRailgunWalletRecord, "salt" | "iv" | "ciphertext">> => {
-  const salt = crypto.getRandomValues(new Uint8Array(16));
+  payload: RailgunSecretPayload
+): Promise<
+  Pick<BrowserLocalRailgunWalletRecord, "iv" | "ciphertext" | "wrappingKey">
+> => {
+  const wrappingKey = await createBrowserLocalEncryptionKey();
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const key = await deriveEncryptionKey(passphrase, salt);
   const ciphertext = await crypto.subtle.encrypt(
     { name: "AES-GCM", iv: bytesToArrayBuffer(iv) },
-    key,
+    wrappingKey,
     bytesToArrayBuffer(new TextEncoder().encode(JSON.stringify(payload)))
   );
 
   return {
-    salt: bytesToBase64(salt),
     iv: bytesToBase64(iv),
-    ciphertext: bytesToBase64(new Uint8Array(ciphertext))
+    ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
+    wrappingKey
   };
 };
 
 const decryptSecretPayload = async (
-  record: EncryptedRailgunWalletRecord,
-  passphrase: string
+  record: EncryptedRailgunWalletRecord
 ): Promise<RailgunSecretPayload> => {
-  const key = await deriveEncryptionKey(
-    passphrase,
-    base64ToBytes(record.salt),
-    record.iterations
-  );
+  if (record.version !== 2) {
+    throw new Error(
+      "This shielded wallet was stored by an older password-protected build. Reset local wallet state or import the recovery phrase again."
+    );
+  }
+
   const plaintext = await crypto.subtle.decrypt(
     { name: "AES-GCM", iv: bytesToArrayBuffer(base64ToBytes(record.iv)) },
-    key,
+    record.wrappingKey,
     bytesToArrayBuffer(base64ToBytes(record.ciphertext))
   );
   const parsed = JSON.parse(new TextDecoder().decode(plaintext)) as unknown;
@@ -242,12 +233,15 @@ const decryptSecretPayload = async (
 };
 
 const storeEncryptedWallet = async (
-  record: EncryptedRailgunWalletRecord
+  record: BrowserLocalRailgunWalletRecord
 ): Promise<void> => {
   // Storage boundary: this IndexedDB object store is the only Bindle-owned
-  // place where RAILGUN recovery material may be persisted. The phrase is
-  // encrypted with a user passphrase before it reaches IndexedDB. The matching
-  // public 0zk address and key-store marker live in localStorage metadata.
+  // place where RAILGUN recovery material may be persisted. The recovery phrase
+  // is encrypted with a non-extractable browser-local WebCrypto key before it
+  // reaches IndexedDB. This is not a defense against compromised browsers,
+  // extensions, or same-origin app code; passkey-backed wrapping belongs at a
+  // later layer. The matching public 0zk address and key-store marker live in
+  // localStorage metadata.
   await withSecretStore("readwrite", async (store) => {
     await requestToPromise(store.put(record));
   });
@@ -313,18 +307,15 @@ const deriveRailgunWallet = async ({
 
 const persistRailgunWallet = async ({
   recoveryPhrase,
-  passphrase,
   source,
   keyIndex,
   chainId
 }: {
   recoveryPhrase: string;
-  passphrase: string;
   source: "created" | "imported";
   keyIndex: number;
   chainId: bigint;
 }): Promise<RailgunWalletResult> => {
-  assertPassphrase(passphrase);
   assertRecoveryPhrase(recoveryPhrase);
 
   const derived = await deriveRailgunWallet({
@@ -333,27 +324,23 @@ const persistRailgunWallet = async ({
     chainId
   });
   const now = new Date().toISOString();
-  const encrypted = await encryptSecretPayload(
-    {
-      version: 1,
-      recoveryPhrase,
-      keyIndex,
-      chainId: chainId.toString()
-    },
-    passphrase
-  );
+  const encrypted = await encryptSecretPayload({
+    version: 1,
+    recoveryPhrase,
+    keyIndex,
+    chainId: chainId.toString()
+  });
 
   await storeEncryptedWallet({
     id: primaryRecordId,
-    version: 1,
+    version: 2,
     railgunAddress: derived.railgunAddress,
     keyIndex,
     chainId: chainId.toString(),
     createdAt: now,
     updatedAt: now,
     source,
-    kdf: "PBKDF2-SHA256",
-    iterations: pbkdfIterations,
+    keyStorage: "browser-local",
     cipher: "AES-GCM",
     ...encrypted
   });
@@ -367,14 +354,12 @@ const persistRailgunWallet = async ({
 };
 
 export const createEncryptedRailgunWallet = async ({
-  passphrase,
   keyIndex = 0,
   chainId = 1n
 }: {
-  passphrase: string;
   keyIndex?: number;
   chainId?: bigint;
-}): Promise<CreatedRailgunWalletResult> => {
+} = {}): Promise<CreatedRailgunWalletResult> => {
   const wallet = HDNodeWallet.createRandom();
   const recoveryPhrase = normalizeRecoveryPhrase(wallet.mnemonic?.phrase ?? "");
 
@@ -384,7 +369,6 @@ export const createEncryptedRailgunWallet = async ({
 
   const result = await persistRailgunWallet({
     recoveryPhrase,
-    passphrase,
     source: "created",
     keyIndex,
     chainId
@@ -398,18 +382,15 @@ export const createEncryptedRailgunWallet = async ({
 
 export const importEncryptedRailgunWallet = async ({
   recoveryPhrase,
-  passphrase,
   keyIndex = 0,
   chainId = 1n
 }: {
   recoveryPhrase: string;
-  passphrase: string;
   keyIndex?: number;
   chainId?: bigint;
 }): Promise<RailgunWalletResult> =>
   persistRailgunWallet({
     recoveryPhrase: normalizeRecoveryPhrase(recoveryPhrase),
-    passphrase,
     source: "imported",
     keyIndex,
     chainId
@@ -418,39 +399,48 @@ export const importEncryptedRailgunWallet = async ({
 export const hasEncryptedRailgunWallet = async (): Promise<boolean> =>
   (await loadEncryptedWalletRecord()) !== null;
 
-export const unlockEncryptedRailgunWallet = async (
-  passphrase: string
-): Promise<UnlockedRailgunWallet> => {
-  assertPassphrase(passphrase);
-
+export const getEncryptedRailgunWalletStorageMode = async (): Promise<
+  "browser-local" | "legacy-passphrase" | "missing"
+> => {
   const record = await loadEncryptedWalletRecord();
 
   if (!record) {
-    throw new Error("No encrypted RAILGUN wallet is stored locally.");
+    return "missing";
   }
 
-  const payload = await decryptSecretPayload(record, passphrase);
-  const chainId = BigInt(payload.chainId);
-  const derived = await deriveRailgunWallet({
-    recoveryPhrase: payload.recoveryPhrase,
-    keyIndex: payload.keyIndex,
-    chainId
-  });
-
-  if (derived.railgunAddress !== record.railgunAddress) {
-    throw new Error("Stored RAILGUN wallet address does not match the secret.");
-  }
-
-  return {
-    railgunAddress: derived.railgunAddress,
-    recoveryPhrase: payload.recoveryPhrase,
-    spendingKey: derived.spendingKey,
-    viewingKey: derived.viewingKey,
-    keyIndex: payload.keyIndex,
-    chainId,
-    storedAt: record.updatedAt
-  };
+  return record.version === 2 ? "browser-local" : "legacy-passphrase";
 };
+
+export const unlockEncryptedRailgunWallet =
+  async (): Promise<UnlockedRailgunWallet> => {
+    const record = await loadEncryptedWalletRecord();
+
+    if (!record) {
+      throw new Error("No encrypted RAILGUN wallet is stored locally.");
+    }
+
+    const payload = await decryptSecretPayload(record);
+    const chainId = BigInt(payload.chainId);
+    const derived = await deriveRailgunWallet({
+      recoveryPhrase: payload.recoveryPhrase,
+      keyIndex: payload.keyIndex,
+      chainId
+    });
+
+    if (derived.railgunAddress !== record.railgunAddress) {
+      throw new Error("Stored RAILGUN wallet address does not match the secret.");
+    }
+
+    return {
+      railgunAddress: derived.railgunAddress,
+      recoveryPhrase: payload.recoveryPhrase,
+      spendingKey: derived.spendingKey,
+      viewingKey: derived.viewingKey,
+      keyIndex: payload.keyIndex,
+      chainId,
+      storedAt: record.updatedAt
+    };
+  };
 
 export const clearEncryptedRailgunWallet = async (): Promise<void> => {
   if (!canUseIndexedDb()) {

@@ -25,11 +25,8 @@ type OnboardingWizardProps = {
   statusMessage: string;
   onCreatePasskey: () => void;
   onDeriveSmartWallet: () => void;
-  onCreateRailgunWallet: (passphrase: string) => Promise<string | null>;
-  onImportRailgunWallet: (
-    recoveryPhrase: string,
-    passphrase: string
-  ) => Promise<void>;
+  onCreateRailgunWallet: () => Promise<string | null>;
+  onImportRailgunWallet: (recoveryPhrase: string) => Promise<void>;
   onOpenConnections: () => void;
   onStartToolkit: () => void;
 };
@@ -82,11 +79,7 @@ export function OnboardingWizard({
   const [copiedFundingAddress, setCopiedFundingAddress] = useState(false);
   const [copiedShieldedAddress, setCopiedShieldedAddress] = useState(false);
   const [copiedRecoveryPhrase, setCopiedRecoveryPhrase] = useState(false);
-  const [newWalletPassphrase, setNewWalletPassphrase] = useState("");
-  const [newWalletPassphraseConfirm, setNewWalletPassphraseConfirm] =
-    useState("");
   const [importRecoveryPhrase, setImportRecoveryPhrase] = useState("");
-  const [importPassphrase, setImportPassphrase] = useState("");
   const [createdRecoveryPhrase, setCreatedRecoveryPhrase] = useState<
     string | null
   >(null);
@@ -181,13 +174,10 @@ export function OnboardingWizard({
         ? "Create or import a recoverable RAILGUN wallet to get a real 0zk address."
         : statusMessage || steps.find((step) => step.id === currentStep)?.detail;
   const canCreateRailgunWallet =
-    newWalletPassphrase.length >= 12 &&
-    newWalletPassphrase === newWalletPassphraseConfirm &&
     !isCreatingRailgunWallet &&
     !shieldedWalletReady;
   const canImportRailgunWallet =
     importRecoveryPhrase.trim().length > 0 &&
-    importPassphrase.length >= 12 &&
     !isImportingRailgunWallet &&
     !shieldedWalletReady;
 
@@ -217,18 +207,15 @@ export function OnboardingWizard({
   };
   const createShieldedWallet = async () => {
     setCreatedRecoveryPhrase(null);
-    const recoveryPhrase = await onCreateRailgunWallet(newWalletPassphrase);
+    const recoveryPhrase = await onCreateRailgunWallet();
 
     if (recoveryPhrase) {
       setCreatedRecoveryPhrase(recoveryPhrase);
-      setNewWalletPassphrase("");
-      setNewWalletPassphraseConfirm("");
     }
   };
   const importShieldedWallet = async () => {
-    await onImportRailgunWallet(importRecoveryPhrase, importPassphrase);
+    await onImportRailgunWallet(importRecoveryPhrase);
     setImportRecoveryPhrase("");
-    setImportPassphrase("");
   };
 
   return (
@@ -348,32 +335,6 @@ export function OnboardingWizard({
             <>
               <div className="wallet-secret-card">
                 <strong>Create shielded wallet</strong>
-                <label className="field">
-                  <span>Local passphrase</span>
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    minLength={12}
-                    value={newWalletPassphrase}
-                    onChange={(event) =>
-                      setNewWalletPassphrase(event.currentTarget.value)
-                    }
-                    placeholder="12+ characters"
-                  />
-                </label>
-                <label className="field">
-                  <span>Confirm passphrase</span>
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    minLength={12}
-                    value={newWalletPassphraseConfirm}
-                    onChange={(event) =>
-                      setNewWalletPassphraseConfirm(event.currentTarget.value)
-                    }
-                    placeholder="12+ characters"
-                  />
-                </label>
                 <button
                   className="primary-action wide"
                   type="button"
@@ -397,19 +358,6 @@ export function OnboardingWizard({
                       setImportRecoveryPhrase(event.currentTarget.value)
                     }
                     placeholder="existing BIP-39 phrase"
-                  />
-                </label>
-                <label className="field">
-                  <span>Local passphrase</span>
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    minLength={12}
-                    value={importPassphrase}
-                    onChange={(event) =>
-                      setImportPassphrase(event.currentTarget.value)
-                    }
-                    placeholder="12+ characters"
                   />
                 </label>
                 <button

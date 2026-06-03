@@ -241,8 +241,10 @@ avoids requiring GitHub workflow scope.
   Kohaku's `RailgunSigner.spendingKeyPath()` and `viewingKeyPath()`, computes
   the real `0zk` address with `RailgunSigner.privateKey()`, and stores only an
   encrypted recovery phrase in IndexedDB
-  (`bindle-railgun-wallet-secrets`). The user passphrase is not persisted.
-  Keep localStorage limited to public metadata.
+  (`bindle-railgun-wallet-secrets`) under a non-extractable browser-local
+  WebCrypto key. Do not reintroduce user-entered wallet passwords in onboarding;
+  passkey-backed key wrapping belongs at a later layer. Keep localStorage
+  limited to public metadata.
 - Passkey enrollment is wired through browser WebAuthn in `src/wallet/passkeys.ts`.
   `src/wallet/smartAccountAdapter.ts` uses Viem's Coinbase Smart Wallet support
   to derive a real passkey-backed ERC-4337 funding address and submit public ETH

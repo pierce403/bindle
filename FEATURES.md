@@ -49,8 +49,9 @@ infrastructure.
       derivation paths and encrypted local recovery phrase storage.
 - [x] Build RAILGUN wallet create/import around Kohaku low-level RAILGUN
       primitives instead of direct app state around the legacy Wallet SDK.
-- [x] Store the RAILGUN recovery phrase encrypted in IndexedDB under a local
-      passphrase; localStorage stores only non-secret public metadata.
+- [x] Store the RAILGUN recovery phrase encrypted in IndexedDB under a
+      browser-local WebCrypto key; localStorage stores only non-secret public
+      metadata.
 - [x] Show the real `0zk` address in Balance and Receive once created/imported.
 - [x] Add a local reset path that clears wallet metadata and Bindle-owned
       encrypted RAILGUN secrets.
@@ -72,7 +73,7 @@ infrastructure.
       than the primary first-run flow.
 - [ ] Use the legacy RAILGUN Wallet SDK only for lifecycle paths Kohaku does not
       currently support.
-- [ ] Replace the interim local-passphrase RAILGUN key encryption with
+- [ ] Replace the interim browser-local RAILGUN key encryption with
       passkey-backed wrapping when WebAuthn PRF support is usable across target
       browsers.
 - [ ] Submit ETH shield transactions from the passkey smart wallet after a real
@@ -116,8 +117,8 @@ infrastructure.
       or other account providers depending on device settings.
 - [ ] Prefer user-verifying passkeys and disclose when a platform only offers a
       weaker or roaming-authenticator path.
-- [x] Add optional local passphrase encryption for any Bindle-owned wallet
-      metadata that becomes sensitive.
+- [x] Add browser-local encryption for Bindle-owned wallet metadata that
+      becomes sensitive, without user-entered passwords.
 - [ ] Add wallet lock, unlock, and local session timeout controls.
 - [x] Add a local-only wipe flow for Bindle-owned metadata and IndexedDB stores.
 - [ ] Add a service-worker cache audit so wallet RPC, broadcaster, resolver,

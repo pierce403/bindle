@@ -166,12 +166,7 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByText("0zk address pending")).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Create shielded wallet" })
-    ).toBeDisabled();
-
-    await page.getByLabel("Local passphrase").first().fill("correct horse bindle");
-    await page
-      .getByLabel("Confirm passphrase")
-      .fill("correct horse bindle");
+    ).toBeEnabled();
     await page.getByRole("button", { name: "Create shielded wallet" }).click();
 
     await expect(page.getByText(/0zk[A-Za-z0-9]{16,}/).first()).toBeVisible({
@@ -219,7 +214,6 @@ test.describe("passkey-first onboarding", () => {
       .fill(
         "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
       );
-    await page.getByLabel("Local passphrase").last().fill("correct horse import");
     await page.getByRole("button", { name: "Import existing" }).click();
 
     await expect(page.getByText(/0zk[A-Za-z0-9]{16,}/).first()).toBeVisible({
@@ -228,6 +222,26 @@ test.describe("passkey-first onboarding", () => {
     await expect(
       page.getByRole("button", { name: "Start toolkit" })
     ).toBeVisible();
+  });
+
+  test("keeps toolkit startup errors visible after navigation", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Nodes" }).click();
+    await page.getByLabel("Active preset").selectOption("privacy-max");
+    await page.getByRole("button", { name: "Start toolkit" }).click();
+
+    await expect(page.getByLabel("Toolkit failed notice")).toContainText(
+      "Configure an Ethereum RPC endpoint before starting Kohaku."
+    );
+
+    await page.getByRole("button", { name: "Wallet" }).click();
+
+    await expect(page.getByLabel("Toolkit failed notice")).toContainText(
+      "Toolkit failed"
+    );
+    await expect(page.getByLabel("Toolkit failed notice")).toContainText(
+      "Configure an Ethereum RPC endpoint before starting Kohaku."
+    );
   });
 
   test("persists explicit connection settings locally", async ({ page }) => {

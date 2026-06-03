@@ -125,13 +125,13 @@ public ETH user operations through the visible ERC-4337 bundler.
 It can also explicitly sync the public ETH balance for that funding address
 through the visible RPC after disclosing the endpoint. It can create or import a
 recoverable local RAILGUN wallet, encrypt the recovery phrase into IndexedDB
-with a user passphrase, derive Kohaku RAILGUN spending/viewing keys locally, and
-show the resulting real `0zk` address. Paymaster support is optional and only
-used when configured. Bindle can audit shield/unshield readiness and can prepare
-native ETH shield call data through Kohaku's low-level WASM binding, but the
-Shield button remains disabled until ERC-4337 shield transaction submission is
-wired safely. Shielded balance sync, unshielding, and private RAILGUN sends
-remain pending.
+with a browser-local WebCrypto key, derive Kohaku RAILGUN spending/viewing keys
+locally, and show the resulting real `0zk` address. Paymaster support is
+optional and only used when configured. Bindle can audit shield/unshield
+readiness and can prepare native ETH shield call data through Kohaku's low-level
+WASM binding, but the Shield button remains disabled until ERC-4337 shield
+transaction submission is wired safely. Shielded balance sync, unshielding, and
+private RAILGUN sends remain pending.
 
 ## RAILGUN Integration Notes
 
@@ -141,8 +141,8 @@ Current shield/unshield status:
 
 - Public ETH funding balance sync is real and explicit.
 - RAILGUN wallet creation/import is real and local. The recovery phrase is
-  encrypted into IndexedDB under a user passphrase; localStorage stores only the
-  public `0zk` address and a key-store marker.
+  encrypted into IndexedDB with a non-extractable browser-local WebCrypto key;
+  localStorage stores only the public `0zk` address and a key-store marker.
 - Native ETH shield call preparation is available through Kohaku low-level
   `ShieldBuilder.shieldNative`.
 - Shield submission is intentionally blocked until the app wires review and
