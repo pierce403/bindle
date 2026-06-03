@@ -66,6 +66,12 @@ export const startRailgunBrowserEngine = async (
   policy: ConnectionPolicy,
   onStatus: (message: string) => void
 ): Promise<RailgunEngineHandle> => {
+  if (policy.providerMode === "helios") {
+    throw new Error(
+      "Helios provider mode is explicit in ConnectionPolicy but not wired for the RAILGUN Wallet SDK fallback yet."
+    );
+  }
+
   onStatus("Loading Railgun modules");
 
   const [wallet, sharedModels, levelJs, snarkJs] = await Promise.all([

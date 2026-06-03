@@ -2,8 +2,8 @@
 
 This file is the canonical TODO list for product and protocol work. Keep items
 honest: no fake balances, fake `0zk` addresses, simulated activity, seeded
-contacts, hidden endpoints, analytics, default hosted RPC, default broadcaster,
-or default Waku connection.
+contacts, hidden endpoints, analytics, silent phone-home, or unlabelled hosted
+infrastructure.
 
 ## Done
 
@@ -38,11 +38,17 @@ or default Waku connection.
       RPC/bundler endpoints with optional configured paymaster.
 - [x] Add a Receive Public funding flow that can create and copy the real
       smart-wallet funding address.
-- [x] Persist explicit user/operator endpoint settings locally without adding
-      default hosted endpoints.
+- [x] Add visible endpoint presets for Bindle default, Privacy max, Custom, and
+      Local dev.
+- [x] Persist explicit user/operator endpoint settings locally while preserving
+      preset selection.
+- [x] Label each outbound connection as default, custom, local, or off.
+- [x] Add preflight disclosure rows that include endpoint source and value.
 - [x] Validate decimal ETH amount as greater than zero.
 - [x] Validate recipient shape for `0zk`, `0x`, and `.eth`.
-- [x] Add tests that fail if default `ConnectionPolicy` grows a hosted endpoint.
+- [x] Add tests that verify default endpoints are visible, Privacy max clears
+      hosted endpoints, Custom preserves user values, and disclosure covers
+      every audited outbound class.
 
 ## Now
 
@@ -59,10 +65,10 @@ or default Waku connection.
 
 ## Privacy And Connectivity
 
-- [ ] Keep default startup at zero configured outbound endpoints.
 - [ ] Keep all outbound endpoints visible in `ConnectionPolicy`.
 - [ ] Add an outbound connection audit view that shows every configured endpoint
       and which wallet action can use it.
+- [ ] Keep Privacy max startup at zero configured hosted endpoints.
 - [ ] Add per-endpoint enable/disable controls so configured endpoints are not
       automatically active in every flow.
 - [ ] Show a preflight disclosure summary before any action that can reveal a
@@ -72,10 +78,13 @@ or default Waku connection.
       proving artifacts.
 - [ ] Add explicit provider resolver and broadcaster policy for outgoing
       decloaked routes.
-- [ ] Add Kohaku custom POI endpoint wiring only when endpoints are
-      user/operator configured.
-- [ ] Add Helios as a future provider adapter behind `ConnectionPolicy`.
+- [ ] Add Kohaku custom POI endpoint wiring only when endpoints are visible in
+      the selected preset or user/operator configured.
+- [ ] Add Helios provider adapter behind `ConnectionPolicy`.
 - [ ] Test Kohaku/RAILGUN provider calls against Helios before enabling it.
+- [ ] Add explicit default Helios consensus RPC and checkpoint presets only
+      after their network dependencies and privacy tradeoffs are visible in
+      Connections and preflight disclosure.
 
 ## Security And Privacy Features
 
@@ -116,8 +125,11 @@ or default Waku connection.
 
 - [ ] Do not add analytics, session replay, ad pixels, conversion tracking, or
       hidden crash reporting.
-- [ ] Do not add a default hosted Ethereum RPC, indexer, Subsquid, resolver,
-      broadcaster, quote API, Waku peer, IPFS gateway, or telemetry endpoint.
+- [ ] Do not add hidden hosted endpoints, unlabelled defaults, SDK helper
+      defaults, CDN imports, environment-magic endpoints, or undocumented
+      library defaults.
+- [ ] Do not imply Bindle default, public default, or operator default endpoints
+      are trustless or private.
 - [ ] Do not add server-side accounts, custodial key storage, cloud seed backup,
       or hosted wallet recovery.
 - [ ] Do not hide passkey sync, attestation, account-recovery, or platform

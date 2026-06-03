@@ -923,7 +923,7 @@ button:disabled {
 
 .connection-item {
   display: grid;
-  grid-template-columns: 10px 1fr;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
 }
@@ -939,6 +939,26 @@ button:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.source-badge {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 7px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 760;
+  text-transform: uppercase;
+}
+
+.source-badge.default {
+  border-color: color-mix(in srgb, var(--positive) 34%, var(--border));
+}
+
+.source-badge.custom,
+.source-badge.local {
+  border-color: color-mix(in srgb, var(--warning) 40%, var(--border));
 }
 
 .status-dot {

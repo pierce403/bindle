@@ -366,7 +366,7 @@ export function WalletActionPanel({
             <strong>{endpoint.label}</strong>
             <span>
               {endpoint.configured
-                ? endpoint.value
+                ? `${endpoint.source}: ${endpoint.value}`
                 : endpoint.required
                   ? "required, not connected"
                   : "off"}

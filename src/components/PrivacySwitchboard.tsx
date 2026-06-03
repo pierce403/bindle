@@ -1,9 +1,16 @@
 import { PlugZap, ShieldCheck, WifiOff } from "lucide-react";
 import {
-  type PrivacyToolkitId,
+  applyEndpointPreset,
+  endpointPresets,
+  markConnectionPolicyCustom,
   summarizeOutbound,
-  type ConnectionPolicy
+  type ConnectionPolicy,
+  type EndpointPresetId,
+  type HeliosNetwork,
+  type PrivacyToolkitId,
+  type ProviderMode
 } from "../privacy/connectionPolicy";
+import { buildEndpointDisclosure } from "../privacy/preflightDisclosure";
 import { privacyToolkitOptions } from "../privacy/toolkit";
 
 type PrivacySwitchboardProps = {
@@ -24,23 +31,55 @@ export function PrivacySwitchboard({
   onChange
 }: PrivacySwitchboardProps) {
   const controls = summarizeOutbound(policy);
+  const startToolkitDisclosure = buildEndpointDisclosure(policy, "start-toolkit");
+
+  const updateCustom = (nextPolicy: ConnectionPolicy) => {
+    onChange(markConnectionPolicyCustom(nextPolicy));
+  };
 
   return (
     <section className="panel privacy-panel" aria-labelledby="privacy-heading">
       <div className="section-heading">
         <div>
           <h2 id="privacy-heading">Connections</h2>
-          <span>{toolkitState}</span>
+          <span>
+            {endpointPresets[policy.endpointPreset].label} / {toolkitState}
+          </span>
         </div>
         <ShieldCheck size={21} aria-hidden="true" />
       </div>
+
+      <label className="field">
+        <span>Active preset</span>
+        <select
+          value={policy.endpointPreset}
+          onChange={(event) =>
+            onChange(
+              applyEndpointPreset(
+                policy,
+                event.currentTarget.value as EndpointPresetId
+              )
+            )
+          }
+        >
+          {Object.values(endpointPresets).map((preset) => (
+            <option key={preset.id} value={preset.id}>
+              {preset.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <p className="status-message">
+        {endpointPresets[policy.endpointPreset].description}
+      </p>
 
       <label className="field">
         <span>Privacy toolkit</span>
         <select
           value={policy.privacyToolkit}
           onChange={(event) =>
-            onChange({
+            updateCustom({
               ...policy,
               privacyToolkit: event.currentTarget.value as PrivacyToolkitId
             })
@@ -55,23 +94,121 @@ export function PrivacySwitchboard({
       </label>
 
       <label className="field">
-        <span>Ethereum RPC</span>
+        <span>Provider mode</span>
+        <select
+          value={policy.providerMode}
+          onChange={(event) =>
+            updateCustom({
+              ...policy,
+              providerMode: event.currentTarget.value as ProviderMode
+            })
+          }
+        >
+          <option value="direct-rpc">Direct RPC</option>
+          <option value="helios">Helios verified RPC</option>
+        </select>
+      </label>
+
+      <label className="field">
+        <span>Ethereum execution RPC</span>
         <input
           value={policy.ethereumRpcUrl}
-          placeholder="http://127.0.0.1:8545"
+          placeholder="https://ethereum-rpc.publicnode.com"
           onChange={(event) =>
-            onChange({ ...policy, ethereumRpcUrl: event.currentTarget.value })
+            updateCustom({ ...policy, ethereumRpcUrl: event.currentTarget.value })
+          }
+        />
+      </label>
+
+      {policy.providerMode === "helios" ? (
+        <>
+          <label className="field">
+            <span>Helios network</span>
+            <select
+              value={policy.heliosNetwork}
+              onChange={(event) =>
+                updateCustom({
+                  ...policy,
+                  heliosNetwork: event.currentTarget.value as HeliosNetwork
+                })
+              }
+            >
+              <option value="mainnet">Mainnet</option>
+              <option value="sepolia">Sepolia</option>
+              <option value="holesky">Holesky</option>
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Helios consensus RPC</span>
+            <input
+              value={policy.heliosConsensusRpcUrl}
+              placeholder="explicit beacon API endpoint"
+              onChange={(event) =>
+                updateCustom({
+                  ...policy,
+                  heliosConsensusRpcUrl: event.currentTarget.value
+                })
+              }
+            />
+          </label>
+
+          <label className="field">
+            <span>Helios checkpoint</span>
+            <input
+              value={policy.heliosCheckpoint}
+              placeholder="explicit trusted checkpoint"
+              onChange={(event) =>
+                updateCustom({
+                  ...policy,
+                  heliosCheckpoint: event.currentTarget.value
+                })
+              }
+            />
+          </label>
+        </>
+      ) : null}
+
+      <label className="field">
+        <span>ERC-4337 bundler</span>
+        <input
+          value={policy.bundlerUrl}
+          placeholder="https://public.pimlico.io/v2/1/rpc"
+          onChange={(event) =>
+            updateCustom({ ...policy, bundlerUrl: event.currentTarget.value })
           }
         />
       </label>
 
       <label className="field">
-        <span>POI aggregator</span>
+        <span>ERC-4337 paymaster</span>
+        <input
+          value={policy.paymasterUrl}
+          placeholder="optional"
+          onChange={(event) =>
+            updateCustom({ ...policy, paymasterUrl: event.currentTarget.value })
+          }
+        />
+      </label>
+
+      <label className="field">
+        <span>RAILGUN broadcaster</span>
+        <input
+          value={policy.broadcasterUrl}
+          placeholder="optional"
+          onChange={(event) =>
+            updateCustom({ ...policy, broadcasterUrl: event.currentTarget.value })
+          }
+        />
+      </label>
+
+      <label className="field">
+        <span>POI / sync endpoint</span>
         <input
           value={policy.poiAggregatorUrls[0] ?? ""}
           placeholder="optional"
           onChange={(event) =>
-            onChange({
+            updateCustom({
               ...policy,
               poiAggregatorUrls: event.currentTarget.value
                 ? [event.currentTarget.value]
@@ -82,23 +219,26 @@ export function PrivacySwitchboard({
       </label>
 
       <label className="field">
-        <span>ERC-4337 bundler</span>
+        <span>Provider resolver</span>
         <input
-          value={policy.bundlerUrl}
-          placeholder="optional"
+          value={policy.providerResolverUrl}
+          placeholder="local table"
           onChange={(event) =>
-            onChange({ ...policy, bundlerUrl: event.currentTarget.value })
+            updateCustom({
+              ...policy,
+              providerResolverUrl: event.currentTarget.value
+            })
           }
         />
       </label>
 
       <label className="field">
-        <span>Paymaster</span>
+        <span>Quote source</span>
         <input
-          value={policy.paymasterUrl}
-          placeholder="optional"
+          value={policy.priceQuoteUrl}
+          placeholder="manual"
           onChange={(event) =>
-            onChange({ ...policy, paymasterUrl: event.currentTarget.value })
+            updateCustom({ ...policy, priceQuoteUrl: event.currentTarget.value })
           }
         />
       </label>
@@ -109,7 +249,7 @@ export function PrivacySwitchboard({
           value={policy.passkeyAttestationUrl}
           placeholder="none"
           onChange={(event) =>
-            onChange({
+            updateCustom({
               ...policy,
               passkeyAttestationUrl: event.currentTarget.value
             })
@@ -123,7 +263,10 @@ export function PrivacySwitchboard({
           value={policy.recoveryServiceUrl}
           placeholder="none"
           onChange={(event) =>
-            onChange({ ...policy, recoveryServiceUrl: event.currentTarget.value })
+            updateCustom({
+              ...policy,
+              recoveryServiceUrl: event.currentTarget.value
+            })
           }
         />
       </label>
@@ -134,7 +277,7 @@ export function PrivacySwitchboard({
           type="checkbox"
           checked={policy.wakuEnabled}
           onChange={(event) =>
-            onChange({ ...policy, wakuEnabled: event.currentTarget.checked })
+            updateCustom({ ...policy, wakuEnabled: event.currentTarget.checked })
           }
         />
       </label>
@@ -147,6 +290,25 @@ export function PrivacySwitchboard({
               <strong>{control.label}</strong>
               <span>{control.value}</span>
             </div>
+            <span className={`source-badge ${control.source}`}>
+              {control.source}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div className="preflight-card" aria-label="Start toolkit preflight">
+        <span>Start toolkit may contact</span>
+        {startToolkitDisclosure.map((endpoint) => (
+          <div className="preflight-row" key={endpoint.id}>
+            <strong>{endpoint.label}</strong>
+            <span>
+              {endpoint.configured
+                ? `${endpoint.source}: ${endpoint.value}`
+                : endpoint.required
+                  ? "required, off"
+                  : "off"}
+            </span>
           </div>
         ))}
       </div>

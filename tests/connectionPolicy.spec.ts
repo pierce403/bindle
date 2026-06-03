@@ -1,57 +1,93 @@
 import { expect, test } from "@playwright/test";
 import {
+  applyEndpointPreset,
   defaultConnectionPolicy,
+  endpointPresets,
   summarizeOutbound
 } from "../src/privacy/connectionPolicy";
 import { buildEndpointDisclosure } from "../src/privacy/preflightDisclosure";
 
-const hostedUrlPattern = /^https?:\/\//i;
+const expectedOutboundIds = [
+  "ethereum-rpc",
+  "helios-consensus-rpc",
+  "helios-checkpoint",
+  "railgun-poi",
+  "railgun-broadcaster",
+  "provider-resolution",
+  "price-quotes",
+  "waku",
+  "erc4337-bundler",
+  "erc4337-paymaster",
+  "passkey-attestation",
+  "wallet-recovery"
+];
 
-test("default connection policy has no hosted endpoints", () => {
-  expect(defaultConnectionPolicy.ethereumRpcUrl).toBe("");
-  expect(defaultConnectionPolicy.poiAggregatorUrls).toEqual([]);
-  expect(defaultConnectionPolicy.broadcasterUrl).toBe("");
-  expect(defaultConnectionPolicy.providerResolverUrl).toBe("");
-  expect(defaultConnectionPolicy.priceQuoteUrl).toBe("");
-  expect(defaultConnectionPolicy.bundlerUrl).toBe("");
+test("default user mode has a visible sane preset selected", () => {
+  expect(defaultConnectionPolicy.endpointPreset).toBe("bindle-default");
+  expect(defaultConnectionPolicy.providerMode).toBe("direct-rpc");
+  expect(defaultConnectionPolicy.ethereumRpcUrl).toMatch(/^https:\/\//);
+  expect(defaultConnectionPolicy.bundlerUrl).toMatch(/^https:\/\//);
   expect(defaultConnectionPolicy.paymasterUrl).toBe("");
-  expect(defaultConnectionPolicy.passkeyAttestationUrl).toBe("");
-  expect(defaultConnectionPolicy.recoveryServiceUrl).toBe("");
-  expect(defaultConnectionPolicy.wakuEnabled).toBe(false);
-
-  expect(JSON.stringify(defaultConnectionPolicy)).not.toMatch(hostedUrlPattern);
 });
 
-test("outbound summary includes ERC-4337 and passkey service classes", () => {
+test("privacy max preset clears hosted endpoints", () => {
+  const policy = applyEndpointPreset(defaultConnectionPolicy, "privacy-max");
+
+  expect(policy.ethereumRpcUrl).toBe("");
+  expect(policy.heliosConsensusRpcUrl).toBe("");
+  expect(policy.heliosCheckpoint).toBe("");
+  expect(policy.poiAggregatorUrls).toEqual([]);
+  expect(policy.broadcasterUrl).toBe("");
+  expect(policy.providerResolverUrl).toBe("");
+  expect(policy.priceQuoteUrl).toBe("");
+  expect(policy.bundlerUrl).toBe("");
+  expect(policy.paymasterUrl).toBe("");
+  expect(policy.wakuEnabled).toBe(false);
+});
+
+test("switching to custom preserves user-entered endpoint values", () => {
+  const custom = applyEndpointPreset(
+    {
+      ...defaultConnectionPolicy,
+      ethereumRpcUrl: "http://127.0.0.1:8545",
+      bundlerUrl: "http://127.0.0.1:4337"
+    },
+    "custom"
+  );
+
+  expect(custom.endpointPreset).toBe("custom");
+  expect(custom.ethereumRpcUrl).toBe("http://127.0.0.1:8545");
+  expect(custom.bundlerUrl).toBe("http://127.0.0.1:4337");
+});
+
+test("outbound summary exposes every endpoint class", () => {
   const controls = summarizeOutbound(defaultConnectionPolicy);
 
+  expect(controls.map((control) => control.id).sort()).toEqual(
+    expectedOutboundIds.slice().sort()
+  );
   expect(controls).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
+        id: "ethereum-rpc",
+        source: "default",
+        value: endpointPresets["bindle-default"].policy.ethereumRpcUrl
+      }),
+      expect.objectContaining({
         id: "erc4337-bundler",
-        mode: "off",
-        value: "not connected"
+        source: "default",
+        value: endpointPresets["bindle-default"].policy.bundlerUrl
       }),
       expect.objectContaining({
         id: "erc4337-paymaster",
-        mode: "off",
+        source: "off",
         value: "not connected"
-      }),
-      expect.objectContaining({
-        id: "passkey-attestation",
-        mode: "off",
-        value: "none"
-      }),
-      expect.objectContaining({
-        id: "wallet-recovery",
-        mode: "off",
-        value: "none"
       })
     ])
   );
 });
 
-test("public smart payments require explicit RPC and bundler endpoints", () => {
+test("public smart payment preflight includes required endpoints and sources", () => {
   const disclosure = buildEndpointDisclosure(
     defaultConnectionPolicy,
     "public-smart-payment"
@@ -61,19 +97,36 @@ test("public smart payments require explicit RPC and bundler endpoints", () => {
     expect.arrayContaining([
       expect.objectContaining({
         id: "ethereum-rpc",
-        configured: false,
-        required: true
+        configured: true,
+        required: true,
+        source: "default"
       }),
       expect.objectContaining({
         id: "erc4337-bundler",
-        configured: false,
-        required: true
+        configured: true,
+        required: true,
+        source: "default"
       }),
       expect.objectContaining({
         id: "erc4337-paymaster",
         configured: false,
-        required: false
+        required: false,
+        source: "off"
       })
+    ])
+  );
+});
+
+test("start toolkit preflight includes direct and Helios endpoint classes", () => {
+  const disclosure = buildEndpointDisclosure(defaultConnectionPolicy, "start-toolkit");
+
+  expect(disclosure).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ id: "ethereum-rpc", required: true }),
+      expect.objectContaining({ id: "helios-consensus-rpc", required: false }),
+      expect.objectContaining({ id: "helios-checkpoint", required: false }),
+      expect.objectContaining({ id: "railgun-poi", required: false }),
+      expect.objectContaining({ id: "waku", required: false })
     ])
   );
 });

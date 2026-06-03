@@ -1,7 +1,10 @@
 import {
   defaultConnectionPolicy,
   type ConnectionPolicy,
-  type PrivacyToolkitId
+  type EndpointPresetId,
+  type HeliosNetwork,
+  type PrivacyToolkitId,
+  type ProviderMode
 } from "./connectionPolicy";
 
 const storageKey = "bindle.connectionPolicy.v1";
@@ -14,8 +17,33 @@ const stringArrayValue = (value: unknown): string[] =>
 
 const booleanValue = (value: unknown): boolean => value === true;
 
+const endpointPresetValue = (value: unknown): EndpointPresetId =>
+  value === "privacy-max" || value === "custom" || value === "local-dev"
+    ? value
+    : "bindle-default";
+
+const providerModeValue = (value: unknown): ProviderMode =>
+  value === "helios" ? "helios" : "direct-rpc";
+
+const heliosNetworkValue = (value: unknown): HeliosNetwork =>
+  value === "sepolia" || value === "holesky" ? value : "mainnet";
+
 const privacyToolkitValue = (value: unknown): PrivacyToolkitId =>
   value === "railgun-wallet-sdk" ? "railgun-wallet-sdk" : "kohaku-railgun";
+
+const hasLegacyCustomEndpoint = (parsed: Record<string, unknown>): boolean =>
+  stringValue(parsed.ethereumRpcUrl).length > 0 ||
+  stringValue(parsed.bundlerUrl).length > 0 ||
+  stringValue(parsed.paymasterUrl).length > 0 ||
+  stringValue(parsed.broadcasterUrl).length > 0 ||
+  stringValue(parsed.providerResolverUrl).length > 0 ||
+  stringValue(parsed.priceQuoteUrl).length > 0 ||
+  stringValue(parsed.heliosConsensusRpcUrl).length > 0 ||
+  stringValue(parsed.heliosCheckpoint).length > 0 ||
+  stringValue(parsed.passkeyAttestationUrl).length > 0 ||
+  stringValue(parsed.recoveryServiceUrl).length > 0 ||
+  stringArrayValue(parsed.poiAggregatorUrls).length > 0 ||
+  booleanValue(parsed.wakuEnabled);
 
 const normalizeConnectionPolicy = (value: unknown): ConnectionPolicy => {
   if (!value || typeof value !== "object") {
@@ -23,10 +51,25 @@ const normalizeConnectionPolicy = (value: unknown): ConnectionPolicy => {
   }
 
   const parsed = value as Record<string, unknown>;
+  const endpointPreset =
+    typeof parsed.endpointPreset === "string"
+      ? endpointPresetValue(parsed.endpointPreset)
+      : hasLegacyCustomEndpoint(parsed)
+        ? "custom"
+        : "bindle-default";
+
+  if (endpointPreset === "bindle-default" && !hasLegacyCustomEndpoint(parsed)) {
+    return defaultConnectionPolicy;
+  }
 
   return {
+    endpointPreset,
+    providerMode: providerModeValue(parsed.providerMode),
     privacyToolkit: privacyToolkitValue(parsed.privacyToolkit),
     ethereumRpcUrl: stringValue(parsed.ethereumRpcUrl),
+    heliosConsensusRpcUrl: stringValue(parsed.heliosConsensusRpcUrl),
+    heliosCheckpoint: stringValue(parsed.heliosCheckpoint),
+    heliosNetwork: heliosNetworkValue(parsed.heliosNetwork),
     poiAggregatorUrls: stringArrayValue(parsed.poiAggregatorUrls),
     broadcasterUrl: stringValue(parsed.broadcasterUrl),
     providerResolverUrl: stringValue(parsed.providerResolverUrl),
@@ -66,9 +109,9 @@ export const saveConnectionPolicy = (
   const normalized = normalizeConnectionPolicy(policy);
 
   if (canUseStorage()) {
-    // Storage boundary: this stores explicit user/operator endpoint settings
-    // only. It does not add defaults or contact endpoints by itself. RPC URLs
-    // may contain provider tokens, so they remain local to this browser profile.
+    // Storage boundary: this stores the selected preset plus endpoint edits.
+    // It does not contact endpoints by itself. RPC URLs may contain provider
+    // tokens, so they remain local to this browser profile.
     window.localStorage.setItem(storageKey, JSON.stringify(normalized));
   }
 

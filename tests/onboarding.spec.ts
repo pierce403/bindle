@@ -62,7 +62,7 @@ test.describe("passkey-first onboarding", () => {
     await expect(review).toBeDisabled();
 
     await page.getByRole("button", { name: "Nodes" }).click();
-    await page.getByLabel("Ethereum RPC").fill("http://127.0.0.1:8545");
+    await page.getByLabel("Ethereum execution RPC").fill("http://127.0.0.1:8545");
     await page.getByRole("button", { name: "Wallet" }).click();
 
     await expect(
@@ -71,14 +71,27 @@ test.describe("passkey-first onboarding", () => {
     await expect(review).toBeDisabled();
   });
 
-  test("shows ERC-4337 endpoints as off by default", async ({ page }) => {
+  test("shows visible defaults and privacy-max clears hosted endpoints", async ({
+    page
+  }) => {
     await page.goto("/");
 
     await page.getByRole("button", { name: "Nodes" }).click();
 
-    await expect(page.getByLabel("Ethereum RPC")).toHaveValue("");
+    await expect(page.getByLabel("Active preset")).toHaveValue("bindle-default");
+    await expect(page.getByLabel("Ethereum execution RPC")).toHaveValue(
+      "https://ethereum-rpc.publicnode.com"
+    );
+    await expect(page.getByLabel("ERC-4337 bundler")).toHaveValue(
+      "https://public.pimlico.io/v2/1/rpc"
+    );
+    await expect(page.getByText("default").first()).toBeVisible();
+
+    await page.getByLabel("Active preset").selectOption("privacy-max");
+
+    await expect(page.getByLabel("Ethereum execution RPC")).toHaveValue("");
     await expect(page.getByLabel("ERC-4337 bundler")).toHaveValue("");
-    await expect(page.getByLabel("Paymaster")).toHaveValue("");
+    await expect(page.getByLabel("ERC-4337 paymaster")).toHaveValue("");
     await expect(page.getByLabel("Passkey attestation")).toHaveValue("");
     await expect(page.getByLabel("Wallet recovery")).toHaveValue("");
     await expect(page.getByText("ERC-4337 bundler").first()).toBeVisible();
@@ -109,6 +122,9 @@ test.describe("passkey-first onboarding", () => {
       });
 
       await page.goto("/");
+      await page.getByRole("button", { name: "Nodes" }).click();
+      await page.getByLabel("Active preset").selectOption("privacy-max");
+      await page.getByRole("button", { name: "Wallet" }).click();
       await expect(page.getByRole("heading", { name: "Set Up Bindle" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Create passkey" })).toBeEnabled();
       await page.getByRole("button", { name: "Create passkey" }).click();
@@ -127,19 +143,20 @@ test.describe("passkey-first onboarding", () => {
   test("persists explicit connection settings locally", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Nodes" }).click();
-    await page.getByLabel("Ethereum RPC").fill("http://127.0.0.1:8545");
+    await page.getByLabel("Ethereum execution RPC").fill("http://127.0.0.1:8545");
     await page.getByLabel("ERC-4337 bundler").fill("http://127.0.0.1:4337");
 
     await page.reload();
     await page.getByRole("button", { name: "Nodes" }).click();
 
-    await expect(page.getByLabel("Ethereum RPC")).toHaveValue(
+    await expect(page.getByLabel("Active preset")).toHaveValue("custom");
+    await expect(page.getByLabel("Ethereum execution RPC")).toHaveValue(
       "http://127.0.0.1:8545"
     );
     await expect(page.getByLabel("ERC-4337 bundler")).toHaveValue(
       "http://127.0.0.1:4337"
     );
-    await expect(page.getByLabel("Paymaster")).toHaveValue("");
+    await expect(page.getByLabel("ERC-4337 paymaster")).toHaveValue("");
   });
 
   test.fixme(

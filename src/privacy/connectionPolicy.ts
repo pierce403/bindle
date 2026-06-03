@@ -1,5 +1,7 @@
 export type OutboundClass =
   | "ethereum-rpc"
+  | "helios-consensus-rpc"
+  | "helios-checkpoint"
   | "railgun-poi"
   | "railgun-broadcaster"
   | "provider-resolution"
@@ -10,11 +12,28 @@ export type OutboundClass =
   | "passkey-attestation"
   | "wallet-recovery";
 
+export type EndpointPresetId =
+  | "bindle-default"
+  | "privacy-max"
+  | "custom"
+  | "local-dev";
+
+export type ProviderMode = "direct-rpc" | "helios";
+
+export type HeliosNetwork = "mainnet" | "sepolia" | "holesky";
+
+export type EndpointSource = "default" | "custom" | "off" | "local";
+
 export type PrivacyToolkitId = "kohaku-railgun" | "railgun-wallet-sdk";
 
 export type ConnectionPolicy = {
+  endpointPreset: EndpointPresetId;
+  providerMode: ProviderMode;
   privacyToolkit: PrivacyToolkitId;
   ethereumRpcUrl: string;
+  heliosConsensusRpcUrl: string;
+  heliosCheckpoint: string;
+  heliosNetwork: HeliosNetwork;
   poiAggregatorUrls: string[];
   broadcasterUrl: string;
   providerResolverUrl: string;
@@ -31,17 +50,26 @@ export type OutboundControl = {
   id: OutboundClass;
   label: string;
   mode: "required" | "optional" | "off";
+  source: EndpointSource;
   value: string;
 };
 
-export const defaultConnectionPolicy: ConnectionPolicy = {
-  privacyToolkit: "kohaku-railgun",
-  ethereumRpcUrl: "",
+export type EndpointPreset = {
+  id: EndpointPresetId;
+  label: string;
+  description: string;
+  policy: ConnectionPolicy;
+};
+
+const policyBase = {
+  privacyToolkit: "kohaku-railgun" as PrivacyToolkitId,
+  heliosConsensusRpcUrl: "",
+  heliosCheckpoint: "",
+  heliosNetwork: "mainnet" as HeliosNetwork,
   poiAggregatorUrls: [],
   broadcasterUrl: "",
   providerResolverUrl: "",
   priceQuoteUrl: "",
-  bundlerUrl: "",
   paymasterUrl: "",
   passkeyAttestationUrl: "",
   recoveryServiceUrl: "",
@@ -49,70 +77,270 @@ export const defaultConnectionPolicy: ConnectionPolicy = {
   debugLogging: false
 };
 
+export const endpointPresets: Record<EndpointPresetId, EndpointPreset> = {
+  "bindle-default": {
+    id: "bindle-default",
+    label: "Bindle default",
+    description:
+      "Visible public defaults for normal use. These endpoints see network metadata.",
+    policy: {
+      ...policyBase,
+      endpointPreset: "bindle-default",
+      providerMode: "direct-rpc",
+      ethereumRpcUrl: "https://ethereum-rpc.publicnode.com",
+      bundlerUrl: "https://public.pimlico.io/v2/1/rpc"
+    }
+  },
+  "privacy-max": {
+    id: "privacy-max",
+    label: "Privacy max",
+    description:
+      "Starts with hosted endpoints empty/off for users bringing local or self-hosted infrastructure.",
+    policy: {
+      ...policyBase,
+      endpointPreset: "privacy-max",
+      providerMode: "direct-rpc",
+      ethereumRpcUrl: "",
+      bundlerUrl: ""
+    }
+  },
+  custom: {
+    id: "custom",
+    label: "Custom",
+    description: "Keep current values and edit each endpoint manually.",
+    policy: {
+      ...policyBase,
+      endpointPreset: "custom",
+      providerMode: "direct-rpc",
+      ethereumRpcUrl: "",
+      bundlerUrl: ""
+    }
+  },
+  "local-dev": {
+    id: "local-dev",
+    label: "Local dev",
+    description: "Localhost-style endpoints for development.",
+    policy: {
+      ...policyBase,
+      endpointPreset: "local-dev",
+      providerMode: "direct-rpc",
+      ethereumRpcUrl: "http://127.0.0.1:8545",
+      bundlerUrl: "http://127.0.0.1:4337"
+    }
+  }
+};
+
+export const defaultConnectionPolicy: ConnectionPolicy =
+  endpointPresets["bindle-default"].policy;
+
+const localEndpointPattern = /^https?:\/\/(127\.0\.0\.1|localhost)(?::\d+)?/i;
+
+const sourceForValue = (
+  policy: ConnectionPolicy,
+  value: string,
+  presetValue: string
+): EndpointSource => {
+  if (!value) {
+    return "off";
+  }
+
+  if (localEndpointPattern.test(value)) {
+    return "local";
+  }
+
+  return value === presetValue && policy.endpointPreset === "bindle-default"
+    ? "default"
+    : "custom";
+};
+
+const sourceForArray = (
+  policy: ConnectionPolicy,
+  value: string[],
+  presetValue: string[]
+): EndpointSource => {
+  if (value.length === 0) {
+    return "off";
+  }
+
+  if (value.every((item) => localEndpointPattern.test(item))) {
+    return "local";
+  }
+
+  return JSON.stringify(value) === JSON.stringify(presetValue) &&
+    policy.endpointPreset === "bindle-default"
+    ? "default"
+    : "custom";
+};
+
+const sourceForLiteral = (
+  value: string,
+  source: EndpointSource
+): EndpointSource => (value ? source : "off");
+
+export const applyEndpointPreset = (
+  currentPolicy: ConnectionPolicy,
+  endpointPreset: EndpointPresetId
+): ConnectionPolicy => {
+  if (endpointPreset === "custom") {
+    return {
+      ...currentPolicy,
+      endpointPreset
+    };
+  }
+
+  return endpointPresets[endpointPreset].policy;
+};
+
+export const markConnectionPolicyCustom = (
+  policy: ConnectionPolicy
+): ConnectionPolicy => ({
+  ...policy,
+  endpointPreset: "custom"
+});
+
 export const summarizeOutbound = (
   policy: ConnectionPolicy
-): OutboundControl[] => [
-  {
-    id: "ethereum-rpc",
-    label: "Ethereum RPC",
-    mode: policy.ethereumRpcUrl ? "required" : "off",
-    value: policy.ethereumRpcUrl || "not connected"
-  },
-  {
-    id: "railgun-poi",
-    label: "Private POI",
-    mode: policy.poiAggregatorUrls.length > 0 ? "optional" : "off",
-    value:
-      policy.poiAggregatorUrls.length > 0
-        ? `${policy.poiAggregatorUrls.length} configured`
-        : "not connected"
-  },
-  {
-    id: "railgun-broadcaster",
-    label: "Broadcaster",
-    mode: policy.broadcasterUrl ? "optional" : "off",
-    value: policy.broadcasterUrl || "not connected"
-  },
-  {
-    id: "provider-resolution",
-    label: "Provider routing",
-    mode: policy.providerResolverUrl ? "optional" : "off",
-    value: policy.providerResolverUrl || "local table"
-  },
-  {
-    id: "price-quotes",
-    label: "Quotes",
-    mode: policy.priceQuoteUrl ? "optional" : "off",
-    value: policy.priceQuoteUrl || "manual"
-  },
-  {
-    id: "erc4337-bundler",
-    label: "ERC-4337 bundler",
-    mode: policy.bundlerUrl ? "optional" : "off",
-    value: policy.bundlerUrl || "not connected"
-  },
-  {
-    id: "erc4337-paymaster",
-    label: "Paymaster",
-    mode: policy.paymasterUrl ? "optional" : "off",
-    value: policy.paymasterUrl || "not connected"
-  },
-  {
-    id: "passkey-attestation",
-    label: "Passkey attestation",
-    mode: policy.passkeyAttestationUrl ? "optional" : "off",
-    value: policy.passkeyAttestationUrl || "none"
-  },
-  {
-    id: "wallet-recovery",
-    label: "Wallet recovery",
-    mode: policy.recoveryServiceUrl ? "optional" : "off",
-    value: policy.recoveryServiceUrl || "none"
-  },
-  {
-    id: "waku",
-    label: "Waku",
-    mode: policy.wakuEnabled ? "optional" : "off",
-    value: policy.wakuEnabled ? "enabled" : "off"
-  }
-];
+): OutboundControl[] => {
+  const bindleDefault = endpointPresets["bindle-default"].policy;
+
+  return [
+    {
+      id: "ethereum-rpc",
+      label:
+        policy.providerMode === "helios"
+          ? "Execution RPC"
+          : "Ethereum RPC",
+      mode: policy.ethereumRpcUrl ? "required" : "off",
+      source: sourceForValue(
+        policy,
+        policy.ethereumRpcUrl,
+        bindleDefault.ethereumRpcUrl
+      ),
+      value: policy.ethereumRpcUrl || "not connected"
+    },
+    {
+      id: "helios-consensus-rpc",
+      label: "Helios consensus RPC",
+      mode:
+        policy.providerMode === "helios" && policy.heliosConsensusRpcUrl
+          ? "required"
+          : "off",
+      source: sourceForValue(
+        policy,
+        policy.heliosConsensusRpcUrl,
+        bindleDefault.heliosConsensusRpcUrl
+      ),
+      value:
+        policy.providerMode === "helios"
+          ? policy.heliosConsensusRpcUrl || "not connected"
+          : "off"
+    },
+    {
+      id: "helios-checkpoint",
+      label: "Helios checkpoint",
+      mode:
+        policy.providerMode === "helios" && policy.heliosCheckpoint
+          ? "required"
+          : "off",
+      source: sourceForLiteral(policy.heliosCheckpoint, "custom"),
+      value:
+        policy.providerMode === "helios"
+          ? policy.heliosCheckpoint || "not configured"
+          : "off"
+    },
+    {
+      id: "railgun-poi",
+      label: "Private POI",
+      mode: policy.poiAggregatorUrls.length > 0 ? "optional" : "off",
+      source: sourceForArray(
+        policy,
+        policy.poiAggregatorUrls,
+        bindleDefault.poiAggregatorUrls
+      ),
+      value:
+        policy.poiAggregatorUrls.length > 0
+          ? `${policy.poiAggregatorUrls.length} configured`
+          : "not connected"
+    },
+    {
+      id: "railgun-broadcaster",
+      label: "Broadcaster",
+      mode: policy.broadcasterUrl ? "optional" : "off",
+      source: sourceForValue(
+        policy,
+        policy.broadcasterUrl,
+        bindleDefault.broadcasterUrl
+      ),
+      value: policy.broadcasterUrl || "not connected"
+    },
+    {
+      id: "provider-resolution",
+      label: "Provider routing",
+      mode: policy.providerResolverUrl ? "optional" : "off",
+      source: sourceForValue(
+        policy,
+        policy.providerResolverUrl,
+        bindleDefault.providerResolverUrl
+      ),
+      value: policy.providerResolverUrl || "local table"
+    },
+    {
+      id: "price-quotes",
+      label: "Quotes",
+      mode: policy.priceQuoteUrl ? "optional" : "off",
+      source: sourceForValue(
+        policy,
+        policy.priceQuoteUrl,
+        bindleDefault.priceQuoteUrl
+      ),
+      value: policy.priceQuoteUrl || "manual"
+    },
+    {
+      id: "erc4337-bundler",
+      label: "ERC-4337 bundler",
+      mode: policy.bundlerUrl ? "optional" : "off",
+      source: sourceForValue(policy, policy.bundlerUrl, bindleDefault.bundlerUrl),
+      value: policy.bundlerUrl || "not connected"
+    },
+    {
+      id: "erc4337-paymaster",
+      label: "Paymaster",
+      mode: policy.paymasterUrl ? "optional" : "off",
+      source: sourceForValue(
+        policy,
+        policy.paymasterUrl,
+        bindleDefault.paymasterUrl
+      ),
+      value: policy.paymasterUrl || "not connected"
+    },
+    {
+      id: "passkey-attestation",
+      label: "Passkey attestation",
+      mode: policy.passkeyAttestationUrl ? "optional" : "off",
+      source: sourceForValue(
+        policy,
+        policy.passkeyAttestationUrl,
+        bindleDefault.passkeyAttestationUrl
+      ),
+      value: policy.passkeyAttestationUrl || "none"
+    },
+    {
+      id: "wallet-recovery",
+      label: "Wallet recovery",
+      mode: policy.recoveryServiceUrl ? "optional" : "off",
+      source: sourceForValue(
+        policy,
+        policy.recoveryServiceUrl,
+        bindleDefault.recoveryServiceUrl
+      ),
+      value: policy.recoveryServiceUrl || "none"
+    },
+    {
+      id: "waku",
+      label: "Waku",
+      mode: policy.wakuEnabled ? "optional" : "off",
+      source: policy.wakuEnabled ? "custom" : "off",
+      value: policy.wakuEnabled ? "enabled" : "off"
+    }
+  ];
+};

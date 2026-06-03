@@ -23,7 +23,8 @@ Work style for this repo:
 
 - Be direct, pragmatic, and explicit about tradeoffs.
 - Do not ship simulated product state. Empty real states are better than fake UX.
-- Prefer small, verifiable changes that preserve privacy defaults.
+- Prefer small, verifiable changes that keep outbound services visible,
+  replaceable, and disclosed.
 - Commit finished knowledge and implementation changes. Push `main` when the
   change is meant to update the GitHub repo or `bindle.me`.
 
@@ -97,28 +98,31 @@ Hard product rules:
 - Default onboarding should be passkey-backed smart wallet creation from the
   phone PWA. Do not make seed phrases, EOAs, browser extensions, or fake
   wallet state the primary first-run path.
-- No hard-coded third-party endpoints without explicit user or operator choice.
+- No hidden endpoints, silent phone-home, or unlabelled hosted infrastructure.
+- Default endpoints are allowed only when they are visible in
+  `ConnectionPolicy`, shown in Connections, replaceable by the user, and
+  included in preflight disclosure before sensitive actions.
 - No hidden smart-wallet bundler, paymaster, passkey attestation, or recovery
   endpoint.
 - Empty states are allowed only when they represent the real first-run state.
 - Controls that are not wired must either be removed or clearly disabled.
 
-Privacy defaults:
+Current endpoint presets:
 
-- Privacy toolkit: Kohaku RAILGUN.
-- Ethereum RPC: unset.
-- Private POI aggregator: unset.
-- Broadcaster: unset.
-- Provider resolver: local table.
-- Price quotes: manual.
-- ERC-4337 bundler: unset.
-- Paymaster: unset.
-- Passkey attestation: none.
-- Wallet recovery: none.
-- Waku: off.
+- Bindle default: Kohaku RAILGUN, direct RPC mode,
+  `https://ethereum-rpc.publicnode.com` for Ethereum RPC, and
+  `https://public.pimlico.io/v2/1/rpc` for the ERC-4337 bundler. These are
+  public defaults that can see network metadata; never imply they are trustless
+  or private.
+- Privacy max: hosted endpoints empty/off for users bringing local or
+  self-hosted infrastructure.
+- Custom: preserves user-entered values while editing each endpoint manually.
+- Local dev: localhost-style RPC and bundler endpoints.
 
-Production work should preserve this shape. Add networked capabilities as
-explicit, inspectable endpoints rather than hidden defaults.
+Production work should preserve the policy shape: defaults may exist only as
+labelled, inspectable, replaceable preset values. No endpoint may be hidden in
+source code, SDK helper defaults, environment magic, CDN imports, or
+undocumented library defaults.
 
 ## Build, Preview, And Deploy Commands
 
@@ -216,11 +220,12 @@ avoids requiring GitHub workflow scope.
   plugin facade into Vite, which pulled `viem/isows` and failed the production
   build in this repo.
 - The current Kohaku adapter uses `RailgunBuilder.withUtxoSyncer(UtxoSyncer.rpc(...))`
-  so startup contacts only the user-configured Ethereum RPC endpoint and
+  so startup contacts only the active visible Ethereum RPC endpoint and
   same-origin bundled WASM assets.
 - Passkey-backed smart wallet work should stay behind the Kohaku/privacy
   adapter boundary. Any ERC-4337 bundler, paymaster, passkey attestation, or
-  recovery service must be represented in `ConnectionPolicy` before it is used.
+  recovery service must be represented in `ConnectionPolicy` and preflight
+  disclosure before it is used.
 - Platform passkeys may sync through Apple, Google, Microsoft, or another
   account provider depending on device settings. UX and docs must disclose that
   tradeoff instead of presenting passkeys as purely local by default.
@@ -238,12 +243,13 @@ avoids requiring GitHub workflow scope.
 - First-run setup is surfaced through `src/components/OnboardingWizard.tsx`.
   Keep new wallet prerequisites in that state-driven flow so users are not
   forced to discover setup steps by opening Receive or Connections manually.
-- `ConnectionPolicy` includes explicit empty/off fields for ERC-4337 bundler,
-  paymaster, passkey attestation, and wallet recovery. Do not add defaults for
-  these endpoints.
+- `ConnectionPolicy` includes preset-aware fields for ERC-4337 bundler,
+  paymaster, passkey attestation, and wallet recovery. Defaults are allowed only
+  when labelled in presets and shown in Connections; hidden defaults remain
+  forbidden.
 - Explicit connection settings are persisted in
-  `src/privacy/connectionPolicyState.ts`. This is a local operator convenience,
-  not permission to add default RPC/bundler/paymaster URLs.
+  `src/privacy/connectionPolicyState.ts`. This is a local operator
+  convenience, and migration must not preserve hidden or unlabelled endpoints.
 - `@railgun-community/wallet@10.8.6` requires `ethers@6.14.3`; newer ethers
   versions conflict with the peer dependency.
 - The RAILGUN SDK bundle is large. It is intentionally lazy-loaded behind
@@ -282,9 +288,9 @@ avoids requiring GitHub workflow scope.
   suite runs with one worker to avoid local Chrome Crash Reports lock failures
   during parallel WebAuthn launches.
 - Current onboarding specs include passing assertions for honest first-run
-  passkey gating, virtual-passkey enrollment without fake addresses, no default
-  hosted endpoints, and a skipped acceptance spec for the future real
-  public-ETH shield sweep.
+  passkey gating, virtual-passkey enrollment without fake addresses, visible
+  default endpoints, Privacy max clearing hosted endpoints, and a skipped
+  acceptance spec for the future real public-ETH shield sweep.
 
 ## Current Missing Product Work
 
@@ -298,8 +304,11 @@ networking. The official project describes it as a Rust/WASM light client
 suitable for embedding in wallets and dapps, while still requiring an execution
 RPC that supports `eth_getProof` and consensus/checkpoint data.
 
-Treat Helios as a future adapter behind the same explicit connection policy.
-Do not silently add default Helios endpoints.
+Treat Helios as a future adapter behind the same visible connection policy.
+Helios can reduce trust in RPC responses, but it does not hide metadata from
+the endpoint. Do not enable Helios defaults unless execution RPC, consensus RPC,
+checkpoint, and checkpoint source/value are visible in Connections and
+preflight disclosure.
 
 ## Tooling Preferences
 

@@ -20,6 +20,12 @@ export const startKohakuRailgunAdapter = async (
   policy: ConnectionPolicy,
   onStatus: (message: string) => void
 ): Promise<PrivacyToolkitHandle> => {
+  if (policy.providerMode === "helios") {
+    throw new Error(
+      "Helios provider mode is explicit in ConnectionPolicy but not wired yet. Use Direct RPC or switch to Custom/local Helios once the adapter is implemented."
+    );
+  }
+
   const ethereumRpcUrl = policy.ethereumRpcUrl.trim();
 
   if (!ethereumRpcUrl) {
