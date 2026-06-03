@@ -1,5 +1,6 @@
 import { ChevronDown, Eye, MoreHorizontal } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { parseEther } from "viem";
 import { ActivityFeed } from "./components/ActivityFeed";
 import { BalancePanel, type WalletAction } from "./components/BalancePanel";
 import { BottomNav, type AppTab } from "./components/BottomNav";
@@ -18,6 +19,7 @@ import {
 import { buildEndpointDisclosure } from "./privacy/preflightDisclosure";
 import {
   assessShieldReadiness,
+  prepareNativeEthShieldCalls,
   summarizeMissingRequirements
 } from "./railgun/shielding";
 import {
@@ -34,6 +36,7 @@ import {
 import { defaultTheme, type ThemeSelection } from "./theme/theme";
 import {
   deriveSmartWalletAddressFromPasskey,
+  sendSmartWalletCalls,
   sendSmartWalletEthPayment
 } from "./wallet/smartAccountAdapter";
 import {
@@ -72,6 +75,8 @@ type AppNotice = {
   title: string;
   message: string;
 } | null;
+
+type RailgunStorageMode = "browser-local" | "legacy-passphrase" | "missing";
 
 const initialPublicBalanceState = (): PublicBalanceState =>
   loadWalletState().smartWalletAddress
@@ -147,10 +152,15 @@ function App() {
     useState(false);
   const [isSubmittingSmartPayment, setIsSubmittingSmartPayment] = useState(false);
   const [smartPaymentStatus, setSmartPaymentStatus] = useState("");
+  const [isSubmittingShield, setIsSubmittingShield] = useState(false);
+  const [shieldStatus, setShieldStatus] = useState("");
+  const [railgunStorageMode, setRailgunStorageMode] =
+    useState<RailgunStorageMode>("missing");
   const [publicBalance, setPublicBalance] = useState<PublicBalanceState>(
     initialPublicBalanceState
   );
   const publicBalanceRequestRef = useRef(0);
+  const publicBalanceAutoSyncKeyRef = useRef<string | null>(null);
   const hasRailgunWallet = walletState.railgunAddress !== null;
   const hasSmartWallet = walletState.smartWalletAddress !== null;
   const rpcReady = toolkitState === "ready" && policy.ethereumRpcUrl.length > 0;
@@ -174,6 +184,7 @@ function App() {
     policy,
     "public-balance-sync"
   );
+  const shieldEndpointDisclosure = buildEndpointDisclosure(policy, "shield-sweep");
   const publicBalanceEndpointSummary = publicBalanceDisclosure
     .filter((endpoint) => endpoint.configured || endpoint.required)
     .map((endpoint) =>
@@ -187,7 +198,8 @@ function App() {
     publicBalance.status === "ready" ? publicBalance.balance.wei : null;
   const hasRecoverableRailgunKeyMaterial =
     walletState.railgunAddress !== null &&
-    walletState.railgunKeyStore === "encrypted-local";
+    walletState.railgunKeyStore === "encrypted-local" &&
+    railgunStorageMode === "browser-local";
   const shieldedBalanceSynced = false;
   const balanceLabel = shieldedBalanceSynced ? "Total ETH" : "Known ETH";
   const shieldReadiness = assessShieldReadiness({
@@ -199,12 +211,11 @@ function App() {
     bundlerUrl: policy.bundlerUrl,
     providerMode: policy.providerMode
   });
-  const shieldSubmissionReady = false;
-  const canShield = shieldReadiness.ready && shieldSubmissionReady;
+  const canShield = shieldReadiness.ready && !isSubmittingShield;
   const shieldDisclosure =
     publicBalance.status === "ready"
       ? shieldReadiness.ready
-        ? "Shield blocked: transaction submission is not wired yet."
+        ? "Shield ready. Review amount and endpoints before signing."
         : `Shield blocked: ${summarizeMissingRequirements(shieldReadiness)}.`
       : null;
   const shieldedStatus = !hasRailgunWallet
@@ -251,6 +262,7 @@ function App() {
     let cancelled = false;
 
     if (!walletState.railgunAddress || walletState.railgunKeyStore === null) {
+      setRailgunStorageMode("missing");
       return () => {
         cancelled = true;
       };
@@ -260,6 +272,8 @@ function App() {
       if (cancelled) {
         return;
       }
+
+      setRailgunStorageMode(mode);
 
       if (mode === "legacy-passphrase") {
         setAppNotice((currentNotice) =>
@@ -375,6 +389,25 @@ function App() {
     }
   };
 
+  useEffect(() => {
+    const smartWalletAddress = walletState.smartWalletAddress;
+    const ethereumRpcUrl = policy.ethereumRpcUrl.trim();
+
+    if (!smartWalletAddress || !ethereumRpcUrl) {
+      publicBalanceAutoSyncKeyRef.current = null;
+      return;
+    }
+
+    const syncKey = `${smartWalletAddress}:${ethereumRpcUrl}:${policy.providerMode}`;
+
+    if (publicBalanceAutoSyncKeyRef.current === syncKey) {
+      return;
+    }
+
+    publicBalanceAutoSyncKeyRef.current = syncKey;
+    void syncPublicBalance();
+  }, [walletState.smartWalletAddress, policy.ethereumRpcUrl, policy.providerMode]);
+
   const deriveSmartWallet = async (state = walletState) => {
     if (!state.passkeyCredentialId || !state.passkeyPublicKey) {
       setStatusMessage(
@@ -454,6 +487,7 @@ function App() {
         "created"
       );
       setWalletState(nextState);
+      setRailgunStorageMode("browser-local");
       setStatusMessage("Shielded RAILGUN wallet created");
       return wallet.recoveryPhrase;
     } catch (error) {
@@ -490,6 +524,7 @@ function App() {
         "imported"
       );
       setWalletState(nextState);
+      setRailgunStorageMode("browser-local");
       setStatusMessage("Shielded RAILGUN wallet imported");
     } catch (error) {
       const message =
@@ -533,8 +568,69 @@ function App() {
     }
   };
 
+  const submitShield = async (amount: string) => {
+    if (!walletState.railgunAddress) {
+      setShieldStatus("Create a shielded 0zk address before shielding.");
+      return;
+    }
+
+    if (publicBalance.status !== "ready") {
+      setShieldStatus("Sync public ETH balance before shielding.");
+      return;
+    }
+
+    let amountWei: bigint;
+
+    try {
+      amountWei = parseEther(amount.trim());
+    } catch {
+      setShieldStatus("Enter a valid ETH amount to shield.");
+      return;
+    }
+
+    if (amountWei <= 0n) {
+      setShieldStatus("Shield amount must be greater than zero.");
+      return;
+    }
+
+    if (amountWei > publicBalance.balance.wei) {
+      setShieldStatus("Shield amount exceeds the synced public ETH balance.");
+      return;
+    }
+
+    setIsSubmittingShield(true);
+    setShieldStatus("Preparing RAILGUN shield transaction");
+
+    try {
+      const shieldCalls = await prepareNativeEthShieldCalls({
+        amountWei,
+        debugLogging: policy.debugLogging,
+        railgunAddress: walletState.railgunAddress
+      });
+      setShieldStatus("Submitting shield user operation");
+      const result = await sendSmartWalletCalls({
+        calls: shieldCalls,
+        policy,
+        walletState
+      });
+      setShieldStatus(
+        result.transactionHash
+          ? `Shield submitted: ${result.transactionHash}`
+          : `Shield user operation submitted: ${result.userOperationHash}`
+      );
+      await syncPublicBalance();
+    } catch (error) {
+      setShieldStatus(
+        error instanceof Error ? error.message : "Unable to submit shield"
+      );
+    } finally {
+      setIsSubmittingShield(false);
+    }
+  };
+
   const resetLocalWallet = () => {
     setWalletState(resetWalletState());
+    setRailgunStorageMode("missing");
     setStatusMessage("Local wallet metadata cleared");
     setAppNotice(null);
     void clearEncryptedRailgunWallet()
@@ -626,11 +722,15 @@ function App() {
               canShield={canShield}
               canSync={canSyncPublicBalance}
               isSyncing={publicBalance.status === "syncing"}
+              isShielding={isSubmittingShield}
               syncDisclosure={
                 canSyncPublicBalance ? publicBalanceEndpointSummary : null
               }
               shieldDisclosure={shieldDisclosure}
+              shieldEndpointDisclosures={shieldEndpointDisclosure}
+              shieldStatus={shieldStatus}
               onSync={() => void syncPublicBalance()}
+              onShield={(amount) => void submitShield(amount)}
             />
 
             {activeAction ? (

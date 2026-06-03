@@ -808,7 +808,10 @@ button:disabled {
 }
 
 .unshielded-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
+  align-items: center;
   margin: 0 -18px 16px;
   padding: 18px;
   border-top: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
@@ -858,6 +861,19 @@ button:disabled {
   background: var(--surface);
   color: var(--text);
   font-weight: 820;
+}
+
+.shield-review {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 12px;
+  padding-top: 10px;
+}
+
+.shield-review-note {
+  color: color-mix(in srgb, var(--text) 58%, transparent);
+  font-size: 0.75rem;
+  line-height: 1.35;
 }
 
 .onboarding-status {

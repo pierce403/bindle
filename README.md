@@ -34,8 +34,9 @@ not the default first-run experience.
   endpoints.
 - Receive Public gives a direct funding-address path: configure RPC, create
   the funding address, then copy it for mainnet ETH deposits.
-- Public funding balance sync is explicit: the user taps Sync after seeing the
-  Ethereum RPC endpoint that may receive the public smart-wallet address.
+- Public funding balance sync uses the visible Ethereum RPC from Connections.
+  Bindle refreshes it on load when that RPC is configured, and still shows the
+  endpoint that may receive the public smart-wallet address.
 - Passkey enrollment stores non-secret credential id and public P-256 metadata;
   WebAuthn private material stays inside the platform authenticator.
 - Send Review stays disabled until wallet, toolkit, RPC, recipient, amount, and
@@ -129,9 +130,9 @@ with a browser-local WebCrypto key, derive Kohaku RAILGUN spending/viewing keys
 locally, and show the resulting real `0zk` address. Paymaster support is
 optional and only used when configured. Bindle can audit shield/unshield
 readiness and can prepare native ETH shield call data through Kohaku's low-level
-WASM binding, but the Shield button remains disabled until ERC-4337 shield
-transaction submission is wired safely. Shielded balance sync, unshielding, and
-private RAILGUN sends remain pending.
+WASM binding. Shield review now builds native ETH shield calls and submits them
+from the passkey smart wallet through the visible RPC and ERC-4337 bundler.
+Shielded balance sync, unshielding, and private RAILGUN sends remain pending.
 
 ## RAILGUN Integration Notes
 
@@ -145,8 +146,8 @@ Current shield/unshield status:
   localStorage stores only the public `0zk` address and a key-store marker.
 - Native ETH shield call preparation is available through Kohaku low-level
   `ShieldBuilder.shieldNative`.
-- Shield submission is intentionally blocked until the app wires review and
-  submission from the passkey smart wallet through visible RPC/bundler policy.
+- Shield submission is wired from the passkey smart wallet through visible
+  RPC/bundler policy after an explicit review of amount and contacted endpoints.
 - Unshield is blocked until shielded balance sync, proof generation, unlock
   flow, and a visible broadcaster path are implemented.
 

@@ -253,16 +253,17 @@ avoids requiring GitHub workflow scope.
   default adapter.
 - Public smart-wallet funding balance sync lives in `src/wallet/publicBalance.ts`
   and uses `src/wallet/mainnetClient.ts` so it can only call the visible
-  Ethereum mainnet RPC from `ConnectionPolicy`. Keep this behind an explicit
-  user Sync action because `eth_getBalance` leaks the public funding address to
-  the selected RPC.
+  Ethereum mainnet RPC from `ConnectionPolicy`. The app may refresh this on load
+  when an RPC is configured because the selected RPC is currently inside
+  Bindle's normal-user trust boundary. Keep the endpoint visible in the UI.
 - Shield/unshield readiness lives in `src/railgun/shielding.ts`. Native ETH
   shield call prep uses Kohaku's low-level `ShieldBuilder.shieldNative`, not the
   higher-level helper that wires hidden Subsquid defaults. Recoverable local
-  RAILGUN key material now exists after shielded wallet create/import, but
-  Shield submission must stay disabled until the ERC-4337 review/submission
-  path is wired through visible RPC/bundler policy and the app can preserve
-  unshieldability.
+  RAILGUN key material now exists after shielded wallet create/import. Shield
+  submission is wired through `prepareNativeEthShieldCalls()` and
+  `sendSmartWalletCalls()` after explicit amount and endpoint review. Do not
+  bypass visible RPC/bundler policy, and keep shielded balance sync as the next
+  major blocker before claiming a complete shield/unshield lifecycle.
 - First-run setup is surfaced through `src/components/OnboardingWizard.tsx`.
   Keep new wallet prerequisites in that state-driven flow so users are not
   forced to discover setup steps by opening Receive or Connections manually.

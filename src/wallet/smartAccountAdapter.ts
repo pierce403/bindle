@@ -30,6 +30,12 @@ export type SmartWalletPaymentResult = {
   transactionHash: `0x${string}` | null;
 };
 
+export type SmartWalletCall = {
+  to: Address;
+  data?: `0x${string}`;
+  value?: bigint;
+};
+
 export const kohakuSmartAccountSupport: SmartAccountAdapterStatus = {
   usable: false,
   label: "Kohaku passkey smart account",
@@ -158,6 +164,49 @@ export const sendSmartWalletEthPayment = async ({
         value: parseEther(amount.trim())
       }
     ]
+  });
+  const receipt = await bundlerClient.waitForUserOperationReceipt({
+    hash: userOperationHash
+  });
+
+  return {
+    userOperationHash,
+    transactionHash: receipt.receipt.transactionHash
+  };
+};
+
+export const sendSmartWalletCalls = async ({
+  calls,
+  policy,
+  walletState
+}: {
+  calls: SmartWalletCall[];
+  policy: ConnectionPolicy;
+  walletState: WalletState;
+}): Promise<SmartWalletPaymentResult> => {
+  if (!policy.bundlerUrl.trim()) {
+    throw new Error("Configure an ERC-4337 bundler before sending.");
+  }
+
+  if (calls.length === 0) {
+    throw new Error("No smart-wallet calls were prepared.");
+  }
+
+  const { account, client } = await createSmartAccount(policy, walletState);
+  const paymasterClient = policy.paymasterUrl.trim()
+    ? createPaymasterClient({
+        transport: http(policy.paymasterUrl.trim())
+      })
+    : null;
+  const bundlerClient = createBundlerClient({
+    account,
+    client,
+    paymaster: paymasterClient ?? undefined,
+    transport: http(policy.bundlerUrl.trim())
+  });
+  const userOperationHash = await bundlerClient.sendUserOperation({
+    account,
+    calls
   });
   const receipt = await bundlerClient.waitForUserOperationReceipt({
     hash: userOperationHash

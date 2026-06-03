@@ -40,6 +40,8 @@ infrastructure.
       smart-wallet funding address.
 - [x] Add explicit public ETH balance sync for the smart-wallet funding address
       through the selected visible Ethereum RPC.
+- [x] Refresh public ETH balance on app load when a visible Ethereum RPC is
+      configured.
 - [x] Add shield/unshield readiness tests that keep funded public ETH blocked
       until recoverable `0zk` wallet state, sync, and broadcaster prerequisites
       exist.
@@ -66,6 +68,8 @@ infrastructure.
 - [x] Add tests that verify default endpoints are visible, Privacy max clears
       hosted endpoints, Custom preserves user values, and disclosure covers
       every audited outbound class.
+- [x] Submit native ETH shield transactions from the passkey smart wallet using
+      Kohaku shield-call data and visible ERC-4337 RPC/bundler policy.
 
 ## Now
 
@@ -76,8 +80,7 @@ infrastructure.
 - [ ] Replace the interim browser-local RAILGUN key encryption with
       passkey-backed wrapping when WebAuthn PRF support is usable across target
       browsers.
-- [ ] Submit ETH shield transactions from the passkey smart wallet after a real
-      recoverable `0zk` wallet exists and preflight disclosure is complete.
+- [ ] Sync shielded ETH balances after shield submission.
 - [ ] Add a Kohaku-compatible browser smart-account adapter once `pq-account` or
       equivalent passkey ERC-4337 address derivation is available.
 
@@ -156,7 +159,9 @@ infrastructure.
       the default mobile PWA onboarding path.
 - [ ] Do not auto-resolve ENS, providers, contacts, avatars, prices, or metadata
       before the user takes an action that requires it.
-- [ ] Do not auto-start network services on page load or PWA launch.
+- [ ] Do not auto-start privacy toolkit, broadcasters, Waku, provider
+      resolvers, or other non-balance network services on page load or PWA
+      launch.
 - [ ] Do not preload remote images, fonts, scripts, maps, avatars, token lists,
       or marketing assets from third parties.
 - [ ] Do not add push notifications, email capture, referral links, or growth
@@ -181,7 +186,7 @@ infrastructure.
 
 ## Protocol Features
 
-- [ ] Submit ETH shield transactions from the passkey smart wallet using the
+- [x] Submit ETH shield transactions from the passkey smart wallet using the
       Kohaku shield-call builder and visible ERC-4337 RPC/bundler policy.
 - [ ] Sync shielded ETH balances from actual wallet state.
 - [ ] Implement private RAILGUN transfer review and proof generation.

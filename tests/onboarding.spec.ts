@@ -314,12 +314,9 @@ test.describe("passkey-first onboarding", () => {
 
     await page.goto("/");
 
-    await expect(page.getByRole("heading", { name: "-- ETH" })).toBeVisible();
     await expect(page.getByLabel("Unshielded ETH balance")).toContainText(
       "Sync may contact Ethereum RPC (default: https://ethereum-rpc.publicnode.com)"
     );
-
-    await page.getByRole("button", { name: "Sync" }).click();
 
     await expect(page.getByRole("heading", { name: "1 ETH" })).toBeVisible();
     await expect(page.getByLabel("Unshielded ETH balance")).toContainText(
@@ -329,9 +326,84 @@ test.describe("passkey-first onboarding", () => {
       "Shield blocked: real 0zk address, recoverable RAILGUN keys."
     );
     await expect(
-      page.getByRole("button", { name: "Shield", exact: true })
-    ).toBeDisabled();
+      page
+        .getByLabel("Unshielded ETH balance")
+        .getByRole("button", { name: "Sync" })
+    ).toBeEnabled();
     await expect(page.getByText("public synced at block 256")).toBeVisible();
+  });
+
+  test("opens shield review only after public balance and local 0zk secrets exist", async ({
+    page
+  }) => {
+    await page.route("https://ethereum-rpc.publicnode.com/**", async (route) => {
+      const payload = JSON.parse(route.request().postData() ?? "{}") as
+        | { id: number; method: string }
+        | Array<{ id: number; method: string }>;
+      const requests = Array.isArray(payload) ? payload : [payload];
+      const responses = requests.map((request) => ({
+        jsonrpc: "2.0",
+        id: request.id,
+        result:
+          request.method === "eth_chainId"
+            ? "0x1"
+            : request.method === "eth_getBalance"
+              ? "0xde0b6b3a7640000"
+              : request.method === "eth_blockNumber"
+                ? "0x100"
+                : null
+      }));
+
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(Array.isArray(payload) ? responses : responses[0])
+      });
+    });
+
+    await page.addInitScript((address) => {
+      window.localStorage.setItem(
+        "bindle.wallet.metadata.v1",
+        JSON.stringify({
+          status: "smart-wallet-planned",
+          smartWalletAddress: address,
+          railgunAddress: null,
+          railgunKeyStore: null,
+          passkeyPresent: true,
+          mnemonicPresent: false,
+          createdAt: "2026-06-03T00:00:00.000Z",
+          railgunWalletCreatedAt: null,
+          railgunWalletImportedAt: null,
+          lastError: null,
+          custodyModel: "passkey-4337",
+          passkeyCredentialId: "test-passkey",
+          passkeyPublicKey: "0x04"
+        })
+      );
+    }, publicRecipient);
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "Create shielded wallet" }).click();
+
+    await expect(page.getByRole("heading", { name: "1 ETH" })).toBeVisible({
+      timeout: 30_000
+    });
+    await expect(
+      page.getByLabel("Unshielded ETH balance").getByRole("button", {
+        name: "Shield",
+        exact: true
+      })
+    ).toBeEnabled();
+
+    await page
+      .getByLabel("Unshielded ETH balance")
+      .getByRole("button", { name: "Shield", exact: true })
+      .click();
+    await page.getByLabel("Amount to shield").fill("0.25");
+
+    await expect(page.getByLabel("Shield preflight")).toContainText(
+      "ERC-4337 bundler"
+    );
+    await expect(page.getByRole("button", { name: "Submit shield" })).toBeEnabled();
   });
 
   test.fixme(
