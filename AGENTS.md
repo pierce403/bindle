@@ -136,6 +136,12 @@ Build and typecheck:
 npm run build
 ```
 
+Run browser onboarding tests:
+
+```bash
+npm run test:e2e
+```
+
 Regenerate PWA icons:
 
 ```bash
@@ -228,6 +234,12 @@ avoids requiring GitHub workflow scope.
 - Bindle's logo is generated raster art based on a black/red paisley yin-yang
   mark. The canonical source is `assets/bindle-logo-source.png`; `npm run icons`
   regenerates the public logo, favicon PNGs, and PWA icons.
+- Playwright is configured in `playwright.config.ts` and starts Vite on
+  `127.0.0.1:5178`. It prefers `/usr/bin/google-chrome`, then
+  `/snap/bin/chromium`, then Playwright's managed browser if one exists.
+- Current onboarding specs include passing assertions for honest first-run
+  passkey gating and skipped acceptance specs for future virtual-passkey
+  enrollment plus real public-ETH shield sweep.
 
 ## Current Missing Product Work
 

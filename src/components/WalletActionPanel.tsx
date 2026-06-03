@@ -2,6 +2,7 @@ import {
   ArrowDownToLine,
   ArrowRight,
   ArrowUpFromLine,
+  Fingerprint,
   LockKeyhole,
   Repeat2,
   Send,
@@ -73,17 +74,30 @@ export function WalletActionPanel({
         </div>
 
         <div className="empty-state compact">
-          <LockKeyhole size={22} aria-hidden="true" />
+          {receiveMode === "shielded" ? (
+            <Fingerprint size={22} aria-hidden="true" />
+          ) : (
+            <LockKeyhole size={22} aria-hidden="true" />
+          )}
           <strong>
             {receiveMode === "shielded"
-              ? "No shielded address yet"
-              : "No public wallet connected"}
+              ? "Passkey smart wallet not wired yet"
+              : "Public smart-wallet address pending"}
           </strong>
           <span>
             {receiveMode === "shielded"
-              ? "Railgun wallet creation is not wired."
-              : "Public ETH receive is not connected."}
+              ? "Waiting for Kohaku passkey account support before showing a real public or 0zk address."
+              : "Create the passkey-backed smart wallet before receiving public ETH."}
           </span>
+          <button
+            className="primary-action wide"
+            type="button"
+            disabled
+            title="Waiting for Kohaku passkey smart-account support"
+          >
+            <Fingerprint size={18} aria-hidden="true" />
+            Create Bindle with passkey
+          </button>
         </div>
       </section>
     );

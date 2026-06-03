@@ -39,6 +39,7 @@ Feature TODOs live in [FEATURES.md](FEATURES.md).
 ```bash
 npm install
 npm run dev
+npm run test:e2e
 npm run build
 ```
 
@@ -73,6 +74,12 @@ Smart-wallet work should stay Kohaku-first as well. Bindle should prefer a
 passkey-backed smart account path where Kohaku supports it, with any ERC-4337
 bundler, paymaster, attestation, or recovery service exposed through
 `ConnectionPolicy` before it can be used.
+
+The current app shows passkey onboarding as the intended first-run path but does
+not enroll credentials or derive a smart-wallet address yet. The Playwright
+onboarding tests assert that the current UI stays honest: no fake public
+address, no fake `0zk` address, no enabled shield sweep, and no enabled Review
+button before the real wallet/RPC path exists.
 
 ## RAILGUN Integration Notes
 
