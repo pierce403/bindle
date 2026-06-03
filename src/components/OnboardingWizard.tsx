@@ -1,6 +1,7 @@
 import {
   CheckCircle2,
   Circle,
+  Copy,
   Fingerprint,
   LockKeyhole,
   PlugZap,
@@ -17,11 +18,18 @@ type OnboardingWizardProps = {
   passkeyCapability: PasskeyCapability;
   isCreatingPasskey: boolean;
   isDerivingSmartWallet: boolean;
+  isCreatingRailgunWallet: boolean;
+  isImportingRailgunWallet: boolean;
   policy: ConnectionPolicy;
   toolkitState: PrivacyToolkitState;
   statusMessage: string;
   onCreatePasskey: () => void;
   onDeriveSmartWallet: () => void;
+  onCreateRailgunWallet: (passphrase: string) => Promise<string | null>;
+  onImportRailgunWallet: (
+    recoveryPhrase: string,
+    passphrase: string
+  ) => Promise<void>;
   onOpenConnections: () => void;
   onStartToolkit: () => void;
 };
@@ -59,15 +67,29 @@ export function OnboardingWizard({
   passkeyCapability,
   isCreatingPasskey,
   isDerivingSmartWallet,
+  isCreatingRailgunWallet,
+  isImportingRailgunWallet,
   policy,
   toolkitState,
   statusMessage,
   onCreatePasskey,
   onDeriveSmartWallet,
+  onCreateRailgunWallet,
+  onImportRailgunWallet,
   onOpenConnections,
   onStartToolkit
 }: OnboardingWizardProps) {
   const [copiedFundingAddress, setCopiedFundingAddress] = useState(false);
+  const [copiedShieldedAddress, setCopiedShieldedAddress] = useState(false);
+  const [copiedRecoveryPhrase, setCopiedRecoveryPhrase] = useState(false);
+  const [newWalletPassphrase, setNewWalletPassphrase] = useState("");
+  const [newWalletPassphraseConfirm, setNewWalletPassphraseConfirm] =
+    useState("");
+  const [importRecoveryPhrase, setImportRecoveryPhrase] = useState("");
+  const [importPassphrase, setImportPassphrase] = useState("");
+  const [createdRecoveryPhrase, setCreatedRecoveryPhrase] = useState<
+    string | null
+  >(null);
   const passkeyDone = walletState.passkeyPresent;
   const fundingCredentialReady =
     walletState.passkeyCredentialId !== null && walletState.passkeyPublicKey !== null;
@@ -83,13 +105,15 @@ export function OnboardingWizard({
     ? "passkey"
     : !fundingCredentialReady
       ? "passkey"
-    : !rpcConfigured
-      ? "connections"
-      : !smartWalletReady
-        ? "smart-wallet"
-      : !toolkitReady
-        ? "toolkit"
-        : "shielded";
+      : !rpcConfigured
+        ? "connections"
+        : !smartWalletReady
+          ? "smart-wallet"
+          : !shieldedWalletReady
+            ? "shielded"
+            : !toolkitReady
+              ? "toolkit"
+              : "shielded";
 
   const steps: WizardStep[] = [
     {
@@ -120,14 +144,6 @@ export function OnboardingWizard({
       Icon: LockKeyhole
     },
     {
-      id: "toolkit",
-      label: "Toolkit",
-      detail: toolkitReady ? "ready" : toolkitState,
-      done: toolkitReady,
-      blocked: !rpcConfigured,
-      Icon: ShieldCheck
-    },
-    {
       id: "shielded",
       label: "Shielded wallet",
       detail: addressWorkReady
@@ -136,8 +152,16 @@ export function OnboardingWizard({
           ? "0zk address pending"
           : "Smart-wallet address pending",
       done: addressWorkReady,
-      blocked: !toolkitReady,
+      blocked: !smartWalletReady,
       Icon: LockKeyhole
+    },
+    {
+      id: "toolkit",
+      label: "Toolkit",
+      detail: toolkitReady ? "ready" : toolkitState,
+      done: toolkitReady,
+      blocked: !rpcConfigured || !addressWorkReady,
+      Icon: ShieldCheck
     }
   ];
 
@@ -153,9 +177,20 @@ export function OnboardingWizard({
   const currentStatus =
     walletState.status === "error" && walletState.lastError
       ? walletState.lastError
-      : currentStep === "shielded" && toolkitReady
-        ? "Public smart wallet is ready; shielded RAILGUN address creation is still pending."
+      : currentStep === "shielded" && smartWalletReady && !shieldedWalletReady
+        ? "Create or import a recoverable RAILGUN wallet to get a real 0zk address."
         : statusMessage || steps.find((step) => step.id === currentStep)?.detail;
+  const canCreateRailgunWallet =
+    newWalletPassphrase.length >= 12 &&
+    newWalletPassphrase === newWalletPassphraseConfirm &&
+    !isCreatingRailgunWallet &&
+    !shieldedWalletReady;
+  const canImportRailgunWallet =
+    importRecoveryPhrase.trim().length > 0 &&
+    importPassphrase.length >= 12 &&
+    !isImportingRailgunWallet &&
+    !shieldedWalletReady;
+
   const copyFundingAddress = async () => {
     if (!walletState.smartWalletAddress) {
       return;
@@ -163,6 +198,37 @@ export function OnboardingWizard({
 
     await navigator.clipboard.writeText(walletState.smartWalletAddress);
     setCopiedFundingAddress(true);
+  };
+  const copyShieldedAddress = async () => {
+    if (!walletState.railgunAddress) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(walletState.railgunAddress);
+    setCopiedShieldedAddress(true);
+  };
+  const copyRecoveryPhrase = async () => {
+    if (!createdRecoveryPhrase) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(createdRecoveryPhrase);
+    setCopiedRecoveryPhrase(true);
+  };
+  const createShieldedWallet = async () => {
+    setCreatedRecoveryPhrase(null);
+    const recoveryPhrase = await onCreateRailgunWallet(newWalletPassphrase);
+
+    if (recoveryPhrase) {
+      setCreatedRecoveryPhrase(recoveryPhrase);
+      setNewWalletPassphrase("");
+      setNewWalletPassphraseConfirm("");
+    }
+  };
+  const importShieldedWallet = async () => {
+    await onImportRailgunWallet(importRecoveryPhrase, importPassphrase);
+    setImportRecoveryPhrase("");
+    setImportPassphrase("");
   };
 
   return (
@@ -264,10 +330,116 @@ export function OnboardingWizard({
       ) : null}
 
       {currentStep === "shielded" ? (
-        <button className="secondary-action wide" type="button" disabled>
-          <LockKeyhole size={18} aria-hidden="true" />
-          Shielded wallet pending
-        </button>
+        <>
+          {walletState.railgunAddress ? (
+            <div className="funding-card" aria-label="Shielded 0zk address">
+              <span>Receive shielded ETH at this 0zk address</span>
+              <strong>{walletState.railgunAddress}</strong>
+              <button
+                className="secondary-action wide"
+                type="button"
+                onClick={() => void copyShieldedAddress()}
+              >
+                <Copy size={18} aria-hidden="true" />
+                {copiedShieldedAddress ? "Copied" : "Copy 0zk address"}
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="wallet-secret-card">
+                <strong>Create shielded wallet</strong>
+                <label className="field">
+                  <span>Local passphrase</span>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    minLength={12}
+                    value={newWalletPassphrase}
+                    onChange={(event) =>
+                      setNewWalletPassphrase(event.currentTarget.value)
+                    }
+                    placeholder="12+ characters"
+                  />
+                </label>
+                <label className="field">
+                  <span>Confirm passphrase</span>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    minLength={12}
+                    value={newWalletPassphraseConfirm}
+                    onChange={(event) =>
+                      setNewWalletPassphraseConfirm(event.currentTarget.value)
+                    }
+                    placeholder="12+ characters"
+                  />
+                </label>
+                <button
+                  className="primary-action wide"
+                  type="button"
+                  disabled={!canCreateRailgunWallet}
+                  onClick={() => void createShieldedWallet()}
+                >
+                  <LockKeyhole size={18} aria-hidden="true" />
+                  {isCreatingRailgunWallet
+                    ? "Creating 0zk wallet"
+                    : "Create shielded wallet"}
+                </button>
+              </div>
+
+              <div className="wallet-secret-card">
+                <strong>Import shielded wallet</strong>
+                <label className="field">
+                  <span>Recovery phrase</span>
+                  <textarea
+                    value={importRecoveryPhrase}
+                    onChange={(event) =>
+                      setImportRecoveryPhrase(event.currentTarget.value)
+                    }
+                    placeholder="existing BIP-39 phrase"
+                  />
+                </label>
+                <label className="field">
+                  <span>Local passphrase</span>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    minLength={12}
+                    value={importPassphrase}
+                    onChange={(event) =>
+                      setImportPassphrase(event.currentTarget.value)
+                    }
+                    placeholder="12+ characters"
+                  />
+                </label>
+                <button
+                  className="secondary-action wide"
+                  type="button"
+                  disabled={!canImportRailgunWallet}
+                  onClick={() => void importShieldedWallet()}
+                >
+                  <LockKeyhole size={18} aria-hidden="true" />
+                  {isImportingRailgunWallet ? "Importing" : "Import existing"}
+                </button>
+              </div>
+            </>
+          )}
+        </>
+      ) : null}
+
+      {createdRecoveryPhrase ? (
+        <div className="recovery-card" aria-label="Shielded wallet recovery phrase">
+          <span>Recovery phrase - save before funding</span>
+          <strong>{createdRecoveryPhrase}</strong>
+          <button
+            className="secondary-action wide"
+            type="button"
+            onClick={() => void copyRecoveryPhrase()}
+          >
+            <Copy size={18} aria-hidden="true" />
+            {copiedRecoveryPhrase ? "Copied" : "Copy recovery phrase"}
+          </button>
+        </div>
       ) : null}
     </section>
   );

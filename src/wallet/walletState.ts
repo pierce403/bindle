@@ -11,13 +11,18 @@ export type CustodyModel =
   | "external-wallet"
   | null;
 
+export type RailgunKeyStore = "encrypted-local" | null;
+
 export type WalletState = {
   status: WalletStatus;
   smartWalletAddress: string | null;
   railgunAddress: string | null;
+  railgunKeyStore: RailgunKeyStore;
   passkeyPresent: boolean;
   mnemonicPresent: boolean;
   createdAt: string | null;
+  railgunWalletCreatedAt: string | null;
+  railgunWalletImportedAt: string | null;
   lastError: string | null;
   custodyModel: CustodyModel;
   passkeyCredentialId: string | null;
@@ -30,9 +35,12 @@ export const emptyWalletState: WalletState = {
   status: "none",
   smartWalletAddress: null,
   railgunAddress: null,
+  railgunKeyStore: null,
   passkeyPresent: false,
   mnemonicPresent: false,
   createdAt: null,
+  railgunWalletCreatedAt: null,
+  railgunWalletImportedAt: null,
   lastError: null,
   custodyModel: null,
   passkeyCredentialId: null,
@@ -51,6 +59,9 @@ const isCustodyModel = (value: unknown): value is CustodyModel =>
   value === "mnemonic-railgun" ||
   value === "external-wallet" ||
   value === null;
+
+const isRailgunKeyStore = (value: unknown): value is RailgunKeyStore =>
+  value === "encrypted-local" || value === null;
 
 const stringOrNull = (value: unknown): string | null =>
   typeof value === "string" && value.length > 0 ? value : null;
@@ -80,9 +91,14 @@ const normalizeWalletState = (value: unknown): WalletState => {
     custodyModel,
     smartWalletAddress: stringOrNull(parsed.smartWalletAddress),
     railgunAddress: stringOrNull(parsed.railgunAddress),
+    railgunKeyStore: isRailgunKeyStore(parsed.railgunKeyStore)
+      ? parsed.railgunKeyStore
+      : emptyWalletState.railgunKeyStore,
     passkeyPresent: booleanValue(parsed.passkeyPresent),
     mnemonicPresent: booleanValue(parsed.mnemonicPresent),
     createdAt: stringOrNull(parsed.createdAt),
+    railgunWalletCreatedAt: stringOrNull(parsed.railgunWalletCreatedAt),
+    railgunWalletImportedAt: stringOrNull(parsed.railgunWalletImportedAt),
     lastError: stringOrNull(parsed.lastError),
     passkeyCredentialId: stringOrNull(parsed.passkeyCredentialId),
     passkeyPublicKey: hexOrNull(parsed.passkeyPublicKey)
@@ -120,6 +136,8 @@ export const saveWalletState = (state: WalletState): WalletState => {
     // Storage boundary: Bindle stores only non-secret wallet metadata here.
     // Do not store private keys, mnemonics, RAILGUN spending/viewing material,
     // WebAuthn private material, or provider secrets in this localStorage record.
+    // The railgunKeyStore value is only a marker that encrypted local key
+    // material exists in IndexedDB; it is not key material itself.
     // WebAuthn credential IDs and public P-256 keys are public account metadata
     // used to reconstruct the smart-account owner; they are not signing secrets.
     window.localStorage.setItem(storageKey, JSON.stringify(normalized));
@@ -142,7 +160,7 @@ export const markPasskeyEnrolled = (
 ): WalletState =>
   saveWalletState({
     ...currentState,
-    status: "passkey-ready",
+    status: currentState.railgunAddress ? "railgun-ready" : "passkey-ready",
     passkeyPresent: true,
     custodyModel: "passkey-4337",
     createdAt: currentState.createdAt ?? new Date().toISOString(),
@@ -166,6 +184,29 @@ export const markSmartWalletReady = (
     custodyModel: "passkey-4337",
     lastError: null
   });
+
+export const markRailgunWalletReady = (
+  currentState: WalletState,
+  railgunAddress: string,
+  source: "created" | "imported"
+): WalletState => {
+  const now = new Date().toISOString();
+
+  return saveWalletState({
+    ...currentState,
+    status: "railgun-ready",
+    railgunAddress,
+    railgunKeyStore: "encrypted-local",
+    mnemonicPresent: true,
+    custodyModel: currentState.custodyModel ?? "mnemonic-railgun",
+    createdAt: currentState.createdAt ?? now,
+    railgunWalletCreatedAt:
+      source === "created" ? now : currentState.railgunWalletCreatedAt,
+    railgunWalletImportedAt:
+      source === "imported" ? now : currentState.railgunWalletImportedAt,
+    lastError: null
+  });
+};
 
 export const markWalletError = (
   currentState: WalletState,

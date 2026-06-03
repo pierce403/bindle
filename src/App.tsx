@@ -22,6 +22,11 @@ import {
   summarizeMissingRequirements
 } from "./railgun/shielding";
 import {
+  clearEncryptedRailgunWallet,
+  createEncryptedRailgunWallet,
+  importEncryptedRailgunWallet
+} from "./railgun/railgunWallet";
+import {
   startPrivacyToolkit,
   type PrivacyToolkitHandle,
   type PrivacyToolkitState
@@ -43,6 +48,7 @@ import {
 import {
   loadWalletState,
   markPasskeyEnrolled,
+  markRailgunWalletReady,
   markSmartWalletReady,
   markWalletError,
   resetWalletState,
@@ -129,6 +135,9 @@ function App() {
     });
   const [isCreatingPasskey, setIsCreatingPasskey] = useState(false);
   const [isDerivingSmartWallet, setIsDerivingSmartWallet] = useState(false);
+  const [isCreatingRailgunWallet, setIsCreatingRailgunWallet] = useState(false);
+  const [isImportingRailgunWallet, setIsImportingRailgunWallet] =
+    useState(false);
   const [isSubmittingSmartPayment, setIsSubmittingSmartPayment] = useState(false);
   const [smartPaymentStatus, setSmartPaymentStatus] = useState("");
   const [publicBalance, setPublicBalance] = useState<PublicBalanceState>(
@@ -147,7 +156,9 @@ function App() {
       : "not created";
   const railgunStatus = walletState.railgunAddress ? "ready" : "not created";
   const onboardingComplete =
-    walletState.smartWalletAddress !== null && walletState.railgunAddress !== null;
+    walletState.smartWalletAddress !== null &&
+    walletState.railgunAddress !== null &&
+    toolkitState === "ready";
   const sendEndpointDisclosure = buildEndpointDisclosure(
     policy,
     hasSmartWallet && !hasRailgunWallet ? "public-smart-payment" : "send-review"
@@ -167,12 +178,15 @@ function App() {
   const knownPublicBalance = publicBalanceText(publicBalance);
   const publicBalanceWei =
     publicBalance.status === "ready" ? publicBalance.balance.wei : null;
+  const hasRecoverableRailgunKeyMaterial =
+    walletState.railgunAddress !== null &&
+    walletState.railgunKeyStore === "encrypted-local";
   const balanceLabel =
     publicBalance.status === "ready" && !hasRailgunWallet ? "Known ETH" : "Total ETH";
   const shieldReadiness = assessShieldReadiness({
     smartWalletAddress: walletState.smartWalletAddress,
     railgunAddress: walletState.railgunAddress,
-    hasRecoverableRailgunKeyMaterial: false,
+    hasRecoverableRailgunKeyMaterial,
     publicBalanceWei,
     ethereumRpcUrl: policy.ethereumRpcUrl,
     bundlerUrl: policy.bundlerUrl,
@@ -182,7 +196,7 @@ function App() {
   const canShield = shieldReadiness.ready && shieldSubmissionReady;
   const unshieldReadiness = assessUnshieldReadiness({
     railgunAddress: walletState.railgunAddress,
-    hasRecoverableRailgunKeyMaterial: false,
+    hasRecoverableRailgunKeyMaterial,
     shieldedBalanceWei: null,
     toolkitReady: toolkitState === "ready",
     ethereumRpcUrl: policy.ethereumRpcUrl,
@@ -192,7 +206,7 @@ function App() {
   const shieldDisclosure =
     publicBalance.status === "ready"
       ? shieldReadiness.ready
-        ? "Shield review path ready."
+        ? "Shield blocked: transaction submission is not wired yet."
         : `Shield blocked: ${summarizeMissingRequirements(shieldReadiness)}.`
       : null;
   const unshieldMissing = summarizeMissingRequirements(unshieldReadiness);
@@ -364,6 +378,74 @@ function App() {
     }
   };
 
+  const createRailgunWallet = async (
+    passphrase: string
+  ): Promise<string | null> => {
+    if (isCreatingRailgunWallet || walletState.railgunAddress) {
+      return null;
+    }
+
+    setIsCreatingRailgunWallet(true);
+    setStatusMessage("Creating shielded RAILGUN wallet");
+
+    try {
+      const wallet = await createEncryptedRailgunWallet({ passphrase });
+      const nextState = markRailgunWalletReady(
+        walletState,
+        wallet.railgunAddress,
+        "created"
+      );
+      setWalletState(nextState);
+      setStatusMessage("Shielded RAILGUN wallet created");
+      return wallet.recoveryPhrase;
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unable to create shielded RAILGUN wallet";
+      setWalletState(markWalletError(walletState, message));
+      setStatusMessage(message);
+      return null;
+    } finally {
+      setIsCreatingRailgunWallet(false);
+    }
+  };
+
+  const importRailgunWallet = async (
+    recoveryPhrase: string,
+    passphrase: string
+  ): Promise<void> => {
+    if (isImportingRailgunWallet || walletState.railgunAddress) {
+      return;
+    }
+
+    setIsImportingRailgunWallet(true);
+    setStatusMessage("Importing shielded RAILGUN wallet");
+
+    try {
+      const wallet = await importEncryptedRailgunWallet({
+        recoveryPhrase,
+        passphrase
+      });
+      const nextState = markRailgunWalletReady(
+        walletState,
+        wallet.railgunAddress,
+        "imported"
+      );
+      setWalletState(nextState);
+      setStatusMessage("Shielded RAILGUN wallet imported");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unable to import shielded RAILGUN wallet";
+      setWalletState(markWalletError(walletState, message));
+      setStatusMessage(message);
+    } finally {
+      setIsImportingRailgunWallet(false);
+    }
+  };
+
   const submitSmartPayment = async () => {
     if (!walletState.smartWalletAddress) {
       setSmartPaymentStatus("Create the smart-wallet funding address first.");
@@ -397,6 +479,15 @@ function App() {
   const resetLocalWallet = () => {
     setWalletState(resetWalletState());
     setStatusMessage("Local wallet metadata cleared");
+    void clearEncryptedRailgunWallet()
+      .then(() => setStatusMessage("Local wallet metadata and secrets cleared"))
+      .catch((error) =>
+        setStatusMessage(
+          error instanceof Error
+            ? error.message
+            : "Unable to clear encrypted RAILGUN wallet secrets"
+        )
+      );
   };
 
   return (
@@ -433,11 +524,15 @@ function App() {
                 walletState={walletState}
                 passkeyCapability={passkeyCapability}
                 isCreatingPasskey={isCreatingPasskey}
+                isCreatingRailgunWallet={isCreatingRailgunWallet}
+                isImportingRailgunWallet={isImportingRailgunWallet}
                 policy={policy}
                 toolkitState={toolkitState}
                 statusMessage={statusMessage}
                 onCreatePasskey={() => void createPasskeyWallet()}
                 onDeriveSmartWallet={() => void deriveSmartWallet()}
+                onCreateRailgunWallet={createRailgunWallet}
+                onImportRailgunWallet={importRailgunWallet}
                 onOpenConnections={() => setActiveTab("nodes")}
                 onStartToolkit={() => void startToolkit()}
                 isDerivingSmartWallet={isDerivingSmartWallet}
@@ -481,12 +576,9 @@ function App() {
                 rpcReady={rpcReady}
                 bundlerReady={bundlerReady}
                 walletState={walletState}
-                passkeyCapability={passkeyCapability}
-                isCreatingPasskey={isCreatingPasskey}
                 isSubmittingSmartPayment={isSubmittingSmartPayment}
                 smartPaymentStatus={smartPaymentStatus}
                 endpointDisclosures={sendEndpointDisclosure}
-                onCreatePasskey={() => void createPasskeyWallet()}
                 onDeriveSmartWallet={() => void deriveSmartWallet()}
                 onOpenConnections={() => setActiveTab("nodes")}
                 onSubmitSmartPayment={() => void submitSmartPayment()}

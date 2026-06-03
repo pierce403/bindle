@@ -18,6 +18,9 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByLabel("Bindle wallet")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Set Up Bindle" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create passkey" })).toBeDisabled();
+    await expect(
+      page.getByText("Passkeys are not available in this browser").first()
+    ).toBeVisible();
     await expect(page.getByRole("heading", { name: "-- ETH" })).toBeVisible();
     await expect(page.getByText("not created").first()).toBeVisible();
     await expect(page.getByLabel("Unshielded ETH balance")).toContainText(
@@ -30,16 +33,10 @@ test.describe("passkey-first onboarding", () => {
     await page.getByRole("button", { name: "Receive" }).click();
 
     await expect(page.getByRole("heading", { name: "Receive ETH" })).toBeVisible();
-    await expect(page.getByText("Passkey not available")).toBeVisible();
+    await expect(page.getByText("Shielded address pending")).toBeVisible();
     await expect(
-      page.getByText("Passkeys are not available in this browser").first()
+      page.getByText("Create or import a shielded RAILGUN wallet in setup.")
     ).toBeVisible();
-
-    const createWithPasskey = page.getByRole("button", {
-      name: "Create Bindle with passkey"
-    });
-    await expect(createWithPasskey).toBeVisible();
-    await expect(createWithPasskey).toBeDisabled();
 
     await expect(page.getByText(/0x[0-9a-fA-F]{40}/)).toHaveCount(0);
     await expect(page.getByText(/0zk[A-Za-z0-9]{16,}/)).toHaveCount(0);
@@ -139,6 +136,99 @@ test.describe("passkey-first onboarding", () => {
       await expect(page.getByText(/0zk[A-Za-z0-9]{16,}/)).toHaveCount(0);
     }
   );
+
+  test("creates a recoverable local RAILGUN wallet with a real 0zk address", async ({
+    page
+  }) => {
+    await page.addInitScript((address) => {
+      window.localStorage.setItem(
+        "bindle.wallet.metadata.v1",
+        JSON.stringify({
+          status: "smart-wallet-planned",
+          smartWalletAddress: address,
+          railgunAddress: null,
+          railgunKeyStore: null,
+          passkeyPresent: true,
+          mnemonicPresent: false,
+          createdAt: "2026-06-03T00:00:00.000Z",
+          railgunWalletCreatedAt: null,
+          railgunWalletImportedAt: null,
+          lastError: null,
+          custodyModel: "passkey-4337",
+          passkeyCredentialId: "test-passkey",
+          passkeyPublicKey: "0x04"
+        })
+      );
+    }, publicRecipient);
+
+    await page.goto("/");
+
+    await expect(page.getByText("0zk address pending")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Create shielded wallet" })
+    ).toBeDisabled();
+
+    await page.getByLabel("Local passphrase").first().fill("correct horse bindle");
+    await page
+      .getByLabel("Confirm passphrase")
+      .fill("correct horse bindle");
+    await page.getByRole("button", { name: "Create shielded wallet" }).click();
+
+    await expect(page.getByText(/0zk[A-Za-z0-9]{16,}/).first()).toBeVisible({
+      timeout: 30_000
+    });
+    await expect(page.getByLabel("Shielded wallet recovery phrase")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Start toolkit" })
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "Receive" }).click();
+
+    await expect(page.getByText("Shielded address ready")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Copy 0zk address" })).toBeVisible();
+  });
+
+  test("imports an existing RAILGUN recovery phrase into local encrypted storage", async ({
+    page
+  }) => {
+    await page.addInitScript((address) => {
+      window.localStorage.setItem(
+        "bindle.wallet.metadata.v1",
+        JSON.stringify({
+          status: "smart-wallet-planned",
+          smartWalletAddress: address,
+          railgunAddress: null,
+          railgunKeyStore: null,
+          passkeyPresent: true,
+          mnemonicPresent: false,
+          createdAt: "2026-06-03T00:00:00.000Z",
+          railgunWalletCreatedAt: null,
+          railgunWalletImportedAt: null,
+          lastError: null,
+          custodyModel: "passkey-4337",
+          passkeyCredentialId: "test-passkey",
+          passkeyPublicKey: "0x04"
+        })
+      );
+    }, publicRecipient);
+
+    await page.goto("/");
+
+    await page
+      .getByLabel("Recovery phrase")
+      .fill(
+        "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+      );
+    await page.getByLabel("Local passphrase").last().fill("correct horse import");
+    await page.getByRole("button", { name: "Import existing" }).click();
+
+    await expect(page.getByText(/0zk[A-Za-z0-9]{16,}/).first()).toBeVisible({
+      timeout: 30_000
+    });
+    await expect(
+      page.getByRole("button", { name: "Start toolkit" })
+    ).toBeVisible();
+  });
 
   test("persists explicit connection settings locally", async ({ page }) => {
     await page.goto("/");

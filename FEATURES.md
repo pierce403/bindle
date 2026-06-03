@@ -23,7 +23,7 @@ infrastructure.
       wallet creation action.
 - [x] Add a wallet-tab onboarding wizard that detects incomplete local setup and
       steps through passkey, endpoint configuration, toolkit startup, and
-      pending shielded-wallet work.
+      shielded-wallet creation/import.
 - [x] Add passkey availability detection and a clear fallback for unsupported
       browsers without silently changing the custody model.
 - [x] Show smart-wallet address and shielded `0zk` address as distinct things
@@ -45,6 +45,15 @@ infrastructure.
       exist.
 - [x] Add a Kohaku native ETH shield-call builder behind the local RAILGUN
       boundary, without using Kohaku's hidden default Subsquid helper.
+- [x] Add recoverable RAILGUN spending/viewing key lifecycle using Kohaku
+      derivation paths and encrypted local recovery phrase storage.
+- [x] Build RAILGUN wallet create/import around Kohaku low-level RAILGUN
+      primitives instead of direct app state around the legacy Wallet SDK.
+- [x] Store the RAILGUN recovery phrase encrypted in IndexedDB under a local
+      passphrase; localStorage stores only non-secret public metadata.
+- [x] Show the real `0zk` address in Balance and Receive once created/imported.
+- [x] Add a local reset path that clears wallet metadata and Bindle-owned
+      encrypted RAILGUN secrets.
 - [x] Add visible endpoint presets for Bindle default, Privacy max, Custom, and
       Local dev.
 - [x] Persist explicit user/operator endpoint settings locally while preserving
@@ -61,15 +70,15 @@ infrastructure.
 
 - [ ] Keep mnemonic import as an advanced compatibility/recovery path rather
       than the primary first-run flow.
-- [ ] Build wallet create/import around Kohaku RAILGUN and Kohaku smart-wallet
-      primitives where usable.
-- [ ] Add recoverable RAILGUN spending/viewing key lifecycle for the default
-      passkey smart-wallet onboarding path before enabling Shield.
 - [ ] Use the legacy RAILGUN Wallet SDK only for lifecycle paths Kohaku does not
       currently support.
+- [ ] Replace the interim local-passphrase RAILGUN key encryption with
+      passkey-backed wrapping when WebAuthn PRF support is usable across target
+      browsers.
+- [ ] Submit ETH shield transactions from the passkey smart wallet after a real
+      recoverable `0zk` wallet exists and preflight disclosure is complete.
 - [ ] Add a Kohaku-compatible browser smart-account adapter once `pq-account` or
       equivalent passkey ERC-4337 address derivation is available.
-- [ ] Show the real `0zk` address in Receive and Balance once created/imported.
 
 ## Privacy And Connectivity
 
@@ -98,7 +107,7 @@ infrastructure.
 
 - [ ] Write a concise threat model covering static hosting, browser storage,
       RPC metadata, RAILGUN note data, artifact downloads, and clipboard risk.
-- [ ] Keep mnemonic material out of localStorage and document where SDKs persist
+- [x] Keep mnemonic material out of localStorage and document where SDKs persist
       encrypted wallet/provider state.
 - [ ] Document the storage threat model for WebAuthn credential IDs and
       smart-wallet metadata; keep RAILGUN viewing/spending material out of
@@ -107,10 +116,10 @@ infrastructure.
       or other account providers depending on device settings.
 - [ ] Prefer user-verifying passkeys and disclose when a platform only offers a
       weaker or roaming-authenticator path.
-- [ ] Add optional local passphrase encryption for any Bindle-owned wallet
+- [x] Add optional local passphrase encryption for any Bindle-owned wallet
       metadata that becomes sensitive.
 - [ ] Add wallet lock, unlock, and local session timeout controls.
-- [ ] Add a local-only wipe flow for Bindle-owned metadata and IndexedDB stores.
+- [x] Add a local-only wipe flow for Bindle-owned metadata and IndexedDB stores.
 - [ ] Add a service-worker cache audit so wallet RPC, broadcaster, resolver,
       quote, and other sensitive POST traffic cannot be cached.
 - [ ] Add Content Security Policy guidance for static hosting, including
@@ -171,8 +180,8 @@ infrastructure.
 
 ## Protocol Features
 
-- [ ] Submit ETH shield transactions from the passkey smart wallet after a real
-      recoverable `0zk` wallet exists.
+- [ ] Submit ETH shield transactions from the passkey smart wallet using the
+      Kohaku shield-call builder and visible ERC-4337 RPC/bundler policy.
 - [ ] Sync shielded ETH balances from actual wallet state.
 - [ ] Implement private RAILGUN transfer review and proof generation.
 - [ ] Implement unshield-to-public-address review and proof generation.

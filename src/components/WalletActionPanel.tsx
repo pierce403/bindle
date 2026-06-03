@@ -3,7 +3,6 @@ import {
   ArrowRight,
   ArrowUpFromLine,
   Copy,
-  Fingerprint,
   LockKeyhole,
   Repeat2,
   Send,
@@ -14,7 +13,6 @@ import { useState } from "react";
 import { routeIntent, type IntentDraft, type RoutedIntent } from "../intents/router";
 import { isValidEthAmount, isValidRecipientShape } from "../intents/validation";
 import type { EndpointDisclosure } from "../privacy/preflightDisclosure";
-import type { PasskeyCapability } from "../wallet/passkeys";
 import type { WalletState } from "../wallet/walletState";
 import type { WalletAction } from "./BalancePanel";
 
@@ -28,12 +26,9 @@ type WalletActionPanelProps = {
   rpcReady: boolean;
   bundlerReady: boolean;
   walletState: WalletState;
-  passkeyCapability: PasskeyCapability;
-  isCreatingPasskey: boolean;
   isSubmittingSmartPayment: boolean;
   smartPaymentStatus: string;
   endpointDisclosures: EndpointDisclosure[];
-  onCreatePasskey: () => void;
   onDeriveSmartWallet: () => void;
   onOpenConnections: () => void;
   onSubmitSmartPayment: () => void;
@@ -51,12 +46,9 @@ export function WalletActionPanel({
   rpcReady,
   bundlerReady,
   walletState,
-  passkeyCapability,
-  isCreatingPasskey,
   isSubmittingSmartPayment,
   smartPaymentStatus,
   endpointDisclosures,
-  onCreatePasskey,
   onDeriveSmartWallet,
   onOpenConnections,
   onSubmitSmartPayment,
@@ -74,11 +66,15 @@ export function WalletActionPanel({
   const requiredEndpointsReady = endpointDisclosures.every(
     (endpoint) => !endpoint.required || endpoint.configured
   );
+  const hasRecoverableRailgunKeyMaterial =
+    walletState.railgunAddress !== null &&
+    walletState.railgunKeyStore === "encrypted-local";
   const canReviewShielded =
     hasRecipient &&
     hasValidRecipient &&
     hasAmount &&
     hasRailgunWallet &&
+    hasRecoverableRailgunKeyMaterial &&
     rpcReady &&
     requiredEndpointsReady;
   const canReviewPublic =
@@ -91,10 +87,6 @@ export function WalletActionPanel({
     requiredEndpointsReady;
   const canReview =
     sendMode === "public" ? canReviewPublic : canReviewShielded;
-  const canCreatePasskey =
-    passkeyCapability.available &&
-    (!walletState.passkeyPresent || !walletState.passkeyPublicKey) &&
-    !isCreatingPasskey;
   const canCreateFundingAddress =
     walletState.passkeyPublicKey !== null &&
     rpcConfigured &&
@@ -140,45 +132,29 @@ export function WalletActionPanel({
 
         {receiveMode === "shielded" ? (
           <div className="empty-state compact">
-            <Fingerprint size={22} aria-hidden="true" />
+            <LockKeyhole size={22} aria-hidden="true" />
             <strong>
-              {walletState.passkeyPresent
-                ? "Passkey enrolled"
-                : walletState.status === "error"
-                  ? "Passkey enrollment failed"
-                : passkeyCapability.available
-                  ? "Create Bindle with passkey"
-                  : "Passkey not available"}
+              {walletState.railgunAddress
+                ? "Shielded address ready"
+                : "Shielded address pending"}
             </strong>
             <span>
-              {walletState.passkeyPresent
-                ? walletState.passkeyPublicKey
-                  ? "Smart-wallet funding address can be created after RPC setup."
-                  : "Legacy passkey metadata needs a funding passkey."
-                : walletState.status === "error" && walletState.lastError
-                  ? walletState.lastError
-                : passkeyCapability.message}
+              {walletState.railgunAddress
+                ? walletState.railgunAddress
+                : "Create or import a shielded RAILGUN wallet in setup."}
             </span>
-            <button
-              className="primary-action wide"
-              type="button"
-              disabled={!canCreatePasskey}
-              onClick={onCreatePasskey}
-              title={
-                canCreatePasskey
-                  ? "Create a local passkey credential"
-                  : "Passkey enrollment unavailable or already complete"
-              }
-            >
-              <Fingerprint size={18} aria-hidden="true" />
-              {isCreatingPasskey
-                ? "Creating passkey"
-                : walletState.passkeyPresent && walletState.passkeyPublicKey
-                  ? "Passkey enrolled"
-                  : walletState.passkeyPresent
-                    ? "Create funding passkey"
-                    : "Create Bindle with passkey"}
-            </button>
+            {walletState.railgunAddress ? (
+              <button
+                className="secondary-action wide"
+                type="button"
+                onClick={() => void copyAddress(walletState.railgunAddress ?? "")}
+              >
+                <Copy size={18} aria-hidden="true" />
+                Copy 0zk address
+              </button>
+            ) : walletState.status === "error" && walletState.lastError ? (
+              <span>{walletState.lastError}</span>
+            ) : null}
           </div>
         ) : (
           <div className="empty-state compact">
@@ -402,6 +378,28 @@ export function WalletActionPanel({
         </div>
       ) : null}
 
+      {reviewingPayment && sendMode === "shielded" ? (
+        <div className="review-card" aria-label="Review shielded payment">
+          <span>Review shielded payment</span>
+          <div>
+            <strong>From</strong>
+            <span>{walletState.railgunAddress}</span>
+          </div>
+          <div>
+            <strong>To</strong>
+            <span>{draft.recipient.trim()}</span>
+          </div>
+          <div>
+            <strong>Amount</strong>
+            <span>{draft.amount.trim()} ETH</span>
+          </div>
+          <button className="secondary-action wide" type="button" disabled>
+            <Send size={18} aria-hidden="true" />
+            Private send pending
+          </button>
+        </div>
+      ) : null}
+
       {smartPaymentStatus ? (
         <p className="status-message">{smartPaymentStatus}</p>
       ) : null}
@@ -411,9 +409,7 @@ export function WalletActionPanel({
         type="button"
         disabled={!canReview}
         onClick={() => {
-          if (sendMode === "public") {
-            setReviewingPayment(true);
-          }
+          setReviewingPayment(true);
         }}
       >
         <Send size={18} aria-hidden="true" />

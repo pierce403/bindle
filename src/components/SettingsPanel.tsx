@@ -35,14 +35,14 @@ export function SettingsPanel({
 
       <div className="settings-row">
         <div>
-          <strong>Wallet metadata</strong>
-          <span>Clears Bindle-owned local wallet metadata only.</span>
+          <strong>Local wallet</strong>
+          <span>Clears metadata and encrypted Bindle-owned RAILGUN secrets.</span>
         </div>
         <button
           className="secondary-action"
           type="button"
           onClick={onResetWallet}
-          title="Reset local wallet metadata"
+          title="Reset local wallet"
         >
           <RotateCcw size={17} aria-hidden="true" />
           Reset

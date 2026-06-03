@@ -551,7 +551,8 @@ button:disabled {
 .amount-entry input,
 .amount-entry select,
 .field input,
-.field select {
+.field select,
+.field textarea {
   width: 100%;
   min-height: 48px;
   border: 1px solid var(--border);
@@ -590,8 +591,15 @@ button:disabled {
 }
 
 .field input,
-.field select {
+.field select,
+.field textarea {
   padding: 0 12px;
+}
+
+.field textarea {
+  min-height: 88px;
+  padding-top: 12px;
+  resize: vertical;
 }
 
 .route-card {
@@ -616,6 +624,8 @@ button:disabled {
 }
 
 .funding-card,
+.wallet-secret-card,
+.recovery-card,
 .preflight-card,
 .review-card {
   display: grid;
@@ -627,6 +637,7 @@ button:disabled {
 }
 
 .funding-card > span,
+.recovery-card > span,
 .preflight-card > span,
 .review-card > span {
   color: var(--muted);
@@ -634,11 +645,22 @@ button:disabled {
   font-weight: 760;
 }
 
+.wallet-secret-card > strong,
 .funding-card strong {
   overflow: hidden;
   font-size: 0.84rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.recovery-card {
+  border-color: color-mix(in srgb, var(--warning) 38%, var(--border));
+}
+
+.recovery-card strong {
+  overflow-wrap: anywhere;
+  font-size: 0.86rem;
+  line-height: 1.45;
 }
 
 .review-card div {

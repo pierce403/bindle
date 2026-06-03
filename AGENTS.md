@@ -233,7 +233,16 @@ avoids requiring GitHub workflow scope.
   localStorage is only for non-secret metadata: wallet status, public addresses
   if real, passkey-present boolean, credential id metadata, timestamps, and
   errors. Do not store EOA private keys, mnemonics, RAILGUN viewing/spending
-  material, WebAuthn private material, or provider secrets there.
+  material, WebAuthn private material, or provider secrets there. The
+  `railgunKeyStore` field is only a marker that encrypted local key material
+  exists.
+- Bindle-owned RAILGUN wallet secrets live in
+  `src/railgun/railgunWallet.ts`. It derives spending/viewing keys from
+  Kohaku's `RailgunSigner.spendingKeyPath()` and `viewingKeyPath()`, computes
+  the real `0zk` address with `RailgunSigner.privateKey()`, and stores only an
+  encrypted recovery phrase in IndexedDB
+  (`bindle-railgun-wallet-secrets`). The user passphrase is not persisted.
+  Keep localStorage limited to public metadata.
 - Passkey enrollment is wired through browser WebAuthn in `src/wallet/passkeys.ts`.
   `src/wallet/smartAccountAdapter.ts` uses Viem's Coinbase Smart Wallet support
   to derive a real passkey-backed ERC-4337 funding address and submit public ETH
@@ -247,10 +256,11 @@ avoids requiring GitHub workflow scope.
   the selected RPC.
 - Shield/unshield readiness lives in `src/railgun/shielding.ts`. Native ETH
   shield call prep uses Kohaku's low-level `ShieldBuilder.shieldNative`, not the
-  higher-level helper that wires hidden Subsquid defaults. Do not enable Shield
-  submission until Bindle has recoverable RAILGUN spending/viewing key material
-  for the displayed `0zk` address; otherwise users could shield funds they
-  cannot unshield.
+  higher-level helper that wires hidden Subsquid defaults. Recoverable local
+  RAILGUN key material now exists after shielded wallet create/import, but
+  Shield submission must stay disabled until the ERC-4337 review/submission
+  path is wired through visible RPC/bundler policy and the app can preserve
+  unshieldability.
 - First-run setup is surfaced through `src/components/OnboardingWizard.tsx`.
   Keep new wallet prerequisites in that state-driven flow so users are not
   forced to discover setup steps by opening Receive or Connections manually.
@@ -299,9 +309,10 @@ avoids requiring GitHub workflow scope.
   suite runs with one worker to avoid local Chrome Crash Reports lock failures
   during parallel WebAuthn launches.
 - Current onboarding specs include passing assertions for honest first-run
-  passkey gating, virtual-passkey enrollment without fake addresses, visible
-  default endpoints, Privacy max clearing hosted endpoints, and a skipped
-  acceptance spec for the future real public-ETH shield sweep.
+  passkey gating, virtual-passkey enrollment without fake addresses, local
+  RAILGUN wallet creation with a real `0zk` address, visible default endpoints,
+  Privacy max clearing hosted endpoints, and a skipped acceptance spec for the
+  future real public-ETH shield sweep.
 
 ## Current Missing Product Work
 

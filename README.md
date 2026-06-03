@@ -4,7 +4,9 @@ Bindle is a statically hosted TypeScript wallet interface for private Ethereum p
 
 The target onboarding flow is passkey-first: on phones, the PWA should default
 to creating a passkey-backed smart wallet, then use the privacy toolkit boundary
-to connect that wallet to RAILGUN shielded ETH. Seed phrases, EOA imports, and
+to connect that wallet to RAILGUN shielded ETH. Today, the public funding
+account is passkey-backed while the RAILGUN shielded account uses an encrypted
+local recovery phrase as an interim recoverable key path. EOA imports and
 legacy RAILGUN Wallet SDK lifecycle paths are compatibility or recovery flows,
 not the default first-run experience.
 
@@ -20,10 +22,13 @@ not the default first-run experience.
 - RAILGUN Wallet SDK remains isolated behind an explicit fallback adapter.
 - Browser-side legacy RAILGUN adapter with IndexedDB artifact persistence.
 - Local wallet metadata state for passkey-first onboarding, with no private key
-  or mnemonic storage.
+  or mnemonic storage in localStorage.
+- Encrypted local RAILGUN recovery phrase storage in IndexedDB. Bindle derives
+  Kohaku RAILGUN spending/viewing keys from the phrase locally to display a
+  real `0zk` address.
 - Wallet-tab onboarding wizard that appears while local setup is incomplete and
-  advances through passkey, visible endpoints, toolkit startup, and pending
-  shielded-wallet work.
+  advances through passkey, visible endpoints, funding address creation,
+  shielded wallet creation/import, and toolkit startup.
 - Viem Coinbase Smart Wallet adapter for passkey-backed ERC-4337 funding
   addresses and public ETH user operations through visible RPC/bundler
   endpoints.
@@ -118,12 +123,15 @@ The current app can enroll a browser passkey, derive a counterfactual Coinbase
 Smart Wallet funding address with the visible Ethereum mainnet RPC, and submit
 public ETH user operations through the visible ERC-4337 bundler.
 It can also explicitly sync the public ETH balance for that funding address
-through the visible RPC after disclosing the endpoint. Paymaster support is
-optional and only used when configured. Bindle can audit shield/unshield
-readiness and can prepare native ETH shield call data through Kohaku's low-level
-WASM binding, but the Shield button remains disabled until a recoverable
-RAILGUN spending/viewing key lifecycle creates or imports a real `0zk` address.
-Shielded balance sync, unshielding, and private RAILGUN sends remain pending.
+through the visible RPC after disclosing the endpoint. It can create or import a
+recoverable local RAILGUN wallet, encrypt the recovery phrase into IndexedDB
+with a user passphrase, derive Kohaku RAILGUN spending/viewing keys locally, and
+show the resulting real `0zk` address. Paymaster support is optional and only
+used when configured. Bindle can audit shield/unshield readiness and can prepare
+native ETH shield call data through Kohaku's low-level WASM binding, but the
+Shield button remains disabled until ERC-4337 shield transaction submission is
+wired safely. Shielded balance sync, unshielding, and private RAILGUN sends
+remain pending.
 
 ## RAILGUN Integration Notes
 
@@ -132,12 +140,15 @@ The RAILGUN Wallet SDK remains available as a fallback path for generating priva
 Current shield/unshield status:
 
 - Public ETH funding balance sync is real and explicit.
+- RAILGUN wallet creation/import is real and local. The recovery phrase is
+  encrypted into IndexedDB under a user passphrase; localStorage stores only the
+  public `0zk` address and a key-store marker.
 - Native ETH shield call preparation is available through Kohaku low-level
   `ShieldBuilder.shieldNative`.
-- Shield submission is intentionally blocked because Bindle has not yet wired a
-  recoverable `0zk` wallet key lifecycle.
-- Unshield is blocked until recoverable RAILGUN keys, shielded balance sync,
-  proof generation, and a visible broadcaster path are implemented.
+- Shield submission is intentionally blocked until the app wires review and
+  submission from the passkey smart wallet through visible RPC/bundler policy.
+- Unshield is blocked until shielded balance sync, proof generation, unlock
+  flow, and a visible broadcaster path are implemented.
 
 Primary references:
 
