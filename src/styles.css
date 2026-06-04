@@ -56,11 +56,11 @@ button:disabled {
   --warning: #ffb13d;
   --negative: #ff5c6b;
   --shadow: 0 24px 70px rgba(0, 0, 0, 0.46);
-  --paisley-filter: invert(1) sepia(1) saturate(2.6) hue-rotate(318deg)
-    brightness(0.78) contrast(1.18);
+  --paisley-filter: sepia(1) saturate(2.7) hue-rotate(315deg)
+    brightness(0.9) contrast(1.18);
   --paisley-blend: screen;
-  --paisley-opacity: 0.22;
-  --paisley-panel-opacity: 0.08;
+  --paisley-opacity: 0.24;
+  --paisley-panel-opacity: 0.09;
   position: relative;
   display: grid;
   grid-template-columns: minmax(320px, 430px);
@@ -96,18 +96,18 @@ button:disabled {
   --warning: #9c6718;
   --negative: #b31828;
   --shadow: 0 24px 60px rgba(24, 19, 19, 0.14);
-  --paisley-filter: sepia(1) saturate(1.8) hue-rotate(318deg)
+  --paisley-filter: invert(1) sepia(1) saturate(1.8) hue-rotate(318deg)
     brightness(0.74) contrast(1.2);
   --paisley-blend: multiply;
-  --paisley-opacity: 0.17;
-  --paisley-panel-opacity: 0.06;
+  --paisley-opacity: 0.16;
+  --paisley-panel-opacity: 0.055;
 }
 
 .app-shell[data-theme-accent="white"] {
   --accent: #f4eee8;
   --accent-soft: rgba(255, 255, 255, 0.13);
   --accent-contrast: #090707;
-  --paisley-filter: invert(1) grayscale(1) brightness(0.82) contrast(1.15);
+  --paisley-filter: grayscale(1) brightness(0.92) contrast(1.1);
   --paisley-opacity: 0.2;
 }
 
@@ -115,7 +115,7 @@ button:disabled {
   --accent: #171515;
   --accent-soft: rgba(23, 21, 21, 0.1);
   --accent-contrast: #ffffff;
-  --paisley-filter: grayscale(1) brightness(0.74) contrast(1.2);
+  --paisley-filter: invert(1) grayscale(1) brightness(0.74) contrast(1.2);
   --paisley-opacity: 0.16;
 }
 
@@ -123,15 +123,15 @@ button:disabled {
   --accent: #40a6ff;
   --accent-soft: rgba(64, 166, 255, 0.16);
   --accent-contrast: #06111c;
-  --paisley-filter: invert(1) sepia(1) saturate(2.8) hue-rotate(174deg)
-    brightness(0.9) contrast(1.14);
+  --paisley-filter: sepia(1) saturate(2.8) hue-rotate(175deg)
+    brightness(0.95) contrast(1.14);
 }
 
 .app-shell[data-theme-mode="light"][data-theme-accent="blue"] {
   --accent: #006bb8;
   --accent-soft: rgba(0, 107, 184, 0.12);
   --accent-contrast: #ffffff;
-  --paisley-filter: sepia(1) saturate(2.1) hue-rotate(172deg)
+  --paisley-filter: invert(1) sepia(1) saturate(2.1) hue-rotate(172deg)
     brightness(0.76) contrast(1.2);
 }
 
@@ -140,9 +140,10 @@ button:disabled {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background-image: url("/paisley-monochrome.png");
+  background-image: url("/paisley-rose-monochrome.png");
   background-position: center top;
-  background-size: 560px 560px;
+  background-repeat: repeat;
+  background-size: min(84vw, 760px) min(84vw, 760px);
   filter: var(--paisley-filter);
   mix-blend-mode: var(--paisley-blend);
   opacity: var(--paisley-opacity);
@@ -334,9 +335,10 @@ button:disabled {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background-image: url("/paisley-monochrome.png");
+  background-image: url("/paisley-rose-monochrome.png");
   background-position: center top;
-  background-size: 520px 520px;
+  background-repeat: repeat;
+  background-size: 620px 620px;
   filter: var(--paisley-filter);
   mix-blend-mode: var(--paisley-blend);
   opacity: var(--paisley-panel-opacity);

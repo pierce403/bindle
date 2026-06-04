@@ -102,8 +102,9 @@ infrastructure.
 - [x] Add account-export reclaim metadata that distinguishes full shielded
       `0zk` recovery from public smart-account recovery that requires the same
       synced passkey credential.
-- [x] Replace the CSS/SVG-style paisley approximation with a monochrome raster
-      paisley texture that CSS tints red, blue, or white per theme.
+- [x] Replace the CSS/SVG-style paisley approximation with a rose-forward
+      monochrome raster paisley texture that CSS tints red, blue, or white per
+      theme.
 
 ## Now
 
