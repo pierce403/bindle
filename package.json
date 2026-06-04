@@ -9,7 +9,7 @@
   "scripts": {
     "preinstall": "node scripts/require-pnpm.mjs",
     "dev": "vite --host 127.0.0.1",
-    "build": "pnpm run build:app",
+    "build": "node scripts/build.mjs",
     "build:app": "tsc -b && vite build",
     "icons": "node scripts/generate-pwa-icons.mjs",
     "preview": "vite preview --host 127.0.0.1",
