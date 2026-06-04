@@ -33,8 +33,11 @@ not the default first-run experience.
 - Settings can export a local account JSON file and import it later. When a
   RAILGUN wallet exists, the export includes the RAILGUN recovery phrase so it
   can be re-encrypted into another Bindle PWA session. WebAuthn/passkey private
-  material is never exportable; the platform passkey must still exist or sync
-  through the user's passkey provider.
+  material is never exportable; reclaiming the same public smart account on a
+  new device requires the same platform passkey to exist or sync through the
+  user's passkey provider. Enrolling a new passkey creates a new owner path; it
+  does not recover the old public smart account unless an on-chain owner
+  rotation/recovery flow was set up first.
 - A stale `0zk` repair prompt appears when saved RAILGUN metadata points at
   missing or password-era local key storage. It can wipe only the incompatible
   RAILGUN local state, preserve the passkey funding wallet, and generate a new

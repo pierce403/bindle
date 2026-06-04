@@ -39,7 +39,17 @@ test("creates an account export with explicit recovery warnings", () => {
   expect(parsed.schema).toBe("me.bindle.account-export");
   expect(parsed.wallet.smartWalletAddress).toBe(wallet.smartWalletAddress);
   expect(parsed.railgunWallet?.recoveryPhrase).toContain("abandon");
-  expect(parsed.warnings.join(" ")).toContain("passkey private material");
+  expect(parsed.reclaimPlan.publicSmartAccount.status).toBe(
+    "requires-synced-passkey"
+  );
+  expect(parsed.reclaimPlan.publicSmartAccount.address).toBe(
+    wallet.smartWalletAddress
+  );
+  expect(parsed.reclaimPlan.shieldedRailgunAccount.status).toBe(
+    "recovery-phrase-included"
+  );
+  expect(parsed.warnings.join(" ")).toContain("same WebAuthn/passkey credential");
+  expect(parsed.warnings.join(" ")).toContain("Enrolling a new passkey");
   expect(parsed.warnings.join(" ")).toContain("recovery phrase");
 });
 

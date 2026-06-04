@@ -99,6 +99,9 @@ infrastructure.
 - [x] Add Settings account export/import JSON for local wallet metadata and
       RAILGUN recovery phrase recovery, while documenting that WebAuthn passkey
       private material cannot be exported.
+- [x] Add account-export reclaim metadata that distinguishes full shielded
+      `0zk` recovery from public smart-account recovery that requires the same
+      synced passkey credential.
 
 ## Now
 

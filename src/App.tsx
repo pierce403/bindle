@@ -1373,8 +1373,8 @@ function WalletApp() {
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
 
       const message = railgunWallet
-        ? "Account export downloaded. It includes the RAILGUN recovery phrase; keep it private."
-        : "Account metadata export downloaded. No local RAILGUN recovery phrase was included.";
+        ? "Account export downloaded. It can reclaim the shielded 0zk account; the public smart account still requires the same synced passkey."
+        : "Account metadata export downloaded. No local RAILGUN recovery phrase was included; the public smart account still requires the same synced passkey.";
       setAccountExportStatus(message);
       setStatusMessage("Account export downloaded");
       recordDebugEvent({
@@ -1493,8 +1493,8 @@ function WalletApp() {
       );
 
       const message = importedWallet
-        ? "Account export imported. RAILGUN recovery phrase was re-encrypted for this browser."
-        : "Account metadata imported. No RAILGUN recovery phrase was present.";
+        ? "Account export imported. Shielded 0zk keys were re-encrypted here; public smart-account spending still requires the same synced passkey."
+        : "Account metadata imported. No RAILGUN recovery phrase was present; public smart-account spending still requires the same synced passkey.";
       setAccountExportStatus(message);
       setStatusMessage("Account export imported");
       recordDebugEvent({

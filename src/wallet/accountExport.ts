@@ -13,14 +13,34 @@ export type BindleAccountExport = {
   exportedAt: string;
   wallet: WalletState;
   railgunWallet: ExportedRailgunWallet | null;
+  reclaimPlan: AccountReclaimPlan;
   warnings: string[];
+};
+
+export type AccountReclaimPlan = {
+  publicSmartAccount: {
+    address: string | null;
+    passkeyCredentialId: string | null;
+    passkeyPublicKey: `0x${string}` | null;
+    status: "requires-synced-passkey" | "not-configured";
+    note: string;
+  };
+  shieldedRailgunAccount: {
+    address: string | null;
+    status:
+      | "recovery-phrase-included"
+      | "metadata-only"
+      | "not-configured";
+    note: string;
+  };
 };
 
 const schema = "me.bindle.account-export";
 
 const exportWarnings = [
   "If railgunWallet is present, this file contains the RAILGUN recovery phrase and can recover shielded funds.",
-  "This file does not contain WebAuthn/passkey private material; the platform passkey must still exist or sync separately.",
+  "The public smart-account address can be controlled on a new device only if the same WebAuthn/passkey credential is available there.",
+  "Enrolling a new passkey creates a new owner path; it does not recover the old public smart account unless an on-chain recovery or owner-rotation flow was set up before losing the old passkey.",
   "Keep this file private and import it only into a trusted Bindle PWA session."
 ];
 
@@ -110,6 +130,50 @@ const normalizeRailgunWallet = (
   };
 };
 
+const buildReclaimPlan = ({
+  railgunWallet,
+  wallet
+}: {
+  railgunWallet: ExportedRailgunWallet | null;
+  wallet: WalletState;
+}): AccountReclaimPlan => ({
+  publicSmartAccount: wallet.smartWalletAddress
+    ? {
+        address: wallet.smartWalletAddress,
+        passkeyCredentialId: wallet.passkeyCredentialId,
+        passkeyPublicKey: wallet.passkeyPublicKey,
+        status: "requires-synced-passkey",
+        note:
+          "The export stores public smart-account metadata, but not the WebAuthn private key. The same platform passkey must be available on the new device to spend from this public smart account."
+      }
+    : {
+        address: null,
+        passkeyCredentialId: null,
+        passkeyPublicKey: null,
+        status: "not-configured",
+        note: "No public smart-account funding address was configured."
+      },
+  shieldedRailgunAccount: railgunWallet
+    ? {
+        address: railgunWallet.railgunAddress,
+        status: "recovery-phrase-included",
+        note:
+          "The RAILGUN recovery phrase is included and can reclaim the shielded 0zk account when imported into a trusted Bindle PWA session."
+      }
+    : wallet.railgunAddress
+      ? {
+          address: wallet.railgunAddress,
+          status: "metadata-only",
+          note:
+            "The export contains the shielded address metadata, but no RAILGUN recovery phrase was available to include."
+        }
+      : {
+          address: null,
+          status: "not-configured",
+          note: "No shielded RAILGUN account was configured."
+        }
+});
+
 export const createBindleAccountExport = ({
   railgunWallet,
   wallet
@@ -122,6 +186,10 @@ export const createBindleAccountExport = ({
   exportedAt: new Date().toISOString(),
   wallet: normalizeWallet(wallet),
   railgunWallet,
+  reclaimPlan: buildReclaimPlan({
+    railgunWallet,
+    wallet: normalizeWallet(wallet)
+  }),
   warnings: exportWarnings
 });
 
@@ -138,6 +206,9 @@ export const parseBindleAccountExport = (text: string): BindleAccountExport => {
     throw new Error("Account export is not a supported Bindle export file.");
   }
 
+  const wallet = normalizeWallet(record.wallet);
+  const railgunWallet = normalizeRailgunWallet(record.railgunWallet);
+
   return {
     schema,
     version: 1,
@@ -145,8 +216,9 @@ export const parseBindleAccountExport = (text: string): BindleAccountExport => {
       typeof record.exportedAt === "string"
         ? record.exportedAt
         : new Date().toISOString(),
-    wallet: normalizeWallet(record.wallet),
-    railgunWallet: normalizeRailgunWallet(record.railgunWallet),
+    wallet,
+    railgunWallet,
+    reclaimPlan: buildReclaimPlan({ railgunWallet, wallet }),
     warnings: Array.isArray(record.warnings)
       ? record.warnings.filter((item): item is string => typeof item === "string")
       : exportWarnings

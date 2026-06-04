@@ -50,9 +50,9 @@ export function SettingsPanel({
         <div>
           <strong>Account export</strong>
           <span>
-            Downloads a JSON recovery file. Includes the RAILGUN recovery phrase
-            when present; passkey private material stays in the platform
-            authenticator.
+            Downloads a JSON recovery file. It can reclaim the shielded account
+            when it includes the RAILGUN phrase; the public smart account still
+            needs the same synced passkey.
           </span>
           {accountExportStatus ? <small>{accountExportStatus}</small> : null}
         </div>
