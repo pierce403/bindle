@@ -2,7 +2,10 @@ import { Copy, Download, KeyRound, Palette, RotateCcw, Settings, Upload } from "
 import { useRef } from "react";
 import { ThemeControls } from "./ThemeControls";
 import type { ThemeSelection } from "../theme/theme";
-import { getCurrentPasskeyHostname } from "../wallet/passkeys";
+import {
+  getCurrentPasskeyHostname,
+  type BindleOwnerEnrollmentCode
+} from "../wallet/passkeys";
 import type { PasskeyAuthenticatorKind } from "../wallet/passkeys";
 import type { WalletState } from "../wallet/walletState";
 
@@ -11,6 +14,8 @@ type SettingsPanelProps = {
   walletState: WalletState;
   accountExportStatus: string;
   ownerEnrollmentCode: string;
+  ownerEnrollment: BindleOwnerEnrollmentCode | null;
+  ownerEnrollmentImportText: string;
   ownerEnrollmentStatus: string;
   isExportingAccount: boolean;
   isImportingAccount: boolean;
@@ -20,6 +25,9 @@ type SettingsPanelProps = {
   onImportAccountExport: (file: File) => void;
   onCreateOwnerEnrollmentCode: (kind: PasskeyAuthenticatorKind) => void;
   onCopyOwnerEnrollmentCode: () => void;
+  onOwnerEnrollmentImportTextChange: (text: string) => void;
+  onImportOwnerEnrollmentCode: () => void;
+  onActivateOwnerEnrollment: () => void;
   onPasskeyPreferenceChange: (preference: {
     authenticatorAttachment: AuthenticatorAttachment;
     userVerification: UserVerificationRequirement;
@@ -32,6 +40,8 @@ export function SettingsPanel({
   walletState,
   accountExportStatus,
   ownerEnrollmentCode,
+  ownerEnrollment,
+  ownerEnrollmentImportText,
   ownerEnrollmentStatus,
   isExportingAccount,
   isImportingAccount,
@@ -41,6 +51,9 @@ export function SettingsPanel({
   onImportAccountExport,
   onCreateOwnerEnrollmentCode,
   onCopyOwnerEnrollmentCode,
+  onOwnerEnrollmentImportTextChange,
+  onImportOwnerEnrollmentCode,
+  onActivateOwnerEnrollment,
   onPasskeyPreferenceChange,
   onResetWallet
 }: SettingsPanelProps) {
@@ -51,6 +64,10 @@ export function SettingsPanel({
     currentHostname !== null &&
     walletState.passkeyRpId !== null &&
     walletState.passkeyRpId !== currentHostname;
+  const shorten = (value: string | null | undefined): string =>
+    value && value.length > 22
+      ? `${value.slice(0, 12)}...${value.slice(-8)}`
+      : (value ?? "not present");
 
   return (
     <section className="panel settings-panel" aria-labelledby="settings-heading">
@@ -87,6 +104,12 @@ export function SettingsPanel({
               verification: {walletState.passkeyUserVerification ?? "default"}
             </small>
           ) : null}
+          <small>
+            Active credential: {shorten(walletState.passkeyCredentialId)}
+          </small>
+          <small>
+            Active public key: {shorten(walletState.passkeyPublicKey)}
+          </small>
           {migratedPasskeyExpected ? (
             <small>
               Migrated account detected. This site must be allowed by the
@@ -187,6 +210,23 @@ export function SettingsPanel({
             Creates a new passkey on this site and copies the public owner
             metadata for the bindle.me migration bridge.
           </span>
+          {ownerEnrollment ? (
+            <>
+              <small>
+                Pending credential: {shorten(ownerEnrollment.credential.id)}
+              </small>
+              <small>
+                Pending RP ID: {ownerEnrollment.credential.rpId}; authenticator:{" "}
+                {ownerEnrollment.credential.authenticatorAttachment}
+              </small>
+              <small>
+                Pending public key:{" "}
+                {shorten(ownerEnrollment.credential.publicKey)}
+              </small>
+            </>
+          ) : (
+            <small>No generated owner is stored in this browser.</small>
+          )}
           {ownerEnrollmentStatus ? <small>{ownerEnrollmentStatus}</small> : null}
         </div>
         <div className="settings-actions">
@@ -224,7 +264,33 @@ export function SettingsPanel({
             <Copy size={17} aria-hidden="true" />
             Copy code
           </button>
+          <button
+            className="secondary-action"
+            type="button"
+            onClick={onActivateOwnerEnrollment}
+            disabled={!ownerEnrollment}
+            title="Use this stored owner enrollment as the active signing passkey metadata"
+          >
+            Use owner
+          </button>
         </div>
+        <textarea
+          className="code-output"
+          value={ownerEnrollmentImportText}
+          onChange={(event) =>
+            onOwnerEnrollmentImportTextChange(event.currentTarget.value)
+          }
+          placeholder="Paste bindle-owner-v1:... here if the generated code was not saved locally."
+          aria-label="Import owner enrollment code"
+        />
+        <button
+          className="secondary-action"
+          type="button"
+          onClick={onImportOwnerEnrollmentCode}
+          disabled={!ownerEnrollmentImportText.trim()}
+        >
+          Import code
+        </button>
         {ownerEnrollmentCode ? (
           <textarea
             className="code-output"

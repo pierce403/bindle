@@ -88,9 +88,16 @@ import {
   createBindleOwnerEnrollmentCode,
   detectPasskeyCapability,
   createBindlePasskeyCredential,
+  parseBindleOwnerEnrollmentCode,
   type PasskeyAuthenticatorKind,
   type PasskeyCapability
 } from "./wallet/passkeys";
+import {
+  clearPendingOwnerEnrollment,
+  loadPendingOwnerEnrollment,
+  savePendingOwnerEnrollment,
+  type PendingOwnerEnrollment
+} from "./wallet/ownerEnrollmentState";
 import {
   clearRailgunWalletState,
   loadWalletState,
@@ -292,7 +299,9 @@ function WalletApp() {
   const [isExportingAccount, setIsExportingAccount] = useState(false);
   const [isImportingAccount, setIsImportingAccount] = useState(false);
   const [accountExportStatus, setAccountExportStatus] = useState("");
-  const [ownerEnrollmentCode, setOwnerEnrollmentCode] = useState("");
+  const [pendingOwnerEnrollment, setPendingOwnerEnrollment] =
+    useState<PendingOwnerEnrollment | null>(() => loadPendingOwnerEnrollment());
+  const [ownerEnrollmentImportText, setOwnerEnrollmentImportText] = useState("");
   const [ownerEnrollmentStatus, setOwnerEnrollmentStatus] = useState("");
   const [isCreatingOwnerEnrollment, setIsCreatingOwnerEnrollment] =
     useState(false);
@@ -1553,7 +1562,9 @@ function WalletApp() {
         authenticatorKind,
         smartWalletAddress: walletState.smartWalletAddress
       });
-      setOwnerEnrollmentCode(code);
+      const pending = savePendingOwnerEnrollment({ code, enrollment });
+      setPendingOwnerEnrollment(pending);
+      setOwnerEnrollmentImportText("");
       setOwnerEnrollmentStatus(
         `Owner enrollment code ready for RP ID ${enrollment.targetRpId}. Paste it into the bindle.me migration bridge, then import the updated export it downloads.`
       );
@@ -1589,12 +1600,100 @@ function WalletApp() {
   };
 
   const copyOwnerEnrollmentCode = async () => {
-    if (!ownerEnrollmentCode) {
+    if (!pendingOwnerEnrollment?.code) {
       return;
     }
 
-    await navigator.clipboard.writeText(ownerEnrollmentCode);
+    await navigator.clipboard.writeText(pendingOwnerEnrollment.code);
     setOwnerEnrollmentStatus("Owner enrollment code copied.");
+  };
+
+  const importOwnerEnrollmentCode = () => {
+    try {
+      const enrollment = parseBindleOwnerEnrollmentCode(ownerEnrollmentImportText);
+
+      if (
+        walletState.smartWalletAddress &&
+        enrollment.smartWalletAddress &&
+        walletState.smartWalletAddress.toLowerCase() !==
+          enrollment.smartWalletAddress.toLowerCase()
+      ) {
+        throw new Error(
+          "Owner enrollment code is for a different smart-wallet address."
+        );
+      }
+
+      const pending = savePendingOwnerEnrollment({
+        code: ownerEnrollmentImportText.trim(),
+        enrollment
+      });
+      setPendingOwnerEnrollment(pending);
+      setOwnerEnrollmentStatus(
+        `Owner enrollment code imported for RP ID ${enrollment.credential.rpId}.`
+      );
+    } catch (error) {
+      const message = messageFromError(
+        error,
+        "Unable to import owner enrollment code",
+        "settings"
+      );
+      setOwnerEnrollmentStatus(message);
+    }
+  };
+
+  const activatePendingOwnerEnrollment = () => {
+    if (!pendingOwnerEnrollment) {
+      setOwnerEnrollmentStatus("Create or import an owner enrollment code first.");
+      return;
+    }
+
+    const { enrollment } = pendingOwnerEnrollment;
+
+    if (
+      walletState.smartWalletAddress &&
+      enrollment.smartWalletAddress &&
+      walletState.smartWalletAddress.toLowerCase() !==
+        enrollment.smartWalletAddress.toLowerCase()
+    ) {
+      setOwnerEnrollmentStatus(
+        "Owner enrollment code is for a different smart-wallet address."
+      );
+      return;
+    }
+
+    const enrolledState = markPasskeyEnrolled(walletState, {
+      id: enrollment.credential.id,
+      publicKey: enrollment.credential.publicKey,
+      rpId: enrollment.credential.rpId,
+      authenticatorAttachment: enrollment.credential.authenticatorAttachment,
+      userVerification: enrollment.credential.userVerification
+    });
+    const nextState =
+      enrollment.smartWalletAddress && !enrolledState.smartWalletAddress
+        ? saveWalletState({
+            ...enrolledState,
+            smartWalletAddress: enrollment.smartWalletAddress,
+            status: enrolledState.railgunAddress
+              ? "railgun-ready"
+              : "smart-wallet-planned"
+          })
+        : enrolledState;
+    setWalletState(nextState);
+    setOwnerEnrollmentStatus(
+      `Active signing passkey set to RP ID ${enrollment.credential.rpId}.`
+    );
+    setStatusMessage("Active signing passkey updated");
+    recordDebugEvent({
+      level: "info",
+      source: "settings",
+      message: "Active signing passkey updated from owner enrollment",
+      detail: [
+        `Smart account: ${nextState.smartWalletAddress ?? "not present"}`,
+        `RP ID: ${enrollment.credential.rpId}`,
+        `Authenticator: ${enrollment.credential.authenticatorAttachment}`,
+        `Credential: ${enrollment.credential.id}`
+      ].join("\n")
+    });
   };
 
   const updatePasskeyPreference = ({
@@ -1634,7 +1733,9 @@ function WalletApp() {
     setRailgunStorageMode("missing");
     setRailgunStorageChecked(true);
     setAccountExportStatus("");
-    setOwnerEnrollmentCode("");
+    setPendingOwnerEnrollment(null);
+    setOwnerEnrollmentImportText("");
+    clearPendingOwnerEnrollment();
     setOwnerEnrollmentStatus("");
     setRailgunRepairStatus("");
     setRailgunRepairPreviousAddress(null);
@@ -1826,7 +1927,9 @@ function WalletApp() {
             theme={theme}
             walletState={walletState}
             accountExportStatus={accountExportStatus}
-            ownerEnrollmentCode={ownerEnrollmentCode}
+            ownerEnrollmentCode={pendingOwnerEnrollment?.code ?? ""}
+            ownerEnrollment={pendingOwnerEnrollment?.enrollment ?? null}
+            ownerEnrollmentImportText={ownerEnrollmentImportText}
             ownerEnrollmentStatus={ownerEnrollmentStatus}
             isExportingAccount={isExportingAccount}
             isImportingAccount={isImportingAccount}
@@ -1838,6 +1941,9 @@ function WalletApp() {
               void createOwnerEnrollmentCode(kind)
             }
             onCopyOwnerEnrollmentCode={() => void copyOwnerEnrollmentCode()}
+            onOwnerEnrollmentImportTextChange={setOwnerEnrollmentImportText}
+            onImportOwnerEnrollmentCode={importOwnerEnrollmentCode}
+            onActivateOwnerEnrollment={activatePendingOwnerEnrollment}
             onPasskeyPreferenceChange={updatePasskeyPreference}
             onResetWallet={resetLocalWallet}
           />

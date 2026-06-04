@@ -88,6 +88,41 @@ const encodeBase64Url = (value: string): string => {
     .replaceAll("=", "");
 };
 
+const decodeBase64Url = (value: string): string => {
+  const normalized = value.replaceAll("-", "+").replaceAll("_", "/");
+  const padded = normalized.padEnd(
+    normalized.length + ((4 - (normalized.length % 4)) % 4),
+    "="
+  );
+  const binary = atob(padded);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+
+  return new TextDecoder().decode(bytes);
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const stringOrNull = (value: unknown): string | null =>
+  typeof value === "string" && value.length > 0 ? value : null;
+
+const hexOrNull = (value: unknown): `0x${string}` | null =>
+  typeof value === "string" && /^0x[0-9a-fA-F]+$/.test(value)
+    ? (value as `0x${string}`)
+    : null;
+
+const authenticatorAttachmentOrNull = (
+  value: unknown
+): AuthenticatorAttachment | null =>
+  value === "platform" || value === "cross-platform" ? value : null;
+
+const userVerificationOrNull = (
+  value: unknown
+): UserVerificationRequirement | null =>
+  value === "required" || value === "preferred" || value === "discouraged"
+    ? value
+    : null;
+
 const passkeyPolicyForKind = (
   authenticatorKind: PasskeyAuthenticatorKind
 ): {
@@ -230,6 +265,74 @@ export const encodeBindleOwnerEnrollmentCode = (
   enrollment: BindleOwnerEnrollmentCode
 ): string =>
   `bindle-owner-v1:${encodeBase64Url(JSON.stringify(enrollment))}`;
+
+export const parseBindleOwnerEnrollmentCode = (
+  text: string
+): BindleOwnerEnrollmentCode => {
+  const trimmed = text.trim();
+  const jsonText = trimmed.startsWith("bindle-owner-v1:")
+    ? decodeBase64Url(trimmed.slice("bindle-owner-v1:".length))
+    : trimmed;
+  const parsed = JSON.parse(jsonText) as unknown;
+
+  if (!isRecord(parsed)) {
+    throw new Error("Owner enrollment code must decode to a JSON object.");
+  }
+
+  if (
+    parsed.schema !== "cash.bindle.passkey-owner-enrollment" ||
+    parsed.version !== 1
+  ) {
+    throw new Error("Unsupported Bindle owner enrollment code.");
+  }
+
+  if (!isRecord(parsed.credential)) {
+    throw new Error("Owner enrollment code is missing credential metadata.");
+  }
+
+  const credentialId = stringOrNull(parsed.credential.id);
+  const publicKey = hexOrNull(parsed.credential.publicKey);
+  const rpId =
+    stringOrNull(parsed.credential.rpId) ??
+    stringOrNull(parsed.targetRpId) ??
+    null;
+  const authenticatorAttachment = authenticatorAttachmentOrNull(
+    parsed.credential.authenticatorAttachment
+  );
+  const userVerification = userVerificationOrNull(
+    parsed.credential.userVerification
+  );
+
+  if (
+    !credentialId ||
+    !publicKey ||
+    !rpId ||
+    !authenticatorAttachment ||
+    !userVerification
+  ) {
+    throw new Error("Owner enrollment code has invalid passkey metadata.");
+  }
+
+  return {
+    schema: "cash.bindle.passkey-owner-enrollment",
+    version: 1,
+    createdAt:
+      typeof parsed.createdAt === "string"
+        ? parsed.createdAt
+        : new Date().toISOString(),
+    targetOrigin:
+      typeof parsed.targetOrigin === "string" ? parsed.targetOrigin : "",
+    targetRpId: stringOrNull(parsed.targetRpId) ?? rpId,
+    smartWalletAddress: stringOrNull(parsed.smartWalletAddress),
+    credential: {
+      id: credentialId,
+      publicKey,
+      rpId,
+      authenticatorAttachment,
+      userVerification
+    }
+  };
+};
 
 export const createBindleOwnerEnrollmentCode = async ({
   authenticatorKind,
