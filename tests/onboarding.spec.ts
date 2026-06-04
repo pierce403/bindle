@@ -101,19 +101,22 @@ test.describe("passkey-first onboarding", () => {
     );
     await expect(page.getByLabel("Review pay route")).toContainText("Blocked");
     await expect(page.getByLabel("Review pay route")).toContainText(
-      "Configure required endpoint: Broadcaster."
+      "Create or import a shielded 0zk wallet."
     );
     await expect(
-      page.getByText("RAILGUN cross-contract unshield proof generation")
-    ).toBeVisible();
+      page.getByLabel("Review pay route")
+    ).toContainText("Create the public passkey smart account.");
     await expect(page.getByLabel("Proof generation progress")).toContainText(
-      "ETH to USDC through Uniswap v4 calldata is not wired yet"
+      "ETH to USDC through Uniswap v4"
+    );
+    await expect(page.getByLabel("Proof generation progress")).toContainText(
+      "RAILGUN cross-contract proof"
     );
     await expect(
       page.getByRole("button", { name: "Open Connections" })
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: "Pay submission pending" })
+      page.getByRole("button", { name: "Generate proof and pay" })
     ).toBeDisabled();
   });
 

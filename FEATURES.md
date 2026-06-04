@@ -53,8 +53,8 @@ infrastructure.
 - [x] Price the synced shielded ETH headline in USD via Chainlink ETH/USD over
       the same visible Ethereum RPC.
 - [x] Add shield/unshield readiness tests that keep funded public ETH blocked
-      until recoverable `0zk` wallet state, sync, and broadcaster prerequisites
-      exist.
+      until recoverable `0zk` wallet state, sync, and the relevant visible
+      submission prerequisites exist.
 - [x] Add a Kohaku native ETH shield-call builder behind the local RAILGUN
       boundary, without using Kohaku's hidden default Subsquid helper.
 - [x] Add recoverable RAILGUN spending/viewing key lifecycle using Kohaku
@@ -112,7 +112,11 @@ infrastructure.
       explicit add-owner UserOperations.
 - [x] Add a Pay intent builder for mainnet ETH/USDC with local asset search,
       payment request QR/paste import, route review, and endpoint preflight
-      disclosure while keeping live submission blocked.
+      disclosure.
+- [x] Wire USDC Pay for Ethereum mainnet with RAILGUN Wallet SDK fallback
+      cross-contract proof generation, Uniswap v4 exact-output ETH-to-USDC
+      calldata, 1% default max slippage, leftover ETH refund to the public smart
+      account, and ERC-4337 submission through visible RPC/bundler policy.
 
 ## Now
 
@@ -242,16 +246,17 @@ infrastructure.
 - [ ] Implement unshield-to-public-address review and proof generation.
 - [ ] Implement broadcaster submission only through explicit broadcaster policy.
 - [ ] Implement provider payment routing for decloaked outbound messages.
-- [ ] Implement one-shot Pay execution for shielded ETH unshield, explicit
-      ETH-to-USDC routing through Uniswap v4, and final ERC-20 transfer after
-      RAILGUN proof, v4 quote/router calldata, broadcaster, and slippage
-      controls are wired.
+- [x] Implement one-shot USDC Pay execution for shielded ETH unshield, explicit
+      ETH-to-USDC routing through Uniswap v4, final ERC-20 delivery, RAILGUN
+      proof generation, v4 quote/router calldata, ERC-4337 submission, and
+      slippage controls.
 - [x] Add Pay proof-path UX with honest stage status and RAILGUN proof progress
       normalization for the SDK callback once proof generation is invoked.
 - [x] Default quote source to explicit `onchain:uniswap-v4` under Bindle
       default, while keeping Privacy max empty/off.
 - [x] Default Pay swap review to 1% max slippage and allow leftover ETH to
       remain unshielded for a later sweep.
+- [ ] Add Pay support for non-USDC output assets.
 - [ ] Explore LayerZero-style Pay routing for any-network settlement.
 - [ ] Add Uniswap-based Swap flow.
 - [ ] Add XMTP chat or payment messaging.

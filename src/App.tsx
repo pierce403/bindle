@@ -13,6 +13,7 @@ import { RailgunKeyRecoveryPrompt } from "./components/RailgunKeyRecoveryPrompt"
 import { SettingsPanel } from "./components/SettingsPanel";
 import { UnshieldedBalanceBanner } from "./components/UnshieldedBalanceBanner";
 import { WalletActionPanel } from "./components/WalletActionPanel";
+import { getPayAsset } from "./intents/assets";
 import { routeIntent, type IntentDraft, type RoutedIntent } from "./intents/router";
 import {
   clearDebugLog,
@@ -37,6 +38,10 @@ import {
   prepareNativeEthShieldCalls,
   summarizeMissingRequirements
 } from "./railgun/shielding";
+import {
+  prepareRailgunUsdcPayForRecipient,
+  type RailgunPayProgress
+} from "./railgun/pay";
 import {
   fetchShieldedEthBalance,
   type ShieldedEthBalance
@@ -67,6 +72,7 @@ import {
 } from "./wallet/accountExport";
 import {
   deriveSmartWalletAddressFromPasskey,
+  resolvePublicRecipient,
   sendSmartWalletCalls,
   sendSmartWalletEthPayment
 } from "./wallet/smartAccountAdapter";
@@ -320,6 +326,12 @@ function WalletApp() {
     useState(false);
   const [isSubmittingSmartPayment, setIsSubmittingSmartPayment] = useState(false);
   const [smartPaymentStatus, setSmartPaymentStatus] = useState("");
+  const [isSubmittingPay, setIsSubmittingPay] = useState(false);
+  const [payStatus, setPayStatus] = useState("");
+  const [payProofProgress, setPayProofProgress] = useState<RailgunPayProgress>({
+    percent: 0,
+    status: ""
+  });
   const [isSubmittingShield, setIsSubmittingShield] = useState(false);
   const [shieldStatus, setShieldStatus] = useState("");
   const [isExportingAccount, setIsExportingAccount] = useState(false);
@@ -504,6 +516,11 @@ function WalletApp() {
     },
     [recordDebugEvent]
   );
+
+  useEffect(() => {
+    setPayStatus("");
+    setPayProofProgress({ percent: 0, status: "" });
+  }, [draft.amount, draft.asset, draft.recipient]);
 
   useEffect(() => {
     const handleWindowError = (event: ErrorEvent) => {
@@ -1400,6 +1417,121 @@ function WalletApp() {
     }
   };
 
+  const submitPay = async () => {
+    const asset = getPayAsset(draft.asset);
+
+    if (!asset) {
+      setPayStatus("Choose a supported pay asset.");
+      return;
+    }
+
+    if (asset.symbol !== "USDC") {
+      setPayStatus("USDC Pay is wired first.");
+      return;
+    }
+
+    if (!walletState.smartWalletAddress) {
+      setPayStatus("Create the public passkey smart account before Pay.");
+      return;
+    }
+
+    if (!walletState.railgunAddress) {
+      setPayStatus("Create or import a shielded 0zk wallet before Pay.");
+      return;
+    }
+
+    setIsSubmittingPay(true);
+    setPayStatus("Resolving recipient");
+    setPayProofProgress({ percent: 0, status: "Preparing Pay" });
+    setAppNotice(null);
+    recordDebugEvent({
+      level: "info",
+      source: "pay",
+      message: "Preparing shielded Pay route",
+      detail: [
+        `Recipient: ${draft.recipient.trim()}`,
+        `Amount: ${draft.amount.trim()} ${asset.symbol}`,
+        `RPC: ${policy.ethereumRpcUrl.trim() || "off"}`,
+        `Bundler: ${policy.bundlerUrl.trim() || "off"}`,
+        `Quote source: ${policy.priceQuoteUrl.trim() || "off"}`
+      ].join("\n")
+    });
+
+    try {
+      const recipient = await resolvePublicRecipient(policy, draft.recipient);
+      setPayStatus("Preparing RAILGUN proof and Uniswap v4 route");
+      const preparedPay = await prepareRailgunUsdcPayForRecipient({
+        amount: draft.amount,
+        asset,
+        policy,
+        recipient,
+        walletState,
+        onProgress: setPayProofProgress,
+        onStatus: (message) => {
+          setPayStatus(message);
+          recordDebugEvent({
+            level: "info",
+            source: "pay",
+            message,
+            detail: `Recipient: ${recipient}\nAmount: ${draft.amount.trim()} ${asset.symbol}`
+          });
+        }
+      });
+
+      recordDebugEvent({
+        level: "info",
+        source: "pay",
+        message: "Submitting Pay user operation",
+        detail: [
+          preparedPay.route.debugLabel,
+          `Quoted input wei: ${preparedPay.route.quotedInputAmount.toString()}`,
+          `Max input wei: ${preparedPay.route.maxInputAmount.toString()}`,
+          `RelayAdapt target: ${preparedPay.relayAdaptTransaction.to}`,
+          `RelayAdapt value wei: ${preparedPay.relayAdaptTransaction.value.toString()}`,
+          `Nullifiers: ${preparedPay.nullifiers.length.toString()}`
+        ].join("\n")
+      });
+      setPayStatus("Submitting Pay user operation");
+      const result = await sendSmartWalletCalls({
+        calls: preparedPay.calls,
+        policy,
+        walletState
+      });
+      const submittedMessage = result.transactionHash
+        ? `Pay submitted: ${result.transactionHash}`
+        : `Pay user operation submitted: ${result.userOperationHash}`;
+
+      setPayStatus(submittedMessage);
+      recordDebugEvent({
+        level: "info",
+        source: "pay",
+        message: submittedMessage
+      });
+      void syncPublicBalance();
+      void syncShieldedBalance();
+    } catch (error) {
+      const message = messageFromError(
+        error,
+        "Unable to submit Pay",
+        "pay",
+        [
+          `Recipient: ${draft.recipient.trim()}`,
+          `Amount: ${draft.amount.trim()} ${asset.symbol}`,
+          `Railgun address: ${walletState.railgunAddress ?? "missing"}`,
+          `Smart account: ${walletState.smartWalletAddress ?? "missing"}`
+        ].join("\n")
+      );
+      setPayStatus(message);
+      setAppNotice({
+        kind: "error",
+        title: "Pay failed",
+        message: `${message} Open Debug for the full stack trace.`
+      });
+    } finally {
+      setIsSubmittingPay(false);
+    }
+  };
+
   const submitShield = async (amount: string) => {
     if (!walletState.railgunAddress) {
       setShieldStatus("Create a shielded 0zk address before shielding.");
@@ -2034,10 +2166,15 @@ function WalletApp() {
                 walletState={walletState}
                 isSubmittingSmartPayment={isSubmittingSmartPayment}
                 smartPaymentStatus={smartPaymentStatus}
+                isSubmittingPay={isSubmittingPay}
+                payStatus={payStatus}
+                payProofPercent={payProofProgress.percent}
+                payProofStatus={payProofProgress.status}
                 endpointDisclosures={actionEndpointDisclosure}
                 onDeriveSmartWallet={() => void deriveSmartWallet()}
                 onOpenConnections={() => setActiveTab("nodes")}
                 onSubmitSmartPayment={() => void submitSmartPayment()}
+                onSubmitPay={() => void submitPay()}
                 onDraftChange={setDraft}
                 onRouteChange={setRoutedIntent}
               />

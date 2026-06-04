@@ -49,6 +49,18 @@ type SnarkJsModule = {
 };
 
 const walletSource = "bindle";
+let activeEngineHandle: RailgunEngineHandle | null = null;
+let activeEnginePolicyKey: string | null = null;
+let engineStartPromise: Promise<RailgunEngineHandle> | null = null;
+let engineStartPolicyKey: string | null = null;
+
+const enginePolicyKey = (policy: ConnectionPolicy): string =>
+  JSON.stringify({
+    debugLogging: policy.debugLogging,
+    ethereumRpcUrl: policy.ethereumRpcUrl.trim(),
+    poiAggregatorUrls: policy.poiAggregatorUrls,
+    providerMode: policy.providerMode
+  });
 
 const getEthereumNetworkName = (sharedModels: SharedModelsModule): unknown => {
   if (sharedModels.NetworkName?.Ethereum) {
@@ -62,7 +74,7 @@ const getEthereumNetworkName = (sharedModels: SharedModelsModule): unknown => {
   return "Ethereum";
 };
 
-export const startRailgunBrowserEngine = async (
+const startRailgunBrowserEngineFresh = async (
   policy: ConnectionPolicy,
   onStatus: (message: string) => void
 ): Promise<RailgunEngineHandle> => {
@@ -140,3 +152,64 @@ export const startRailgunBrowserEngine = async (
     }
   };
 };
+
+export const ensureRailgunBrowserEngine = async (
+  policy: ConnectionPolicy,
+  onStatus: (message: string) => void
+): Promise<RailgunEngineHandle> => {
+  const policyKey = enginePolicyKey(policy);
+
+  if (activeEngineHandle && activeEnginePolicyKey === policyKey) {
+    onStatus("Railgun engine already ready");
+    return activeEngineHandle;
+  }
+
+  if (engineStartPromise) {
+    if (engineStartPolicyKey !== policyKey) {
+      throw new Error(
+        "RAILGUN engine is already starting with a different visible endpoint policy. Wait for it to finish before changing Connections."
+      );
+    }
+
+    return engineStartPromise;
+  }
+
+  if (activeEngineHandle) {
+    onStatus("Restarting Railgun engine with updated visible endpoints");
+    await activeEngineHandle.stop();
+    activeEngineHandle = null;
+    activeEnginePolicyKey = null;
+  }
+
+  engineStartPolicyKey = policyKey;
+  engineStartPromise = startRailgunBrowserEngineFresh(policy, onStatus).then(
+    (handle) => {
+      const wrappedHandle: RailgunEngineHandle = {
+        state: handle.state,
+        stop: async () => {
+          await handle.stop();
+          if (activeEngineHandle === wrappedHandle) {
+            activeEngineHandle = null;
+            activeEnginePolicyKey = null;
+          }
+        }
+      };
+
+      activeEngineHandle = wrappedHandle;
+      activeEnginePolicyKey = policyKey;
+      return wrappedHandle;
+    }
+  );
+
+  try {
+    return await engineStartPromise;
+  } finally {
+    engineStartPromise = null;
+    engineStartPolicyKey = null;
+  }
+};
+
+export const startRailgunBrowserEngine = ensureRailgunBrowserEngine;
+
+export const getRailgunEngineHandle = (): RailgunEngineHandle | null =>
+  activeEngineHandle;

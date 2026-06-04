@@ -58,15 +58,16 @@ not the default first-run experience.
 - Send Review stays disabled until wallet, toolkit, RPC, recipient, amount, and
   required endpoint preflight checks pass.
 - Local intent routing for `0zk`, `0x`, `.eth`, and `@provider` style recipients.
-- Pay now has a real local intent builder for mainnet ETH and USDC, including
-  asset search, recipient/amount entry, QR or pasted payment request import,
-  endpoint preflight disclosure, and a proof-path progress panel. USDC Pay is
-  planned as shielded ETH unshielded into a Uniswap v4 route, quoted through
-  the visible Ethereum RPC by default, with a 1% max slippage default. Leftover
-  ETH after a route may remain unshielded for a later sweep back into RAILGUN.
-  Submission remains blocked until the RAILGUN cross-contract proof, v4
-  calldata, broadcaster, and final swap/send execution path are implemented
-  safely.
+- Pay has a real USDC route for Ethereum mainnet: asset search,
+  recipient/amount entry, QR or pasted payment request import, endpoint
+  preflight disclosure, live RAILGUN proof progress, Uniswap v4 exact-output
+  ETH-to-USDC calldata, and ERC-4337 submission through the passkey smart
+  account. It quotes through the visible Ethereum RPC by default, uses a 1% max
+  slippage default, and lets leftover ETH remain unshielded in the public smart
+  account for a later sweep. This route uses the explicit RAILGUN Wallet SDK
+  fallback for cross-contract proof generation while the Kohaku Pay adapter is
+  still pending; it does not require a RAILGUN broadcaster because the proved
+  RelayAdapt call is submitted by the public smart account.
 - Endpoint presets are visible in Connections. Bindle default currently uses a
   labelled public Ethereum RPC, RAILGUN sync indexer, and public ERC-4337
   bundler, plus an explicit `onchain:uniswap-v4` quote source; Privacy max
@@ -167,8 +168,11 @@ calls and submits them from the passkey smart wallet through the visible RPC and
 ERC-4337 bundler.
 For the visible Pimlico default bundler, Bindle requests User Operation gas
 prices from that same bundler endpoint before submission so the bundler does not
-reject underpriced priority fees. Shielded balance sync, unshielding, and
-private RAILGUN sends remain pending.
+reject underpriced priority fees. Pay can prepare a RAILGUN cross-contract
+unshield proof for USDC output, route the unshielded ETH through Uniswap v4, and
+submit the proved call from the passkey smart account. Standalone unshielding,
+private RAILGUN sends, non-USDC Pay assets, and any-network provider routing
+remain pending.
 
 ## RAILGUN Integration Notes
 
@@ -198,8 +202,12 @@ Current shield/unshield status:
   RPC/bundler policy after an explicit review of amount and contacted endpoints.
 - Pimlico ERC-4337 submissions use the configured bundler's
   `pimlico_getUserOperationGasPrice` response for User Operation fee fields.
-- Unshield is blocked until shielded balance sync, proof generation, unlock
-  flow, and a visible broadcaster path are implemented.
+- Pay-to-USDC is wired as a RAILGUN cross-contract unshield proof plus Uniswap
+  v4 exact-output ETH-to-USDC route, submitted by the passkey smart wallet
+  through visible RPC/bundler policy. The proof path uses the isolated RAILGUN
+  Wallet SDK fallback until Kohaku exposes a usable Pay adapter.
+- Standalone unshield and private send flows remain blocked until their review,
+  proof, unlock, and visible submission policies are implemented.
 
 Primary references:
 
@@ -209,6 +217,8 @@ Primary references:
 - https://docs.railgun.org/wiki/learn/integrating-railgun/railgun-sdks
 - https://docs.railgun.org/developer-guide/wallet/getting-started
 - https://github.com/Railgun-Community/wallet
+- https://docs.uniswap.org/contracts/v4/deployments
+- https://docs.uniswap.org/contracts/universal-router/technical-reference
 
 ## Privacy Defaults
 

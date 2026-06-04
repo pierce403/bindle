@@ -71,10 +71,15 @@ type WalletActionPanelProps = {
   walletState: WalletState;
   isSubmittingSmartPayment: boolean;
   smartPaymentStatus: string;
+  isSubmittingPay: boolean;
+  payStatus: string;
+  payProofPercent: number;
+  payProofStatus: string;
   endpointDisclosures: EndpointDisclosure[];
   onDeriveSmartWallet: () => void;
   onOpenConnections: () => void;
   onSubmitSmartPayment: () => void;
+  onSubmitPay: () => void;
   onDraftChange: (draft: IntentDraft) => void;
   onRouteChange: (intent: RoutedIntent) => void;
 };
@@ -91,10 +96,15 @@ export function WalletActionPanel({
   walletState,
   isSubmittingSmartPayment,
   smartPaymentStatus,
+  isSubmittingPay,
+  payStatus,
+  payProofPercent,
+  payProofStatus,
   endpointDisclosures,
   onDeriveSmartWallet,
   onOpenConnections,
   onSubmitSmartPayment,
+  onSubmitPay,
   onDraftChange,
   onRouteChange
 }: WalletActionPanelProps) {
@@ -151,32 +161,34 @@ export function WalletActionPanel({
   const canReviewPayIntent =
     hasRecipient && hasValidRecipient && hasAmount && selectedPayAsset !== null;
   const paySwapRouteReady =
-    paySwapRoutePlan !== null && !paySwapRoutePlan.requiresSwap;
+    paySwapRoutePlan !== null && selectedPayAsset?.symbol === "USDC";
   const payProofProgress = buildPayProofProgress({
     intentReady: canReviewPayIntent,
     endpointsReady: requiredEndpointsReady,
     routeReady: paySwapRouteReady,
-    proofReady: false,
-    submitting: false,
+    proofReady: payProofPercent >= 100,
+    submitting: isSubmittingPay,
     missingEndpointLabels: missingRequiredEndpoints.map(
       (endpoint) => endpoint.label
     ),
-    routeLabel: paySwapRoutePlan?.executionLabel ?? "Route"
+    routeLabel: paySwapRoutePlan?.executionLabel ?? "Route",
+    proofPercent: payProofPercent,
+    proofStatus: payProofStatus || undefined
   });
   const payRouteBlockers = [
     !hasRailgunWallet ? "Create or import a shielded 0zk wallet." : null,
-    !hasRecoverableRailgunKeyMaterial
+    !hasSmartWallet ? "Create the public passkey smart account." : null,
+    hasRailgunWallet && !hasRecoverableRailgunKeyMaterial
       ? "Repair local RAILGUN key storage before spending shielded funds."
       : null,
-    !rpcReady ? "Start the toolkit with a visible Ethereum RPC." : null,
+    !rpcConfigured ? "Configure a visible Ethereum RPC." : null,
     missingRequiredEndpoints.length > 0
       ? `Configure required endpoint${missingRequiredEndpoints.length === 1 ? "" : "s"}: ${missingRequiredEndpoints
           .map((endpoint) => endpoint.label)
           .join(", ")}.`
       : null,
-    "RAILGUN cross-contract unshield proof generation is not wired for Pay yet.",
-    selectedPayAsset?.symbol === "USDC"
-      ? `${UNISWAP_V4_PROTOCOL_LABEL} ETH-to-USDC swap calldata is not wired yet.`
+    selectedPayAsset?.symbol !== "USDC"
+      ? `${UNISWAP_V4_PROTOCOL_LABEL} Pay is wired for USDC first.`
       : null
   ].filter((blocker): blocker is string => blocker !== null);
   const payRouteReady = payRouteBlockers.length === 0;
@@ -638,10 +650,16 @@ export function WalletActionPanel({
                 Open Connections
               </button>
             ) : null}
-            <button className="secondary-action wide" type="button" disabled>
+            <button
+              className="primary-action wide"
+              type="button"
+              disabled={!payRouteReady || isSubmittingPay}
+              onClick={onSubmitPay}
+            >
               <Send size={18} aria-hidden="true" />
-              Pay submission pending
+              {isSubmittingPay ? "Preparing Pay" : "Generate proof and pay"}
             </button>
+            {payStatus ? <p className="status-message">{payStatus}</p> : null}
           </div>
         ) : null}
 

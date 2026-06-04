@@ -25,7 +25,7 @@ test("pay proof progress exposes honest blocked stages", () => {
 
   expect(progress.percent).toBe(40);
   expect(progress.status).toBe(
-    "ETH to USDC through Uniswap v4 calldata is not wired yet"
+    "Waiting for ETH to USDC through Uniswap v4"
   );
   expect(progress.stages).toEqual(
     expect.arrayContaining([
@@ -33,6 +33,33 @@ test("pay proof progress exposes honest blocked stages", () => {
       expect.objectContaining({ id: "endpoints", status: "complete" }),
       expect.objectContaining({ id: "route", status: "blocked" }),
       expect.objectContaining({ id: "proof", status: "waiting" })
+    ])
+  );
+});
+
+test("pay proof progress includes live proof callback progress", () => {
+  const progress = buildPayProofProgress({
+    intentReady: true,
+    endpointsReady: true,
+    routeReady: true,
+    proofReady: false,
+    submitting: false,
+    missingEndpointLabels: [],
+    routeLabel: "ETH to USDC through Uniswap v4",
+    proofPercent: 50,
+    proofStatus: "Proving batch 1"
+  });
+
+  expect(progress.percent).toBe(70);
+  expect(progress.status).toBe("Proving batch 1");
+  expect(progress.stages).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ id: "route", status: "complete" }),
+      expect.objectContaining({
+        id: "proof",
+        detail: "Proving batch 1",
+        status: "active"
+      })
     ])
   );
 });

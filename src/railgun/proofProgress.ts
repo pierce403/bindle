@@ -31,7 +31,9 @@ export const buildPayProofProgress = ({
   proofReady,
   submitting,
   missingEndpointLabels,
-  routeLabel
+  routeLabel,
+  proofPercent = 0,
+  proofStatus
 }: {
   intentReady: boolean;
   endpointsReady: boolean;
@@ -40,7 +42,10 @@ export const buildPayProofProgress = ({
   submitting: boolean;
   missingEndpointLabels: string[];
   routeLabel: string;
+  proofPercent?: number;
+  proofStatus?: string;
 }): ProofProgressSnapshot => {
+  const normalizedProofPercent = clampPercent(proofPercent);
   const stages: ProofProgressStage[] = [
     {
       id: "intent",
@@ -61,7 +66,7 @@ export const buildPayProofProgress = ({
       label: "Route",
       detail: routeReady
         ? routeLabel
-        : `${routeLabel} calldata is not wired yet`,
+        : `Waiting for ${routeLabel}`,
       status: routeReady ? "complete" : endpointsReady ? "blocked" : "waiting"
     },
     {
@@ -69,7 +74,9 @@ export const buildPayProofProgress = ({
       label: "Proof",
       detail: proofReady
         ? "RAILGUN proof generated"
-        : "Waiting for RAILGUN cross-contract proof generation",
+        : routeReady
+          ? (proofStatus ?? "Generating RAILGUN cross-contract proof")
+          : "Waiting for RAILGUN cross-contract proof generation",
       status: proofReady ? "complete" : routeReady ? "active" : "waiting"
     },
     {
@@ -83,9 +90,15 @@ export const buildPayProofProgress = ({
   ];
   const completeStages = stages.filter((stage) => stage.status === "complete");
   const blockedStage = stages.find((stage) => stage.status === "blocked");
+  const activeProofProgress =
+    stages.find((stage) => stage.id === "proof")?.status === "active"
+      ? normalizedProofPercent / 100
+      : 0;
 
   return {
-    percent: clampPercent((completeStages.length / stages.length) * 100),
+    percent: clampPercent(
+      ((completeStages.length + activeProofProgress) / stages.length) * 100
+    ),
     status: blockedStage ? blockedStage.detail : stages.find((stage) => stage.status === "active")?.detail ?? "Ready",
     stages
   };

@@ -239,7 +239,7 @@ test("unshield review preflight requires a visible broadcaster", () => {
   );
 });
 
-test("pay review preflight discloses unshield, resolver, and quote endpoints", () => {
+test("pay review preflight discloses self-broadcast route endpoints", () => {
   const disclosure = buildEndpointDisclosure(defaultConnectionPolicy, "pay-review");
 
   expect(disclosure).toEqual(
@@ -251,10 +251,10 @@ test("pay review preflight discloses unshield, resolver, and quote endpoints", (
         source: "default"
       }),
       expect.objectContaining({
-        id: "railgun-broadcaster",
-        configured: false,
+        id: "erc4337-bundler",
+        configured: true,
         required: true,
-        source: "off"
+        source: "default"
       }),
       expect.objectContaining({
         id: "provider-resolution",
@@ -267,7 +267,16 @@ test("pay review preflight discloses unshield, resolver, and quote endpoints", (
         configured: true,
         required: true,
         source: "default"
+      }),
+      expect.objectContaining({
+        id: "erc4337-paymaster",
+        configured: false,
+        required: false,
+        source: "off"
       })
     ])
+  );
+  expect(disclosure.map((endpoint) => endpoint.id)).not.toContain(
+    "railgun-broadcaster"
   );
 });

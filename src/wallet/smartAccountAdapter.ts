@@ -134,7 +134,7 @@ export const deriveSmartWalletAddressFromPasskey = async (
   }
 };
 
-const resolveRecipient = async (
+export const resolvePublicRecipient = async (
   policy: ConnectionPolicy,
   recipient: string
 ): Promise<Address> => {
@@ -195,7 +195,7 @@ export const sendSmartWalletEthPayment = async ({
           })
       }
     });
-    const to = await resolveRecipient(policy, recipient);
+    const to = await resolvePublicRecipient(policy, recipient);
     const userOperationHash = await bundlerClient.sendUserOperation({
       account,
       calls: [
