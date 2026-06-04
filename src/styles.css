@@ -605,7 +605,7 @@ button:disabled {
 
 .balance-meta {
   display: grid;
-  grid-template-columns: minmax(0, 112px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 92px) minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
   padding: 12px 0;
@@ -621,6 +621,30 @@ button:disabled {
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.balance-sync {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-strong);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 7px 12px;
+}
+
+.balance-sync:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.balance-disclosure {
+  display: block;
+  margin-top: -6px;
+  color: color-mix(in srgb, var(--text) 58%, transparent);
+  font-size: 0.75rem;
+  line-height: 1.35;
 }
 
 .wallet-action-grid {

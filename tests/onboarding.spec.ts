@@ -522,7 +522,7 @@ test.describe("passkey-first onboarding", () => {
 
     await expect(page.getByRole("heading", { name: "$--" })).toBeVisible();
     await expect(page.getByText("Shielded balance")).toBeVisible();
-    await expect(page.getByText("shielded ETH not synced")).toBeVisible();
+    await expect(page.getByText("0zk pending").first()).toBeVisible();
     await expect(page.getByLabel("Unshielded ETH balance")).toContainText(
       "1 ETH"
     );

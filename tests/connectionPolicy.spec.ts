@@ -161,6 +161,29 @@ test("public balance sync preflight discloses the selected RPC", () => {
   );
 });
 
+test("shielded balance sync preflight discloses the selected RPC", () => {
+  const disclosure = buildEndpointDisclosure(
+    defaultConnectionPolicy,
+    "shielded-balance-sync"
+  );
+
+  expect(disclosure).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: "ethereum-rpc",
+        configured: true,
+        required: true,
+        source: "default",
+        value: endpointPresets["bindle-default"].policy.ethereumRpcUrl
+      }),
+      expect.objectContaining({
+        id: "railgun-poi",
+        required: false
+      })
+    ])
+  );
+});
+
 test("unshield review preflight requires a visible broadcaster", () => {
   const disclosure = buildEndpointDisclosure(
     defaultConnectionPolicy,

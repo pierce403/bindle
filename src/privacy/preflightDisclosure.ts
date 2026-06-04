@@ -10,6 +10,7 @@ export type IntendedWalletAction =
   | "passkey-enroll"
   | "create-smart-wallet"
   | "public-balance-sync"
+  | "shielded-balance-sync"
   | "send-review"
   | "public-smart-payment"
   | "private-send"
@@ -52,6 +53,12 @@ const actionEndpointRequirements: Record<
     "ethereum-rpc": "required",
     "helios-consensus-rpc": "possible",
     "helios-checkpoint": "possible"
+  },
+  "shielded-balance-sync": {
+    "ethereum-rpc": "required",
+    "helios-consensus-rpc": "possible",
+    "helios-checkpoint": "possible",
+    "railgun-poi": "possible"
   },
   "send-review": {
     "ethereum-rpc": "required",

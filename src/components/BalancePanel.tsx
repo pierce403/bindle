@@ -18,8 +18,12 @@ type BalancePanelProps = {
   smartWalletStatus: string;
   railgunAddress: string | null;
   railgunStatus: string;
+  canSyncShielded: boolean;
+  isSyncingShielded: boolean;
+  syncShieldedDisclosure: string | null;
   activeAction: WalletAction | null;
   onActionChange: (action: WalletAction) => void;
+  onSyncShielded: () => void;
 };
 
 const walletActions: Array<{
@@ -44,8 +48,12 @@ export function BalancePanel({
   smartWalletStatus,
   railgunAddress,
   railgunStatus,
+  canSyncShielded,
+  isSyncingShielded,
+  syncShieldedDisclosure,
   activeAction,
-  onActionChange
+  onActionChange,
+  onSyncShielded
 }: BalancePanelProps) {
   const copyAddress = async (address: string) => {
     await navigator.clipboard.writeText(address);
@@ -96,7 +104,18 @@ export function BalancePanel({
       <div className="balance-meta">
         <span>Shielded ETH</span>
         <strong>{shieldedStatus}</strong>
+        <button
+          className="balance-sync"
+          type="button"
+          disabled={!canSyncShielded || isSyncingShielded}
+          onClick={onSyncShielded}
+        >
+          {isSyncingShielded ? "Syncing" : "Sync"}
+        </button>
       </div>
+      {syncShieldedDisclosure ? (
+        <small className="balance-disclosure">{syncShieldedDisclosure}</small>
+      ) : null}
 
       <div className="wallet-action-grid" aria-label="Wallet actions">
         {walletActions.map(({ id, label, status, Icon }) => (

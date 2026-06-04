@@ -38,6 +38,10 @@ import {
   summarizeMissingRequirements
 } from "./railgun/shielding";
 import {
+  fetchShieldedEthBalance,
+  type ShieldedEthBalance
+} from "./railgun/shieldedBalance";
+import {
   clearEncryptedRailgunWallet,
   createEncryptedRailgunWallet,
   getEncryptedRailgunWalletStorageMode,
@@ -100,6 +104,18 @@ type PublicActivityState =
   | { status: "ready"; scan: PublicEthActivityScan; items: ActivityItem[] }
   | { status: "error"; message: string; items: ActivityItem[] };
 
+type ShieldedBalanceState =
+  | {
+      status:
+        | "missing-wallet"
+        | "missing-rpc"
+        | "missing-secrets"
+        | "idle"
+        | "syncing";
+    }
+  | { status: "ready"; balance: ShieldedEthBalance }
+  | { status: "error"; message: string };
+
 type AppNotice = {
   kind: "error" | "warning";
   title: string;
@@ -118,6 +134,11 @@ const initialPublicActivityState = (): PublicActivityState =>
   loadWalletState().smartWalletAddress
     ? { status: "idle", items: [] }
     : { status: "missing-wallet", items: [] };
+
+const initialShieldedBalanceState = (): ShieldedBalanceState =>
+  loadWalletState().railgunAddress
+    ? { status: "idle" }
+    : { status: "missing-wallet" };
 
 const publicBalanceText = (state: PublicBalanceState): string | null => {
   switch (state.status) {
@@ -188,6 +209,25 @@ const publicActivityToItems = (scan: PublicEthActivityScan): ActivityItem[] =>
     };
   });
 
+const shieldedBalanceNetworkStatus = (state: ShieldedBalanceState): string => {
+  switch (state.status) {
+    case "ready":
+      return `shielded synced at block ${state.balance.blockNumber.toString()}`;
+    case "syncing":
+      return "syncing shielded ETH";
+    case "error":
+      return "shielded sync failed";
+    case "missing-rpc":
+      return "RPC required";
+    case "missing-secrets":
+      return "wallet secrets missing";
+    case "missing-wallet":
+      return "0zk pending";
+    case "idle":
+      return "shielded ETH not synced";
+  }
+};
+
 function WalletApp() {
   const [draft, setDraft] = useState<IntentDraft>(initialDraft);
   const [routedIntent, setRoutedIntent] = useState<RoutedIntent>(() =>
@@ -244,8 +284,12 @@ function WalletApp() {
   const [publicActivity, setPublicActivity] = useState<PublicActivityState>(
     initialPublicActivityState
   );
+  const [shieldedBalance, setShieldedBalance] = useState<ShieldedBalanceState>(
+    initialShieldedBalanceState
+  );
   const publicBalanceRequestRef = useRef(0);
   const publicActivityRequestRef = useRef(0);
+  const shieldedBalanceRequestRef = useRef(0);
   const publicBalanceAutoSyncKeyRef = useRef<string | null>(null);
   const hasRailgunWallet = walletState.railgunAddress !== null;
   const hasSmartWallet = walletState.smartWalletAddress !== null;
@@ -297,7 +341,8 @@ function WalletApp() {
           : "missing"
         : "missing"
       : null;
-  const shieldedBalanceUsd = "$--";
+  const shieldedBalanceUsd =
+    shieldedBalance.status === "ready" ? shieldedBalance.balance.usd ?? "$--" : "$--";
   const balanceLabel = "Shielded balance";
   const shieldReadiness = assessShieldReadiness({
     smartWalletAddress: walletState.smartWalletAddress,
@@ -317,18 +362,39 @@ function WalletApp() {
           ? "Shield blocked: replace the incompatible local 0zk wallet before shielding."
         : `Shield blocked: ${summarizeMissingRequirements(shieldReadiness)}.`
       : null;
-  const shieldedStatus = !hasRailgunWallet
-    ? "0zk pending"
-    : !hasRecoverableRailgunKeyMaterial
-      ? "wallet secrets missing"
-      : toolkitState === "ready"
-        ? "not synced"
-        : "toolkit not started";
-  const shieldedBalanceNetworkStatus = "shielded ETH not synced";
+  const shieldedStatus =
+    shieldedBalance.status === "ready"
+      ? `${shieldedBalance.balance.formattedEth} shielded`
+      : !hasRailgunWallet
+        ? "0zk pending"
+        : !hasRecoverableRailgunKeyMaterial
+          ? "wallet secrets missing"
+          : shieldedBalance.status === "syncing"
+            ? "syncing"
+            : shieldedBalance.status === "error"
+              ? "sync failed"
+              : "not synced";
   const canSyncPublicBalance =
     walletState.smartWalletAddress !== null &&
     rpcConfigured &&
     publicBalance.status !== "syncing";
+  const canSyncShieldedBalance =
+    walletState.railgunAddress !== null &&
+    hasRecoverableRailgunKeyMaterial &&
+    rpcConfigured &&
+    shieldedBalance.status !== "syncing";
+  const shieldedBalanceEndpointDisclosure = buildEndpointDisclosure(
+    policy,
+    "shielded-balance-sync"
+  );
+  const shieldedBalanceEndpointSummary = shieldedBalanceEndpointDisclosure
+    .filter((endpoint) => endpoint.configured || endpoint.required)
+    .map((endpoint) =>
+      endpoint.configured
+        ? `${endpoint.label} (${endpoint.source}: ${endpoint.value})`
+        : `${endpoint.label} (${endpoint.required ? "required, off" : "off"})`
+    )
+    .join(", ");
   const showRailgunRepairPrompt =
     (railgunRepairMode !== null && walletState.railgunAddress !== null) ||
     railgunReplacementRecoveryPhrase !== null;
@@ -427,6 +493,32 @@ function WalletApp() {
     setPublicBalance({ status: "idle" });
     setPublicActivity({ status: "idle", items: [] });
   }, [walletState.smartWalletAddress, policy.ethereumRpcUrl, policy.providerMode]);
+
+  useEffect(() => {
+    if (!walletState.railgunAddress) {
+      setShieldedBalance({ status: "missing-wallet" });
+      return;
+    }
+
+    if (!policy.ethereumRpcUrl.trim()) {
+      setShieldedBalance({ status: "missing-rpc" });
+      return;
+    }
+
+    if (!hasRecoverableRailgunKeyMaterial) {
+      setShieldedBalance({ status: "missing-secrets" });
+      return;
+    }
+
+    setShieldedBalance({ status: "idle" });
+  }, [
+    walletState.railgunAddress,
+    walletState.railgunKeyStore,
+    railgunStorageMode,
+    hasRecoverableRailgunKeyMaterial,
+    policy.ethereumRpcUrl,
+    policy.providerMode
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -715,6 +807,69 @@ function WalletApp() {
         );
         setPublicBalance({ status: "error", message });
         setStatusMessage(message);
+      }
+    }
+  };
+
+  const syncShieldedBalance = async () => {
+    if (!walletState.railgunAddress) {
+      setShieldedBalance({ status: "missing-wallet" });
+      return;
+    }
+
+    if (!policy.ethereumRpcUrl.trim()) {
+      setShieldedBalance({ status: "missing-rpc" });
+      return;
+    }
+
+    if (!hasRecoverableRailgunKeyMaterial) {
+      setShieldedBalance({ status: "missing-secrets" });
+      return;
+    }
+
+    const requestId = shieldedBalanceRequestRef.current + 1;
+    shieldedBalanceRequestRef.current = requestId;
+    setShieldedBalance({ status: "syncing" });
+    setStatusMessage("Syncing shielded RAILGUN balance");
+    recordDebugEvent({
+      level: "info",
+      source: "shielded-balance",
+      message: "Syncing shielded RAILGUN balance",
+      detail: `Railgun address: ${walletState.railgunAddress}\nRPC: ${policy.ethereumRpcUrl.trim()}`
+    });
+
+    try {
+      const balance = await fetchShieldedEthBalance(policy);
+
+      if (shieldedBalanceRequestRef.current === requestId) {
+        setShieldedBalance({ status: "ready", balance });
+        setStatusMessage(
+          `Shielded balance synced: ${balance.formattedEth}${
+            balance.usd ? ` (${balance.usd})` : ""
+          }`
+        );
+        recordDebugEvent({
+          level: "info",
+          source: "shielded-balance",
+          message: `Shielded balance synced: ${balance.formattedEth}`,
+          detail: `Block: ${balance.blockNumber.toString()}\nUSD: ${balance.usd ?? "unavailable"}`
+        });
+      }
+    } catch (error) {
+      if (shieldedBalanceRequestRef.current === requestId) {
+        const message = messageFromError(
+          error,
+          "Unable to sync shielded balance",
+          "shielded-balance",
+          `Railgun address: ${walletState.railgunAddress}\nRPC: ${policy.ethereumRpcUrl.trim()}`
+        );
+        setShieldedBalance({ status: "error", message });
+        setStatusMessage(message);
+        setAppNotice({
+          kind: "error",
+          title: "Shielded sync failed",
+          message: `${message} Open Debug for the full stack trace.`
+        });
       }
     }
   };
@@ -1187,15 +1342,23 @@ function WalletApp() {
             <BalancePanel
               totalBalance={shieldedBalanceUsd}
               balanceLabel={balanceLabel}
-              networkStatus={shieldedBalanceNetworkStatus}
+              networkStatus={shieldedBalanceNetworkStatus(shieldedBalance)}
               shieldedStatus={shieldedStatus}
               networkLabel="Ethereum mainnet"
               smartWalletAddress={walletState.smartWalletAddress}
               smartWalletStatus={smartWalletStatus}
               railgunAddress={walletState.railgunAddress}
               railgunStatus={railgunStatus}
+              canSyncShielded={canSyncShieldedBalance}
+              isSyncingShielded={shieldedBalance.status === "syncing"}
+              syncShieldedDisclosure={
+                canSyncShieldedBalance
+                  ? `Sync may contact ${shieldedBalanceEndpointSummary}`
+                  : null
+              }
               activeAction={activeAction}
               onActionChange={setActiveAction}
+              onSyncShielded={() => void syncShieldedBalance()}
             />
 
             <UnshieldedBalanceBanner

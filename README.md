@@ -136,8 +136,9 @@ Smart Wallet funding address with the visible Ethereum mainnet RPC, and submit
 public ETH user operations through the visible ERC-4337 bundler.
 It can also explicitly sync the public ETH balance and recent top-level native
 ETH funding transfers for that address through the visible RPC after disclosing
-the endpoint. The headline balance is reserved for shielded balance in USD; it
-stays unset until real RAILGUN balance sync and a visible quote source are wired.
+the endpoint. The headline balance is reserved for shielded balance in USD and
+can be synced from local RAILGUN notes through the selected visible RPC; ETH/USD
+pricing is read from the Chainlink ETH/USD mainnet feed through that same RPC.
 It can create or import a recoverable local RAILGUN wallet, encrypt the recovery
 phrase into IndexedDB with a browser-local WebCrypto key, derive Kohaku RAILGUN
 spending/viewing keys locally, and show the resulting real `0zk` address.
@@ -161,6 +162,10 @@ Current shield/unshield status:
 - Recent public native ETH activity is scanned from top-level Ethereum blocks
   through the selected visible RPC. Contract-internal transfers still need an
   explicit, visible indexer or trace provider.
+- Shielded ETH balance sync is real and explicit. It unlocks the local encrypted
+  RAILGUN wallet, registers the local signer with Kohaku, scans RAILGUN notes via
+  RPC-only UTXO sync, and sums the wrapped-base-token private balance as ETH.
+  First sync can be slow because no hidden Subsquid/default indexer is used.
 - RAILGUN wallet creation/import is real and local. The recovery phrase is
   encrypted into IndexedDB with a non-extractable browser-local WebCrypto key;
   localStorage stores only the public `0zk` address and a key-store marker.
