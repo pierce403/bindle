@@ -1,18 +1,19 @@
-declare const __BINDLE_BUILD_COMMIT__: string;
-declare const __BINDLE_BUILD_TIME__: string;
+import {
+  rawBuildCommit,
+  rawBuildTime
+} from "virtual:bindle-build-info";
 
 const unknownCommit = "unknown";
 const commitPattern = /^[0-9a-f]{7,40}$/i;
 
 const buildCommit =
-  typeof __BINDLE_BUILD_COMMIT__ === "string" &&
-  __BINDLE_BUILD_COMMIT__.trim()
-    ? __BINDLE_BUILD_COMMIT__.trim()
+  typeof rawBuildCommit === "string" && rawBuildCommit.trim()
+    ? rawBuildCommit.trim()
     : unknownCommit;
 
 const buildTime =
-  typeof __BINDLE_BUILD_TIME__ === "string" && __BINDLE_BUILD_TIME__.trim()
-    ? __BINDLE_BUILD_TIME__.trim()
+  typeof rawBuildTime === "string" && rawBuildTime.trim()
+    ? rawBuildTime.trim()
     : "unknown";
 
 export const bindleBuildInfo = {
@@ -24,4 +25,3 @@ export const bindleBuildInfo = {
     ? `https://github.com/pierce403/bindle/commit/${buildCommit}`
     : "https://github.com/pierce403/bindle"
 };
-
