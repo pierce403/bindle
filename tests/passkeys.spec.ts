@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
+  createPasskeyRequestFn,
   explainPasskeyLookupError,
   isPasskeyLookupError,
   passkeyLookupFailureMessage
@@ -35,4 +36,52 @@ test("wraps passkey lookup errors and leaves unrelated errors untouched", () => 
   expect(explainPasskeyLookupError(unrelated, { passkeyRpId: "bindle.me" })).toBe(
     unrelated
   );
+});
+
+test("requests roaming authenticator transports for YubiKey signing preference", async () => {
+  const originalNavigator = globalThis.navigator;
+  let requestedOptions: CredentialRequestOptions | undefined;
+
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: {
+      credentials: {
+        get: async (options?: CredentialRequestOptions) => {
+          requestedOptions = options;
+          return null;
+        }
+      }
+    }
+  });
+
+  try {
+    const requestCredential = createPasskeyRequestFn(
+      "cross-platform",
+      "preferred"
+    );
+    expect(requestCredential).toBeDefined();
+
+    await requestCredential?.({
+      publicKey: {
+        challenge: new Uint8Array([1]).buffer,
+        allowCredentials: [
+          {
+            id: new Uint8Array([2]).buffer,
+            type: "public-key"
+          }
+        ],
+        userVerification: "required"
+      }
+    });
+
+    expect(requestedOptions?.publicKey?.userVerification).toBe("preferred");
+    expect(
+      requestedOptions?.publicKey?.allowCredentials?.[0]?.transports
+    ).toEqual(["usb", "nfc", "ble"]);
+  } finally {
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      value: originalNavigator
+    });
+  }
 });

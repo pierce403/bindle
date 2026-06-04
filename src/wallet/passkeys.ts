@@ -177,9 +177,20 @@ export const createBindlePasskeyCredential =
   };
 
 export const createPasskeyRequestFn = (
+  authenticatorAttachment: AuthenticatorAttachment | null | undefined,
   userVerification: UserVerificationRequirement | null | undefined
 ) => {
-  if (!userVerification || userVerification === "required") {
+  const transports =
+    authenticatorAttachment === "cross-platform"
+      ? (["usb", "nfc", "ble"] satisfies AuthenticatorTransport[])
+      : authenticatorAttachment === "platform"
+        ? (["internal"] satisfies AuthenticatorTransport[])
+        : null;
+
+  if (
+    (!userVerification || userVerification === "required") &&
+    transports === null
+  ) {
     return undefined;
   }
 
@@ -187,7 +198,17 @@ export const createPasskeyRequestFn = (
     const credentialOptions = options as CredentialRequestOptions | undefined;
 
     if (credentialOptions?.publicKey) {
-      credentialOptions.publicKey.userVerification = userVerification;
+      if (userVerification) {
+        credentialOptions.publicKey.userVerification = userVerification;
+      }
+
+      if (transports && credentialOptions.publicKey.allowCredentials) {
+        credentialOptions.publicKey.allowCredentials =
+          credentialOptions.publicKey.allowCredentials.map((credential) => ({
+            ...credential,
+            transports
+          }));
+      }
     }
 
     return navigator.credentials.get(credentialOptions);

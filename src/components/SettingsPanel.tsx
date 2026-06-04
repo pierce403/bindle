@@ -14,6 +14,10 @@ type SettingsPanelProps = {
   onThemeChange: (theme: ThemeSelection) => void;
   onExportAccount: () => void;
   onImportAccountExport: (file: File) => void;
+  onPasskeyPreferenceChange: (preference: {
+    authenticatorAttachment: AuthenticatorAttachment;
+    userVerification: UserVerificationRequirement;
+  }) => void;
   onResetWallet: () => void;
 };
 
@@ -26,6 +30,7 @@ export function SettingsPanel({
   onThemeChange,
   onExportAccount,
   onImportAccountExport,
+  onPasskeyPreferenceChange,
   onResetWallet
 }: SettingsPanelProps) {
   const importInputRef = useRef<HTMLInputElement | null>(null);
@@ -78,6 +83,40 @@ export function SettingsPanel({
               passkey must exist on this device.
             </small>
           ) : null}
+        </div>
+        <div className="settings-actions">
+          <button
+            className="secondary-action"
+            type="button"
+            aria-pressed={walletState.passkeyAuthenticatorAttachment === "platform"}
+            onClick={() =>
+              onPasskeyPreferenceChange({
+                authenticatorAttachment: "platform",
+                userVerification: "required"
+              })
+            }
+            disabled={!walletState.passkeyCredentialId}
+            title="Ask the phone or computer passkey provider when signing"
+          >
+            Phone/computer
+          </button>
+          <button
+            className="secondary-action"
+            type="button"
+            aria-pressed={
+              walletState.passkeyAuthenticatorAttachment === "cross-platform"
+            }
+            onClick={() =>
+              onPasskeyPreferenceChange({
+                authenticatorAttachment: "cross-platform",
+                userVerification: "preferred"
+              })
+            }
+            disabled={!walletState.passkeyCredentialId}
+            title="Ask for a roaming security key such as a YubiKey when signing"
+          >
+            YubiKey
+          </button>
         </div>
       </div>
 

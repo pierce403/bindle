@@ -1524,6 +1524,38 @@ function WalletApp() {
     }
   };
 
+  const updatePasskeyPreference = ({
+    authenticatorAttachment,
+    userVerification
+  }: {
+    authenticatorAttachment: AuthenticatorAttachment;
+    userVerification: UserVerificationRequirement;
+  }) => {
+    if (!walletState.passkeyCredentialId) {
+      setStatusMessage("Import or create a passkey-backed account first.");
+      return;
+    }
+
+    const nextState = saveWalletState({
+      ...walletState,
+      passkeyAuthenticatorAttachment: authenticatorAttachment,
+      passkeyUserVerification: userVerification
+    });
+    setWalletState(nextState);
+
+    const message =
+      authenticatorAttachment === "cross-platform"
+        ? "Passkey signing preference set to YubiKey / security key"
+        : "Passkey signing preference set to phone or computer";
+    setStatusMessage(message);
+    recordDebugEvent({
+      level: "info",
+      source: "settings",
+      message: "Passkey signing preference updated",
+      detail: `Authenticator: ${authenticatorAttachment}\nUser verification: ${userVerification}`
+    });
+  };
+
   const resetLocalWallet = () => {
     setWalletState(resetWalletState());
     setRailgunStorageMode("missing");
@@ -1724,6 +1756,7 @@ function WalletApp() {
             onThemeChange={setTheme}
             onExportAccount={() => void exportAccount()}
             onImportAccountExport={(file) => void importAccountExportFile(file)}
+            onPasskeyPreferenceChange={updatePasskeyPreference}
             onResetWallet={resetLocalWallet}
           />
         ) : null}

@@ -84,7 +84,10 @@ const createSmartAccount = async (
   );
   const owner = toWebAuthnAccount({
     credential: getFundingCredential(walletState),
-    getFn: createPasskeyRequestFn(walletState.passkeyUserVerification),
+    getFn: createPasskeyRequestFn(
+      walletState.passkeyAuthenticatorAttachment,
+      walletState.passkeyUserVerification
+    ),
     rpId: walletState.passkeyRpId ?? undefined
   });
   const account = await toCoinbaseSmartAccount({
