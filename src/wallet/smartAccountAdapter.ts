@@ -70,7 +70,8 @@ const createSmartAccount = async (
 ) => {
   const client = await createVisibleMainnetClient(policy);
   const owner = toWebAuthnAccount({
-    credential: getFundingCredential(walletState)
+    credential: getFundingCredential(walletState),
+    rpId: walletState.passkeyRpId ?? undefined
   });
   const account = await toCoinbaseSmartAccount({
     client,

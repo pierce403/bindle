@@ -12,6 +12,7 @@ export type PasskeyCapability = {
 export type BindlePasskeyCredential = {
   id: string;
   publicKey: `0x${string}`;
+  rpId: string;
 };
 
 const unavailableCapability: PasskeyCapability = {
@@ -21,6 +22,22 @@ const unavailableCapability: PasskeyCapability = {
   userVerificationAvailable: false,
   available: false,
   message: "Checking passkey support"
+};
+
+export const bindleCanonicalPasskeyRpId = "bindle.me";
+
+export const getDefaultPasskeyRpId = (): string => {
+  if (typeof window === "undefined") {
+    return bindleCanonicalPasskeyRpId;
+  }
+
+  const hostname = window.location.hostname;
+
+  if (hostname === "bindle.cash") {
+    return bindleCanonicalPasskeyRpId;
+  }
+
+  return hostname;
 };
 
 export const detectPasskeyCapability = async (): Promise<PasskeyCapability> => {
@@ -56,10 +73,11 @@ export const detectPasskeyCapability = async (): Promise<PasskeyCapability> => {
 
 export const createBindlePasskeyCredential =
   async (): Promise<BindlePasskeyCredential> => {
+    const rpId = getDefaultPasskeyRpId();
     const credential = await createWebAuthnCredential({
       name: "Bindle",
       rp: {
-        id: window.location.hostname,
+        id: rpId,
         name: "Bindle"
       },
       authenticatorSelection: {
@@ -74,7 +92,8 @@ export const createBindlePasskeyCredential =
 
     return {
       id: credential.id,
-      publicKey: credential.publicKey
+      publicKey: credential.publicKey,
+      rpId
     };
   };
 

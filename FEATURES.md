@@ -105,6 +105,11 @@ infrastructure.
 - [x] Replace the CSS/SVG-style paisley approximation with a rose-forward
       monochrome raster paisley texture that CSS tints red, blue, or white per
       theme.
+- [x] Add `passkeyRpId` wallet metadata so migrated `bindle.me` passkeys can be
+      used from `bindle.cash` through Related Origin Requests.
+- [x] Scaffold a separate `bindle-migration` static bridge app for `bindle.me`
+      that imports account exports, creates replacement passkeys, and submits
+      explicit add-owner UserOperations.
 
 ## Now
 

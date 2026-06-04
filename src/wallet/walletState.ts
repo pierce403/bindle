@@ -27,6 +27,7 @@ export type WalletState = {
   custodyModel: CustodyModel;
   passkeyCredentialId: string | null;
   passkeyPublicKey: `0x${string}` | null;
+  passkeyRpId: string | null;
 };
 
 const storageKey = "bindle.wallet.metadata.v1";
@@ -44,7 +45,8 @@ export const emptyWalletState: WalletState = {
   lastError: null,
   custodyModel: null,
   passkeyCredentialId: null,
-  passkeyPublicKey: null
+  passkeyPublicKey: null,
+  passkeyRpId: null
 };
 
 const isWalletStatus = (value: unknown): value is WalletStatus =>
@@ -101,7 +103,8 @@ const normalizeWalletState = (value: unknown): WalletState => {
     railgunWalletImportedAt: stringOrNull(parsed.railgunWalletImportedAt),
     lastError: stringOrNull(parsed.lastError),
     passkeyCredentialId: stringOrNull(parsed.passkeyCredentialId),
-    passkeyPublicKey: hexOrNull(parsed.passkeyPublicKey)
+    passkeyPublicKey: hexOrNull(parsed.passkeyPublicKey),
+    passkeyRpId: stringOrNull(parsed.passkeyRpId)
   };
 };
 
@@ -138,8 +141,9 @@ export const saveWalletState = (state: WalletState): WalletState => {
     // WebAuthn private material, or provider secrets in this localStorage record.
     // The railgunKeyStore value is only a marker that encrypted local key
     // material exists in IndexedDB; it is not key material itself.
-    // WebAuthn credential IDs and public P-256 keys are public account metadata
-    // used to reconstruct the smart-account owner; they are not signing secrets.
+    // WebAuthn credential IDs, RP IDs, and public P-256 keys are public account
+    // metadata used to reconstruct the smart-account owner; they are not
+    // signing secrets.
     window.localStorage.setItem(storageKey, JSON.stringify(normalized));
   }
 
@@ -179,7 +183,7 @@ export const clearRailgunWalletState = (currentState: WalletState): WalletState 
 
 export const markPasskeyEnrolled = (
   currentState: WalletState,
-  credential: { id: string; publicKey: `0x${string}` | null }
+  credential: { id: string; publicKey: `0x${string}` | null; rpId: string | null }
 ): WalletState =>
   saveWalletState({
     ...currentState,
@@ -190,6 +194,7 @@ export const markPasskeyEnrolled = (
     lastError: null,
     passkeyCredentialId: credential.id,
     passkeyPublicKey: credential.publicKey,
+    passkeyRpId: credential.rpId,
     smartWalletAddress: credential.publicKey
       ? currentState.smartWalletAddress
       : null

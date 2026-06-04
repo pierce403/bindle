@@ -22,6 +22,7 @@ export type AccountReclaimPlan = {
     address: string | null;
     passkeyCredentialId: string | null;
     passkeyPublicKey: `0x${string}` | null;
+    passkeyRpId: string | null;
     status: "requires-synced-passkey" | "not-configured";
     note: string;
   };
@@ -39,7 +40,7 @@ const schema = "me.bindle.account-export";
 
 const exportWarnings = [
   "If railgunWallet is present, this file contains the RAILGUN recovery phrase and can recover shielded funds.",
-  "The public smart-account address can be controlled on a new device only if the same WebAuthn/passkey credential is available there.",
+  "The public smart-account address can be controlled on a new device only if the same WebAuthn/passkey credential and RP ID are available there.",
   "Enrolling a new passkey creates a new owner path; it does not recover the old public smart account unless an on-chain recovery or owner-rotation flow was set up before losing the old passkey.",
   "Keep this file private and import it only into a trusted Bindle PWA session."
 ];
@@ -94,7 +95,8 @@ const normalizeWallet = (value: unknown): WalletState => {
       ? parsed.custodyModel
       : emptyWalletState.custodyModel,
     passkeyCredentialId: stringOrNull(parsed.passkeyCredentialId),
-    passkeyPublicKey: hexOrNull(parsed.passkeyPublicKey)
+    passkeyPublicKey: hexOrNull(parsed.passkeyPublicKey),
+    passkeyRpId: stringOrNull(parsed.passkeyRpId)
   };
 };
 
@@ -142,14 +144,16 @@ const buildReclaimPlan = ({
         address: wallet.smartWalletAddress,
         passkeyCredentialId: wallet.passkeyCredentialId,
         passkeyPublicKey: wallet.passkeyPublicKey,
+        passkeyRpId: wallet.passkeyRpId,
         status: "requires-synced-passkey",
         note:
-          "The export stores public smart-account metadata, but not the WebAuthn private key. The same platform passkey must be available on the new device to spend from this public smart account."
+          "The export stores public smart-account metadata, but not the WebAuthn private key. The same platform passkey and RP ID must be available on the new device to spend from this public smart account."
       }
     : {
         address: null,
         passkeyCredentialId: null,
         passkeyPublicKey: null,
+        passkeyRpId: null,
         status: "not-configured",
         note: "No public smart-account funding address was configured."
       },

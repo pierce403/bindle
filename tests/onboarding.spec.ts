@@ -163,7 +163,8 @@ test.describe("passkey-first onboarding", () => {
           lastError: null,
           custodyModel: "passkey-4337",
           passkeyCredentialId: "test-passkey",
-          passkeyPublicKey: "0x04"
+          passkeyPublicKey: "0x04",
+          passkeyRpId: "bindle.me"
         })
       );
     }, publicRecipient);
@@ -206,7 +207,8 @@ test.describe("passkey-first onboarding", () => {
           lastError: null,
           custodyModel: "passkey-4337",
           passkeyCredentialId: "test-passkey",
-          passkeyPublicKey: "0x04"
+          passkeyPublicKey: "0x04",
+          passkeyRpId: "bindle.me"
         })
       );
     }, publicRecipient);
@@ -250,7 +252,8 @@ test.describe("passkey-first onboarding", () => {
             lastError: null,
             custodyModel: "passkey-4337",
             passkeyCredentialId: "test-passkey",
-            passkeyPublicKey: "0x04"
+            passkeyPublicKey: "0x04",
+          passkeyRpId: "bindle.me"
           })
         );
       },
@@ -336,7 +339,8 @@ test.describe("passkey-first onboarding", () => {
             lastError: null,
             custodyModel: "passkey-4337",
             passkeyCredentialId: "test-passkey",
-            passkeyPublicKey: "0x04"
+            passkeyPublicKey: "0x04",
+          passkeyRpId: "bindle.me"
           })
         );
       },
@@ -509,7 +513,8 @@ test.describe("passkey-first onboarding", () => {
           lastError: null,
           custodyModel: "passkey-4337",
           passkeyCredentialId: "test-passkey",
-          passkeyPublicKey: "0x04"
+          passkeyPublicKey: "0x04",
+          passkeyRpId: "bindle.me"
         })
       );
     }, publicRecipient);
@@ -592,7 +597,8 @@ test.describe("passkey-first onboarding", () => {
           lastError: null,
           custodyModel: "passkey-4337",
           passkeyCredentialId: "test-passkey",
-          passkeyPublicKey: "0x04"
+          passkeyPublicKey: "0x04",
+          passkeyRpId: "bindle.me"
         })
       );
     }, publicRecipient);
