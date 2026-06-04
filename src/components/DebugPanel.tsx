@@ -28,6 +28,12 @@ export function DebugPanel({ entries, onClear }: DebugPanelProps) {
     window.setTimeout(() => setCopyStatus(""), 1600);
   };
 
+  const copyEntry = async (entry: DebugLogEntry) => {
+    await navigator.clipboard.writeText(formatDebugLogEntry(entry));
+    setCopyStatus(entry.level === "error" ? "Copied error" : "Copied entry");
+    window.setTimeout(() => setCopyStatus(""), 1600);
+  };
+
   const refreshDiagnostics = async () => {
     setDiagnosticsStatus("Reading local diagnostics");
 
@@ -145,6 +151,14 @@ export function DebugPanel({ entries, onClear }: DebugPanelProps) {
                 <span>{new Date(entry.at).toLocaleTimeString()}</span>
               </summary>
               <p>{entry.message}</p>
+              <button
+                className="secondary-action debug-entry-copy"
+                type="button"
+                onClick={() => void copyEntry(entry)}
+              >
+                <Clipboard size={15} aria-hidden="true" />
+                {entry.level === "error" ? "Copy error" : "Copy entry"}
+              </button>
               <pre>{formatDebugLogEntry(entry)}</pre>
             </details>
           ))}

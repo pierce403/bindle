@@ -659,7 +659,9 @@ export function WalletActionPanel({
               <Send size={18} aria-hidden="true" />
               {isSubmittingPay ? "Preparing Pay" : "Generate proof and pay"}
             </button>
-            {payStatus ? <p className="status-message">{payStatus}</p> : null}
+            {payStatus ? (
+              <p className="status-message pay-status-message">{payStatus}</p>
+            ) : null}
           </div>
         ) : null}
 

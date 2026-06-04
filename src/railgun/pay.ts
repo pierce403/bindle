@@ -94,6 +94,30 @@ const sdkEncryptionKeyForWallet = (
     )
   ).slice(2);
 
+export const railgunSdkAddressMismatchErrorName =
+  "RailgunSdkAddressMismatchError";
+
+export const isRailgunSdkAddressMismatchError = (error: unknown): boolean =>
+  error instanceof Error && error.name === railgunSdkAddressMismatchErrorName;
+
+const createRailgunSdkAddressMismatchError = ({
+  expected,
+  received
+}: {
+  expected: string;
+  received: string;
+}): Error => {
+  const error = new Error(
+    [
+      "Pay cannot use this 0zk wallet yet.",
+      `The RAILGUN Wallet SDK fallback derived ${received}, but Bindle's local Kohaku 0zk wallet is ${expected}.`,
+      "Pay is blocked to avoid spending from the wrong shielded account. Existing shielded funds remain tied to the local 0zk address."
+    ].join(" ")
+  );
+  error.name = railgunSdkAddressMismatchErrorName;
+  return error;
+};
+
 const assertSdkAddressMatches = ({
   expected,
   received
@@ -102,9 +126,7 @@ const assertSdkAddressMatches = ({
   received: string;
 }): void => {
   if (received !== expected) {
-    throw new Error(
-      `RAILGUN Wallet SDK fallback derived ${received}, but Bindle's local 0zk wallet is ${expected}. Pay is blocked to avoid spending from the wrong shielded account.`
-    );
+    throw createRailgunSdkAddressMismatchError({ expected, received });
   }
 };
 

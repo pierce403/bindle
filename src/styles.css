@@ -746,11 +746,15 @@ button:disabled {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  min-width: 0;
+  max-width: 100%;
   min-height: 44px;
   border: 0;
   border-radius: 12px;
   padding: 0 16px;
   font-weight: 760;
+  text-align: center;
+  white-space: normal;
 }
 
 .primary-action {
@@ -775,6 +779,7 @@ button:disabled {
 
 .wide {
   width: 100%;
+  box-sizing: border-box;
 }
 
 .panel {
@@ -1094,6 +1099,7 @@ button:disabled {
 .preflight-card,
 .review-card {
   display: grid;
+  min-width: 0;
   gap: 8px;
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -1128,21 +1134,21 @@ button:disabled {
   line-height: 1.45;
 }
 
-.review-card div {
+.review-card > div:not(.proof-progress-card):not(.route-blockers) {
   display: grid;
   grid-template-columns: minmax(0, 72px) minmax(0, 1fr);
   gap: 10px;
 }
 
-.review-card strong,
-.review-card span {
+.review-card > div:not(.proof-progress-card):not(.route-blockers) > strong,
+.review-card > div:not(.proof-progress-card):not(.route-blockers) > span {
   overflow: hidden;
   font-size: 0.8rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.review-card span {
+.review-card > div:not(.proof-progress-card):not(.route-blockers) > span {
   color: var(--muted);
 }
 
@@ -1171,6 +1177,9 @@ button:disabled {
 
 .proof-progress-card {
   display: grid !important;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   gap: 10px !important;
   border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
   border-radius: 14px;
@@ -1191,10 +1200,19 @@ button:disabled {
 
 .proof-progress-header span,
 .proof-progress-header strong {
-  overflow: visible;
   color: var(--text);
   font-size: 0.82rem;
   white-space: nowrap;
+}
+
+.proof-progress-header span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.proof-progress-header strong {
+  flex: 0 0 auto;
 }
 
 .proof-progress-track {
@@ -1244,6 +1262,7 @@ button:disabled {
 
 .proof-stage div {
   display: grid !important;
+  min-width: 0;
   gap: 2px !important;
 }
 
@@ -1262,6 +1281,12 @@ button:disabled {
 
 .proof-stage span {
   color: var(--muted);
+}
+
+.pay-status-message {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
 }
 
 .preflight-row {
@@ -1705,6 +1730,13 @@ button:disabled {
   color: var(--muted);
   font-size: 0.83rem;
   line-height: 1.35;
+}
+
+.debug-entry-copy {
+  min-height: 34px;
+  margin: 0 12px 10px;
+  padding: 0 12px;
+  font-size: 0.78rem;
 }
 
 .debug-entry pre {

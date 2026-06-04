@@ -40,6 +40,7 @@ import {
   summarizeMissingRequirements
 } from "./railgun/shielding";
 import {
+  isRailgunSdkAddressMismatchError,
   prepareRailgunUsdcPayForRecipient,
   type RailgunPayProgress
 } from "./railgun/pay";
@@ -1588,11 +1589,14 @@ function WalletApp() {
           `Smart account: ${walletState.smartWalletAddress ?? "missing"}`
         ].join("\n")
       );
-      setPayStatus(message);
+      const statusMessage = isRailgunSdkAddressMismatchError(error)
+        ? "Pay is blocked for this 0zk wallet because the current SDK fallback derives a different shielded address than the local Kohaku wallet. Existing shielded funds remain tied to the local 0zk address. Open Debug to copy the full mismatch."
+        : message;
+      setPayStatus(statusMessage);
       setAppNotice({
         kind: "error",
         title: "Pay failed",
-        message: `${message} Open Debug for the full stack trace.`
+        message: `${statusMessage} Open Debug for the full stack trace.`
       });
     } finally {
       setIsSubmittingPay(false);
