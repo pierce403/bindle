@@ -117,6 +117,32 @@ const initialDraft: IntentDraft = {
   note: ""
 };
 
+const shieldedBalanceSyncWarningMs = 30_000;
+const shieldedBalanceSyncTimeoutMs = 120_000;
+
+const shieldedBalanceSyncDetail = (
+  railgunAddress: string,
+  policy: ConnectionPolicy
+): string =>
+  [
+    `Railgun address: ${railgunAddress}`,
+    `RPC: ${policy.ethereumRpcUrl.trim()}`,
+    `RAILGUN sync indexer: ${policy.railgunSyncUrl.trim() || "off (RPC-only)"}`
+  ].join("\n");
+
+const createShieldedBalanceSyncTimeoutError = (): Error => {
+  const error = new Error(
+    `Shielded balance sync is still waiting after ${Math.round(
+      shieldedBalanceSyncTimeoutMs / 1000
+    ).toString()} seconds. Kohaku has not returned a balance or an error. This usually means the visible RAILGUN sync indexer/RPC path is hanging or overloaded. Check Connections, keep the RAILGUN sync indexer enabled for default sync, or try again.`
+  );
+  error.name = "ShieldedBalanceSyncTimeoutError";
+  return error;
+};
+
+const isShieldedBalanceSyncTimeoutError = (error: unknown): boolean =>
+  error instanceof Error && error.name === "ShieldedBalanceSyncTimeoutError";
+
 type PublicBalanceState =
   | { status: "missing-wallet" | "missing-rpc" | "idle" | "syncing" }
   | { status: "ready"; balance: PublicEthBalance }
@@ -565,6 +591,7 @@ function WalletApp() {
     railgunStorageMode,
     hasRecoverableRailgunKeyMaterial,
     policy.ethereumRpcUrl,
+    policy.railgunSyncUrl,
     policy.providerMode
   ]);
 
@@ -945,31 +972,56 @@ function WalletApp() {
 
     const requestId = shieldedBalanceRequestRef.current + 1;
     shieldedBalanceRequestRef.current = requestId;
+    const detail = shieldedBalanceSyncDetail(walletState.railgunAddress, policy);
     setShieldedBalance({ status: "syncing" });
     setStatusMessage("Syncing shielded RAILGUN balance");
     recordDebugEvent({
       level: "info",
       source: "shielded-balance",
       message: "Syncing shielded RAILGUN balance",
-      detail: `Railgun address: ${walletState.railgunAddress}\nRPC: ${policy.ethereumRpcUrl.trim()}`
+      detail
     });
 
-    try {
-      const balance = await fetchShieldedEthBalance(policy, {
-        onStatus: (message) => {
-          if (shieldedBalanceRequestRef.current !== requestId) {
-            return;
-          }
+    const warningTimer = window.setTimeout(() => {
+      if (shieldedBalanceRequestRef.current !== requestId) {
+        return;
+      }
 
-          setStatusMessage(message);
-          recordDebugEvent({
-            level: "info",
-            source: "shielded-balance",
-            message,
-            detail: `Railgun address: ${walletState.railgunAddress}\nRPC: ${policy.ethereumRpcUrl.trim()}`
-          });
-        }
+      const message = "Shielded balance sync is still waiting on Kohaku";
+      setStatusMessage(message);
+      recordDebugEvent({
+        level: "warning",
+        source: "shielded-balance",
+        message,
+        detail
       });
+    }, shieldedBalanceSyncWarningMs);
+    let timeoutTimer: number | null = null;
+
+    try {
+      const balance = await Promise.race([
+        fetchShieldedEthBalance(policy, {
+          onStatus: (message) => {
+            if (shieldedBalanceRequestRef.current !== requestId) {
+              return;
+            }
+
+            setStatusMessage(message);
+            recordDebugEvent({
+              level: "info",
+              source: "shielded-balance",
+              message,
+              detail
+            });
+          }
+        }),
+        new Promise<never>((_, reject) => {
+          timeoutTimer = window.setTimeout(
+            () => reject(createShieldedBalanceSyncTimeoutError()),
+            shieldedBalanceSyncTimeoutMs
+          );
+        })
+      ]);
 
       if (shieldedBalanceRequestRef.current === requestId) {
         setShieldedBalance({ status: "ready", balance });
@@ -996,7 +1048,7 @@ function WalletApp() {
           error,
           "Unable to sync shielded balance",
           "shielded-balance",
-          `Railgun address: ${walletState.railgunAddress}\nRPC: ${policy.ethereumRpcUrl.trim()}`
+          detail
         );
         setShieldedBalance({ status: "error", message });
         setStatusMessage(message);
@@ -1004,10 +1056,20 @@ function WalletApp() {
           kind: "error",
           title: "Shielded sync failed",
           message: `${message} Open Debug for the full stack trace.`,
-          action: isKohakuRpcFetchFailure(error)
-            ? { kind: "open-connections", label: "Open Connections" }
-            : undefined
+          action:
+            isKohakuRpcFetchFailure(error) ||
+            isShieldedBalanceSyncTimeoutError(error)
+              ? { kind: "open-connections", label: "Open Connections" }
+              : undefined
         });
+        if (isShieldedBalanceSyncTimeoutError(error)) {
+          shieldedBalanceRequestRef.current = requestId + 1;
+        }
+      }
+    } finally {
+      window.clearTimeout(warningTimer);
+      if (timeoutTimer !== null) {
+        window.clearTimeout(timeoutTimer);
       }
     }
   };
@@ -1021,13 +1083,22 @@ function WalletApp() {
       return;
     }
 
-    if (toolkitState === "starting" || shieldedBalance.status === "syncing") {
+    if (
+      toolkitStartRef.current ||
+      toolkitState === "starting" ||
+      shieldedBalance.status === "syncing"
+    ) {
+      return;
+    }
+
+    if (policy.autoStartToolkit && toolkitState !== "ready") {
       return;
     }
 
     const syncKey = [
       railgunAddress,
       ethereumRpcUrl,
+      policy.railgunSyncUrl.trim(),
       policy.providerMode,
       policy.privacyToolkit,
       railgunStorageMode
@@ -1042,6 +1113,8 @@ function WalletApp() {
   }, [
     walletState.railgunAddress,
     policy.ethereumRpcUrl,
+    policy.railgunSyncUrl,
+    policy.autoStartToolkit,
     policy.providerMode,
     policy.privacyToolkit,
     hasRecoverableRailgunKeyMaterial,
