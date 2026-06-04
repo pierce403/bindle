@@ -92,6 +92,10 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByLabel("Review pay route")).toContainText(
       "Onchain v4 Quoter through the visible Ethereum RPC"
     );
+    await expect(page.getByLabel("Review pay route")).toContainText("Max 1%");
+    await expect(page.getByLabel("Review pay route")).toContainText(
+      "Leftover ETH may remain unshielded for a later sweep"
+    );
     await expect(page.getByLabel("Review pay route")).toContainText(
       "5 USDC to deanpierce.eth"
     );

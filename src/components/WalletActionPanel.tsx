@@ -600,6 +600,14 @@ export function WalletActionPanel({
               <span>{paySwapRoutePlan?.routerLabel ?? "pending"}</span>
             </div>
             <div>
+              <strong>Slippage</strong>
+              <span>{paySwapRoutePlan?.slippageLabel ?? "pending"}</span>
+            </div>
+            <div>
+              <strong>Remainder</strong>
+              <span>{paySwapRoutePlan?.remainderLabel ?? "pending"}</span>
+            </div>
+            <div>
               <strong>Send</strong>
               <span>
                 {draft.amount.trim()} {selectedPayAsset?.symbol} to{" "}

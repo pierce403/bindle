@@ -62,9 +62,11 @@ not the default first-run experience.
   asset search, recipient/amount entry, QR or pasted payment request import,
   endpoint preflight disclosure, and a proof-path progress panel. USDC Pay is
   planned as shielded ETH unshielded into a Uniswap v4 route, quoted through
-  the visible Ethereum RPC by default. Submission remains blocked until the
-  RAILGUN cross-contract proof, v4 calldata, broadcaster, and final swap/send
-  execution path are implemented safely.
+  the visible Ethereum RPC by default, with a 1% max slippage default. Leftover
+  ETH after a route may remain unshielded for a later sweep back into RAILGUN.
+  Submission remains blocked until the RAILGUN cross-contract proof, v4
+  calldata, broadcaster, and final swap/send execution path are implemented
+  safely.
 - Endpoint presets are visible in Connections. Bindle default currently uses a
   labelled public Ethereum RPC, RAILGUN sync indexer, and public ERC-4337
   bundler, plus an explicit `onchain:uniswap-v4` quote source; Privacy max

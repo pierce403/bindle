@@ -250,6 +250,8 @@ infrastructure.
       normalization for the SDK callback once proof generation is invoked.
 - [x] Default quote source to explicit `onchain:uniswap-v4` under Bindle
       default, while keeping Privacy max empty/off.
+- [x] Default Pay swap review to 1% max slippage and allow leftover ETH to
+      remain unshielded for a later sweep.
 - [ ] Explore LayerZero-style Pay routing for any-network settlement.
 - [ ] Add Uniswap-based Swap flow.
 - [ ] Add XMTP chat or payment messaging.
