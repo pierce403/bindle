@@ -86,7 +86,7 @@ export function BalancePanel({
 
       <div className="balance-display">
         <span>{balanceLabel}</span>
-        <h1 id="balance-heading">{totalBalance ?? "-- ETH"}</h1>
+        <h1 id="balance-heading">{totalBalance ?? "$--"}</h1>
         <div className="network-pill">
           <span>{networkStatus ?? "not synced"}</span>
           <strong>{networkLabel}</strong>

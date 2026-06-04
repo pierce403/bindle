@@ -44,6 +44,10 @@ infrastructure.
       through the selected visible Ethereum RPC.
 - [x] Refresh public ETH balance on app load when a visible Ethereum RPC is
       configured.
+- [x] Show recent top-level public native ETH funding transfers in Activity by
+      scanning real Ethereum blocks through the selected visible RPC.
+- [x] Reserve the top headline balance for shielded balance in USD instead of
+      showing unshielded funding ETH as the primary wallet balance.
 - [x] Add shield/unshield readiness tests that keep funded public ETH blocked
       until recoverable `0zk` wallet state, sync, and broadcaster prerequisites
       exist.
@@ -96,6 +100,8 @@ infrastructure.
       passkey-backed wrapping when WebAuthn PRF support is usable across target
       browsers.
 - [ ] Sync shielded ETH balances after shield submission.
+- [ ] Wire a visible ETH/USD quote source and convert synced shielded ETH to
+      USD for the headline balance.
 - [ ] Add a Kohaku-compatible browser smart-account adapter once `pq-account` or
       equivalent passkey ERC-4337 address derivation is available.
 - [ ] Reproduce and report/fix the upstream Kohaku RAILGUN WASM initialization

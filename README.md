@@ -134,15 +134,18 @@ bundler, paymaster, attestation, or recovery service exposed through
 The current app can enroll a browser passkey, derive a counterfactual Coinbase
 Smart Wallet funding address with the visible Ethereum mainnet RPC, and submit
 public ETH user operations through the visible ERC-4337 bundler.
-It can also explicitly sync the public ETH balance for that funding address
-through the visible RPC after disclosing the endpoint. It can create or import a
-recoverable local RAILGUN wallet, encrypt the recovery phrase into IndexedDB
-with a browser-local WebCrypto key, derive Kohaku RAILGUN spending/viewing keys
-locally, and show the resulting real `0zk` address. Paymaster support is
-optional and only used when configured. Bindle can audit shield/unshield
-readiness and can prepare native ETH shield call data through Kohaku's low-level
-WASM binding. Shield review now builds native ETH shield calls and submits them
-from the passkey smart wallet through the visible RPC and ERC-4337 bundler.
+It can also explicitly sync the public ETH balance and recent top-level native
+ETH funding transfers for that address through the visible RPC after disclosing
+the endpoint. The headline balance is reserved for shielded balance in USD; it
+stays unset until real RAILGUN balance sync and a visible quote source are wired.
+It can create or import a recoverable local RAILGUN wallet, encrypt the recovery
+phrase into IndexedDB with a browser-local WebCrypto key, derive Kohaku RAILGUN
+spending/viewing keys locally, and show the resulting real `0zk` address.
+Paymaster support is optional and only used when configured. Bindle can audit
+shield/unshield readiness and can prepare native ETH shield call data through
+Kohaku's low-level WASM binding. Shield review now builds native ETH shield
+calls and submits them from the passkey smart wallet through the visible RPC and
+ERC-4337 bundler.
 For the visible Pimlico default bundler, Bindle requests User Operation gas
 prices from that same bundler endpoint before submission so the bundler does not
 reject underpriced priority fees. Shielded balance sync, unshielding, and
@@ -155,6 +158,9 @@ The RAILGUN Wallet SDK remains available as a fallback path for generating priva
 Current shield/unshield status:
 
 - Public ETH funding balance sync is real and explicit.
+- Recent public native ETH activity is scanned from top-level Ethereum blocks
+  through the selected visible RPC. Contract-internal transfers still need an
+  explicit, visible indexer or trace provider.
 - RAILGUN wallet creation/import is real and local. The recovery phrase is
   encrypted into IndexedDB with a non-extractable browser-local WebCrypto key;
   localStorage stores only the public `0zk` address and a key-store marker.

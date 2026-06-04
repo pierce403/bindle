@@ -374,6 +374,14 @@ button:disabled {
   padding: 4px 4px 14px;
 }
 
+.section-status {
+  display: block;
+  margin-top: 4px;
+  color: color-mix(in srgb, var(--text) 58%, transparent);
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
 .brand-copy,
 .section-heading div {
   display: grid;

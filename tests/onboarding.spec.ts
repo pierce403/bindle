@@ -26,7 +26,7 @@ test.describe("passkey-first onboarding", () => {
     await expect(
       page.getByText("Passkeys are not available in this browser").first()
     ).toBeVisible();
-    await expect(page.getByRole("heading", { name: "-- ETH" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "$--" })).toBeVisible();
     await expect(page.getByText("not created").first()).toBeVisible();
     await expect(page.getByLabel("Unshielded ETH balance")).toContainText(
       "not synced"
@@ -412,10 +412,16 @@ test.describe("passkey-first onboarding", () => {
   }) => {
     await page.route("https://ethereum-rpc.publicnode.com/**", async (route) => {
       const payload = JSON.parse(route.request().postData() ?? "{}") as
-        | { id: number; method: string }
-        | Array<{ id: number; method: string }>;
+        | { id: number; method: string; params?: unknown[] }
+        | Array<{ id: number; method: string; params?: unknown[] }>;
       const requests = Array.isArray(payload) ? payload : [payload];
       const responses = requests.map((request) => {
+        const blockTag =
+          request.method === "eth_getBlockByNumber" &&
+          Array.isArray(request.params) &&
+          typeof request.params[0] === "string"
+            ? request.params[0]
+            : null;
         const result =
           request.method === "eth_chainId"
             ? "0x1"
@@ -423,7 +429,59 @@ test.describe("passkey-first onboarding", () => {
               ? "0xde0b6b3a7640000"
               : request.method === "eth_blockNumber"
                 ? "0x100"
-                : null;
+                : request.method === "eth_getBlockByNumber"
+                  ? blockTag === "0x100"
+                    ? {
+                        baseFeePerGas: "0x1",
+                        difficulty: "0x0",
+                        extraData: "0x",
+                        gasLimit: "0x1c9c380",
+                        gasUsed: "0x5208",
+                        hash: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        logsBloom: "0x" + "0".repeat(512),
+                        miner: "0x0000000000000000000000000000000000000000",
+                        mixHash:
+                          "0x0000000000000000000000000000000000000000000000000000000000000000",
+                        nonce: "0x0000000000000000",
+                        number: "0x100",
+                        parentHash:
+                          "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                        receiptsRoot:
+                          "0x0000000000000000000000000000000000000000000000000000000000000000",
+                        sha3Uncles:
+                          "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                        size: "0x1",
+                        stateRoot:
+                          "0x0000000000000000000000000000000000000000000000000000000000000000",
+                        timestamp: "0x693f7f80",
+                        totalDifficulty: "0x0",
+                        transactions: [
+                          {
+                            blockHash:
+                              "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                            blockNumber: "0x100",
+                            chainId: "0x1",
+                            from: "0x1111111111111111111111111111111111111111",
+                            gas: "0x5208",
+                            gasPrice: "0x1",
+                            hash: "0x1234000000000000000000000000000000000000000000000000000000000000",
+                            input: "0x",
+                            nonce: "0x0",
+                            r: "0x1",
+                            s: "0x1",
+                            to: publicRecipient,
+                            transactionIndex: "0x0",
+                            type: "0x0",
+                            v: "0x1b",
+                            value: "0xde0b6b3a7640000"
+                          }
+                        ],
+                        transactionsRoot:
+                          "0x0000000000000000000000000000000000000000000000000000000000000000",
+                        uncles: []
+                      }
+                    : null
+                  : null;
 
         return {
           jsonrpc: "2.0",
@@ -462,7 +520,9 @@ test.describe("passkey-first onboarding", () => {
       "Sync may contact Ethereum RPC (default: https://ethereum-rpc.publicnode.com)"
     );
 
-    await expect(page.getByRole("heading", { name: "1 ETH" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "$--" })).toBeVisible();
+    await expect(page.getByText("Shielded balance")).toBeVisible();
+    await expect(page.getByText("shielded ETH not synced")).toBeVisible();
     await expect(page.getByLabel("Unshielded ETH balance")).toContainText(
       "1 ETH"
     );
@@ -474,7 +534,9 @@ test.describe("passkey-first onboarding", () => {
         .getByLabel("Unshielded ETH balance")
         .getByRole("button", { name: "Sync" })
     ).toBeEnabled();
-    await expect(page.getByText("public synced at block 256")).toBeVisible();
+    await expect(page.getByText("public activity synced at block 256")).toBeVisible();
+    await expect(page.getByText("Received ETH")).toBeVisible();
+    await expect(page.getByText("Public funding wallet")).toBeVisible();
   });
 
   test("opens shield review only after public balance and local 0zk secrets exist", async ({
@@ -545,9 +607,12 @@ test.describe("passkey-first onboarding", () => {
     );
     await page.getByRole("button", { name: "Wallet" }).click();
 
-    await expect(page.getByRole("heading", { name: "1 ETH" })).toBeVisible({
+    await expect(page.getByRole("heading", { name: "$--" })).toBeVisible({
       timeout: 30_000
     });
+    await expect(page.getByLabel("Unshielded ETH balance")).toContainText(
+      "1 ETH"
+    );
     await expect(
       page.getByLabel("Unshielded ETH balance").getByRole("button", {
         name: "Shield",

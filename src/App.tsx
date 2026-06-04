@@ -1,7 +1,7 @@
 import { ChevronDown, Eye, MoreHorizontal } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { parseEther } from "viem";
-import { ActivityFeed } from "./components/ActivityFeed";
+import { ActivityFeed, type ActivityItem } from "./components/ActivityFeed";
 import { BalancePanel, type WalletAction } from "./components/BalancePanel";
 import { BottomNav, type AppTab } from "./components/BottomNav";
 import { BrowserLandingPage } from "./components/BrowserLandingPage";
@@ -64,6 +64,10 @@ import {
   type PublicEthBalance
 } from "./wallet/publicBalance";
 import {
+  fetchPublicEthActivity,
+  type PublicEthActivityScan
+} from "./wallet/publicActivity";
+import {
   detectPasskeyCapability,
   createBindlePasskeyCredential,
   type PasskeyCapability
@@ -91,6 +95,11 @@ type PublicBalanceState =
   | { status: "ready"; balance: PublicEthBalance }
   | { status: "error"; message: string };
 
+type PublicActivityState =
+  | { status: "missing-wallet" | "missing-rpc" | "idle" | "syncing"; items: [] }
+  | { status: "ready"; scan: PublicEthActivityScan; items: ActivityItem[] }
+  | { status: "error"; message: string; items: ActivityItem[] };
+
 type AppNotice = {
   kind: "error" | "warning";
   title: string;
@@ -104,6 +113,11 @@ const initialPublicBalanceState = (): PublicBalanceState =>
   loadWalletState().smartWalletAddress
     ? { status: "idle" }
     : { status: "missing-wallet" };
+
+const initialPublicActivityState = (): PublicActivityState =>
+  loadWalletState().smartWalletAddress
+    ? { status: "idle", items: [] }
+    : { status: "missing-wallet", items: [] };
 
 const publicBalanceText = (state: PublicBalanceState): string | null => {
   switch (state.status) {
@@ -121,22 +135,58 @@ const publicBalanceText = (state: PublicBalanceState): string | null => {
   }
 };
 
-const publicBalanceNetworkStatus = (state: PublicBalanceState): string => {
+const shortHash = (value: string): string => `${value.slice(0, 6)}...${value.slice(-4)}`;
+
+const shortAddress = (value: string): string =>
+  `${value.slice(0, 6)}...${value.slice(-4)}`;
+
+const activityTime = (timestamp: string): string =>
+  new Intl.DateTimeFormat(undefined, {
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    month: "short"
+  }).format(new Date(timestamp));
+
+const publicActivityStatus = (state: PublicActivityState): string => {
   switch (state.status) {
     case "ready":
-      return `public synced at block ${state.balance.blockNumber.toString()}`;
+      return state.items.length > 0
+        ? `public activity synced at block ${state.scan.blockNumber.toString()}`
+        : `no public ETH transfers found since block ${state.scan.scannedFromBlock.toString()}`;
     case "syncing":
-      return "syncing public ETH";
+      return "scanning public ETH activity";
     case "error":
-      return "public sync failed";
+      return `activity sync failed: ${state.message}`;
     case "missing-rpc":
-      return "RPC required";
+      return "configure RPC to scan public funding activity";
     case "missing-wallet":
-      return "funding wallet pending";
+      return "create a funding wallet to scan activity";
     case "idle":
-      return "public balance not synced";
+      return "public activity not synced";
   }
 };
+
+const publicActivityToItems = (scan: PublicEthActivityScan): ActivityItem[] =>
+  scan.items.map((item) => {
+    const isIncoming = item.direction === "in";
+    const counterparty = isIncoming ? item.from : item.to;
+
+    return {
+      id: item.id,
+      name: isIncoming ? "Received ETH" : "Sent ETH",
+      handle: counterparty ? shortAddress(counterparty) : "contract creation",
+      amount: item.amount,
+      asset: "ETH",
+      note: isIncoming
+        ? `From ${counterparty ? shortAddress(counterparty) : "unknown"}`
+        : `To ${counterparty ? shortAddress(counterparty) : "unknown"}`,
+      direction: item.direction,
+      route: `Public funding wallet · ${shortHash(item.hash)}`,
+      time: activityTime(item.timestamp),
+      privacy: "public"
+    };
+  });
 
 function WalletApp() {
   const [draft, setDraft] = useState<IntentDraft>(initialDraft);
@@ -191,7 +241,11 @@ function WalletApp() {
   const [publicBalance, setPublicBalance] = useState<PublicBalanceState>(
     initialPublicBalanceState
   );
+  const [publicActivity, setPublicActivity] = useState<PublicActivityState>(
+    initialPublicActivityState
+  );
   const publicBalanceRequestRef = useRef(0);
+  const publicActivityRequestRef = useRef(0);
   const publicBalanceAutoSyncKeyRef = useRef<string | null>(null);
   const hasRailgunWallet = walletState.railgunAddress !== null;
   const hasSmartWallet = walletState.smartWalletAddress !== null;
@@ -243,8 +297,8 @@ function WalletApp() {
           : "missing"
         : "missing"
       : null;
-  const shieldedBalanceSynced = false;
-  const balanceLabel = shieldedBalanceSynced ? "Total ETH" : "Known ETH";
+  const shieldedBalanceUsd = "$--";
+  const balanceLabel = "Shielded balance";
   const shieldReadiness = assessShieldReadiness({
     smartWalletAddress: walletState.smartWalletAddress,
     railgunAddress: walletState.railgunAddress,
@@ -270,6 +324,7 @@ function WalletApp() {
       : toolkitState === "ready"
         ? "not synced"
         : "toolkit not started";
+  const shieldedBalanceNetworkStatus = "shielded ETH not synced";
   const canSyncPublicBalance =
     walletState.smartWalletAddress !== null &&
     rpcConfigured &&
@@ -359,15 +414,18 @@ function WalletApp() {
   useEffect(() => {
     if (!walletState.smartWalletAddress) {
       setPublicBalance({ status: "missing-wallet" });
+      setPublicActivity({ status: "missing-wallet", items: [] });
       return;
     }
 
     if (!policy.ethereumRpcUrl.trim()) {
       setPublicBalance({ status: "missing-rpc" });
+      setPublicActivity({ status: "missing-rpc", items: [] });
       return;
     }
 
     setPublicBalance({ status: "idle" });
+    setPublicActivity({ status: "idle", items: [] });
   }, [walletState.smartWalletAddress, policy.ethereumRpcUrl, policy.providerMode]);
 
   useEffect(() => {
@@ -554,6 +612,59 @@ function WalletApp() {
     }
   };
 
+  const syncPublicActivity = async (latestBlockNumber?: bigint) => {
+    const smartWalletAddress = walletState.smartWalletAddress;
+
+    if (!smartWalletAddress) {
+      setPublicActivity({ status: "missing-wallet", items: [] });
+      return;
+    }
+
+    if (!policy.ethereumRpcUrl.trim()) {
+      setPublicActivity({ status: "missing-rpc", items: [] });
+      return;
+    }
+
+    const requestId = publicActivityRequestRef.current + 1;
+    publicActivityRequestRef.current = requestId;
+    setPublicActivity({ status: "syncing", items: [] });
+    recordDebugEvent({
+      level: "info",
+      source: "activity",
+      message: "Scanning public ETH funding activity",
+      detail: `Address: ${smartWalletAddress}\nRPC: ${policy.ethereumRpcUrl.trim()}`
+    });
+
+    try {
+      const scan = await fetchPublicEthActivity({
+        latestBlockNumber,
+        policy,
+        smartWalletAddress
+      });
+
+      if (publicActivityRequestRef.current === requestId) {
+        const items = publicActivityToItems(scan);
+        setPublicActivity({ status: "ready", scan, items });
+        recordDebugEvent({
+          level: "info",
+          source: "activity",
+          message: `Public ETH activity synced: ${items.length.toString()} transfer${items.length === 1 ? "" : "s"}`,
+          detail: `Blocks: ${scan.scannedFromBlock.toString()}-${scan.scannedToBlock.toString()}`
+        });
+      }
+    } catch (error) {
+      if (publicActivityRequestRef.current === requestId) {
+        const message = messageFromError(
+          error,
+          "Unable to sync public activity",
+          "activity",
+          `Address: ${smartWalletAddress}\nRPC: ${policy.ethereumRpcUrl.trim()}`
+        );
+        setPublicActivity({ status: "error", message, items: [] });
+      }
+    }
+  };
+
   const syncPublicBalance = async () => {
     const smartWalletAddress = walletState.smartWalletAddress;
 
@@ -592,6 +703,7 @@ function WalletApp() {
           message: `Public ETH balance synced: ${balance.formatted}`,
           detail: `Block: ${balance.blockNumber.toString()}`
         });
+        void syncPublicActivity(balance.blockNumber);
       }
     } catch (error) {
       if (publicBalanceRequestRef.current === requestId) {
@@ -1073,9 +1185,9 @@ function WalletApp() {
             ) : null}
 
             <BalancePanel
-              totalBalance={knownPublicBalance}
+              totalBalance={shieldedBalanceUsd}
               balanceLabel={balanceLabel}
-              networkStatus={publicBalanceNetworkStatus(publicBalance)}
+              networkStatus={shieldedBalanceNetworkStatus}
               shieldedStatus={shieldedStatus}
               networkLabel="Ethereum mainnet"
               smartWalletAddress={walletState.smartWalletAddress}
@@ -1124,7 +1236,10 @@ function WalletApp() {
               />
             ) : null}
 
-            <ActivityFeed items={[]} />
+            <ActivityFeed
+              items={publicActivity.items}
+              status={publicActivityStatus(publicActivity)}
+            />
           </>
         ) : null}
 

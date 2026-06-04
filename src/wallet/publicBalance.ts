@@ -10,17 +10,20 @@ export type PublicEthBalance = {
   syncedAt: string;
 };
 
-export const formatEthBalance = (wei: bigint): string => {
+export const formatEthAmount = (wei: bigint): string => {
   const exact = formatEther(wei);
   const [whole, fraction = ""] = exact.split(".");
   const trimmedFraction = fraction.replace(/0+$/, "");
 
   if (!trimmedFraction) {
-    return `${whole} ETH`;
+    return whole;
   }
 
-  return `${whole}.${trimmedFraction} ETH`;
+  return `${whole}.${trimmedFraction}`;
 };
+
+export const formatEthBalance = (wei: bigint): string =>
+  `${formatEthAmount(wei)} ETH`;
 
 export const fetchPublicEthBalance = async (
   policy: ConnectionPolicy,

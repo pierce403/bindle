@@ -10,17 +10,22 @@ export type ActivityItem = {
   direction: "in" | "out";
   route: string;
   time: string;
+  privacy: "public" | "shielded";
 };
 
 type ActivityFeedProps = {
   items: ActivityItem[];
+  status: string;
 };
 
-export function ActivityFeed({ items }: ActivityFeedProps) {
+export function ActivityFeed({ items, status }: ActivityFeedProps) {
   return (
     <section className="panel feed" aria-labelledby="activity-heading">
       <div className="section-heading">
-        <h2 id="activity-heading">Activity</h2>
+        <div>
+          <h2 id="activity-heading">Activity</h2>
+          <span className="section-status">{status}</span>
+        </div>
         <button className="see-all" type="button" disabled>
           See all
         </button>
@@ -30,7 +35,7 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
         <div className="empty-state">
           <Inbox size={22} aria-hidden="true" />
           <strong>No activity</strong>
-          <span>Synced Railgun ETH events will appear here.</span>
+          <span>Synced public ETH transfers and RAILGUN events will appear here.</span>
         </div>
       ) : (
         <div className="activity-list">
@@ -49,7 +54,9 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
                     <span>{item.time}</span>
                   </div>
                   <p>{item.note}</p>
-                  <span>{item.route}</span>
+                  <span>
+                    {item.route} · {item.privacy}
+                  </span>
                 </div>
                 <div
                   className={isIncoming ? "amount incoming" : "amount outgoing"}
