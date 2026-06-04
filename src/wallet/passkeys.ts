@@ -17,6 +17,18 @@ export type BindlePasskeyCredential = {
   userVerification: UserVerificationRequirement;
 };
 
+export type PasskeyAuthenticatorKind = "platform" | "security-key";
+
+export type BindleOwnerEnrollmentCode = {
+  schema: "cash.bindle.passkey-owner-enrollment";
+  version: 1;
+  createdAt: string;
+  targetOrigin: string;
+  targetRpId: string;
+  smartWalletAddress: string | null;
+  credential: BindlePasskeyCredential;
+};
+
 type PasskeyLookupContext = {
   passkeyRpId: string | null;
 };
@@ -53,6 +65,44 @@ export const getCurrentPasskeyHostname = (): string | null => {
 
   return window.location.hostname || null;
 };
+
+const currentOrigin = (): string => {
+  if (typeof window === "undefined") {
+    return "https://bindle.cash";
+  }
+
+  return window.location.origin;
+};
+
+const encodeBase64Url = (value: string): string => {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
+};
+
+const passkeyPolicyForKind = (
+  authenticatorKind: PasskeyAuthenticatorKind
+): {
+  authenticatorAttachment: AuthenticatorAttachment;
+  userVerification: UserVerificationRequirement;
+} =>
+  authenticatorKind === "security-key"
+    ? {
+        authenticatorAttachment: "cross-platform",
+        userVerification: "preferred"
+      }
+    : {
+        authenticatorAttachment: "platform",
+        userVerification: "required"
+      };
 
 const errorSearchText = (error: unknown): string => {
   if (error instanceof Error) {
@@ -175,6 +225,69 @@ export const createBindlePasskeyCredential =
       userVerification
     };
   };
+
+export const encodeBindleOwnerEnrollmentCode = (
+  enrollment: BindleOwnerEnrollmentCode
+): string =>
+  `bindle-owner-v1:${encodeBase64Url(JSON.stringify(enrollment))}`;
+
+export const createBindleOwnerEnrollmentCode = async ({
+  authenticatorKind,
+  smartWalletAddress
+}: {
+  authenticatorKind: PasskeyAuthenticatorKind;
+  smartWalletAddress: string | null;
+}): Promise<{
+  code: string;
+  enrollment: BindleOwnerEnrollmentCode;
+}> => {
+  const rpId = getCurrentPasskeyHostname();
+
+  if (!rpId) {
+    throw new Error("Owner enrollment requires a browser hostname.");
+  }
+
+  const { authenticatorAttachment, userVerification } =
+    passkeyPolicyForKind(authenticatorKind);
+  const credential = await createWebAuthnCredential({
+    name:
+      authenticatorKind === "security-key"
+        ? "Bindle YubiKey owner"
+        : "Bindle owner",
+    rp: {
+      id: rpId,
+      name: "Bindle"
+    },
+    authenticatorSelection: {
+      authenticatorAttachment,
+      residentKey: "preferred",
+      requireResidentKey: false,
+      userVerification
+    },
+    attestation: "none",
+    timeout: 60_000
+  });
+  const enrollment: BindleOwnerEnrollmentCode = {
+    schema: "cash.bindle.passkey-owner-enrollment",
+    version: 1,
+    createdAt: new Date().toISOString(),
+    targetOrigin: currentOrigin(),
+    targetRpId: rpId,
+    smartWalletAddress,
+    credential: {
+      id: credential.id,
+      publicKey: credential.publicKey,
+      rpId,
+      authenticatorAttachment,
+      userVerification
+    }
+  };
+
+  return {
+    code: encodeBindleOwnerEnrollmentCode(enrollment),
+    enrollment
+  };
+};
 
 export const createPasskeyRequestFn = (
   authenticatorAttachment: AuthenticatorAttachment | null | undefined,

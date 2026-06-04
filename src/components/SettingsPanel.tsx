@@ -1,19 +1,25 @@
-import { Download, Palette, RotateCcw, Settings, Upload } from "lucide-react";
+import { Copy, Download, KeyRound, Palette, RotateCcw, Settings, Upload } from "lucide-react";
 import { useRef } from "react";
 import { ThemeControls } from "./ThemeControls";
 import type { ThemeSelection } from "../theme/theme";
 import { getCurrentPasskeyHostname } from "../wallet/passkeys";
+import type { PasskeyAuthenticatorKind } from "../wallet/passkeys";
 import type { WalletState } from "../wallet/walletState";
 
 type SettingsPanelProps = {
   theme: ThemeSelection;
   walletState: WalletState;
   accountExportStatus: string;
+  ownerEnrollmentCode: string;
+  ownerEnrollmentStatus: string;
   isExportingAccount: boolean;
   isImportingAccount: boolean;
+  isCreatingOwnerEnrollment: boolean;
   onThemeChange: (theme: ThemeSelection) => void;
   onExportAccount: () => void;
   onImportAccountExport: (file: File) => void;
+  onCreateOwnerEnrollmentCode: (kind: PasskeyAuthenticatorKind) => void;
+  onCopyOwnerEnrollmentCode: () => void;
   onPasskeyPreferenceChange: (preference: {
     authenticatorAttachment: AuthenticatorAttachment;
     userVerification: UserVerificationRequirement;
@@ -25,11 +31,16 @@ export function SettingsPanel({
   theme,
   walletState,
   accountExportStatus,
+  ownerEnrollmentCode,
+  ownerEnrollmentStatus,
   isExportingAccount,
   isImportingAccount,
+  isCreatingOwnerEnrollment,
   onThemeChange,
   onExportAccount,
   onImportAccountExport,
+  onCreateOwnerEnrollmentCode,
+  onCopyOwnerEnrollmentCode,
   onPasskeyPreferenceChange,
   onResetWallet
 }: SettingsPanelProps) {
@@ -167,6 +178,61 @@ export function SettingsPanel({
             }}
           />
         </div>
+      </div>
+
+      <div className="settings-row">
+        <div>
+          <strong>Owner enrollment code</strong>
+          <span>
+            Creates a new passkey on this site and copies the public owner
+            metadata for the bindle.me migration bridge.
+          </span>
+          {ownerEnrollmentStatus ? <small>{ownerEnrollmentStatus}</small> : null}
+        </div>
+        <div className="settings-actions">
+          <button
+            className="secondary-action"
+            type="button"
+            onClick={() => onCreateOwnerEnrollmentCode("security-key")}
+            disabled={
+              isCreatingOwnerEnrollment || !walletState.smartWalletAddress
+            }
+            title="Create a bindle.cash YubiKey owner enrollment code"
+          >
+            <KeyRound size={17} aria-hidden="true" />
+            YubiKey code
+          </button>
+          <button
+            className="secondary-action"
+            type="button"
+            onClick={() => onCreateOwnerEnrollmentCode("platform")}
+            disabled={
+              isCreatingOwnerEnrollment || !walletState.smartWalletAddress
+            }
+            title="Create a bindle.cash phone or computer owner enrollment code"
+          >
+            <KeyRound size={17} aria-hidden="true" />
+            Phone code
+          </button>
+          <button
+            className="secondary-action"
+            type="button"
+            onClick={onCopyOwnerEnrollmentCode}
+            disabled={!ownerEnrollmentCode}
+            title="Copy owner enrollment code"
+          >
+            <Copy size={17} aria-hidden="true" />
+            Copy code
+          </button>
+        </div>
+        {ownerEnrollmentCode ? (
+          <textarea
+            className="code-output"
+            readOnly
+            value={ownerEnrollmentCode}
+            aria-label="Owner enrollment code"
+          />
+        ) : null}
       </div>
 
       <div className="settings-row">

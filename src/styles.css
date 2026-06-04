@@ -1285,6 +1285,15 @@ button:disabled {
   display: none;
 }
 
+.code-output {
+  grid-column: 1 / -1;
+  min-height: 92px;
+  resize: vertical;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  word-break: break-all;
+}
+
 .settings-panel .theme-dock {
   margin-bottom: 0;
 }

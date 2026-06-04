@@ -85,8 +85,10 @@ import {
   type PublicEthActivityScan
 } from "./wallet/publicActivity";
 import {
+  createBindleOwnerEnrollmentCode,
   detectPasskeyCapability,
   createBindlePasskeyCredential,
+  type PasskeyAuthenticatorKind,
   type PasskeyCapability
 } from "./wallet/passkeys";
 import {
@@ -290,6 +292,10 @@ function WalletApp() {
   const [isExportingAccount, setIsExportingAccount] = useState(false);
   const [isImportingAccount, setIsImportingAccount] = useState(false);
   const [accountExportStatus, setAccountExportStatus] = useState("");
+  const [ownerEnrollmentCode, setOwnerEnrollmentCode] = useState("");
+  const [ownerEnrollmentStatus, setOwnerEnrollmentStatus] = useState("");
+  const [isCreatingOwnerEnrollment, setIsCreatingOwnerEnrollment] =
+    useState(false);
   const [isReplacingRailgunWallet, setIsReplacingRailgunWallet] = useState(false);
   const [railgunRepairStatus, setRailgunRepairStatus] = useState("");
   const [railgunRepairPreviousAddress, setRailgunRepairPreviousAddress] =
@@ -1524,6 +1530,73 @@ function WalletApp() {
     }
   };
 
+  const createOwnerEnrollmentCode = async (
+    authenticatorKind: PasskeyAuthenticatorKind
+  ) => {
+    if (!walletState.smartWalletAddress) {
+      setOwnerEnrollmentStatus(
+        "Create or import the public smart-account address first."
+      );
+      return;
+    }
+
+    setIsCreatingOwnerEnrollment(true);
+    setOwnerEnrollmentStatus(
+      authenticatorKind === "security-key"
+        ? "Creating bindle.cash YubiKey owner credential"
+        : "Creating bindle.cash owner credential"
+    );
+    setAppNotice(null);
+
+    try {
+      const { code, enrollment } = await createBindleOwnerEnrollmentCode({
+        authenticatorKind,
+        smartWalletAddress: walletState.smartWalletAddress
+      });
+      setOwnerEnrollmentCode(code);
+      setOwnerEnrollmentStatus(
+        `Owner enrollment code ready for RP ID ${enrollment.targetRpId}. Paste it into the bindle.me migration bridge, then import the updated export it downloads.`
+      );
+      setStatusMessage("Owner enrollment code ready");
+      recordDebugEvent({
+        level: "info",
+        source: "settings",
+        message: "Owner enrollment code created",
+        detail: [
+          `Smart account: ${walletState.smartWalletAddress}`,
+          `RP ID: ${enrollment.targetRpId}`,
+          `Authenticator: ${enrollment.credential.authenticatorAttachment}`,
+          `User verification: ${enrollment.credential.userVerification}`,
+          `Credential: ${enrollment.credential.id}`
+        ].join("\n")
+      });
+    } catch (error) {
+      const message = messageFromError(
+        error,
+        "Unable to create owner enrollment code",
+        "settings"
+      );
+      setOwnerEnrollmentStatus(message);
+      setStatusMessage(message);
+      setAppNotice({
+        kind: "error",
+        title: "Owner enrollment failed",
+        message: `${message} Open Debug for the full stack trace.`
+      });
+    } finally {
+      setIsCreatingOwnerEnrollment(false);
+    }
+  };
+
+  const copyOwnerEnrollmentCode = async () => {
+    if (!ownerEnrollmentCode) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(ownerEnrollmentCode);
+    setOwnerEnrollmentStatus("Owner enrollment code copied.");
+  };
+
   const updatePasskeyPreference = ({
     authenticatorAttachment,
     userVerification
@@ -1561,6 +1634,8 @@ function WalletApp() {
     setRailgunStorageMode("missing");
     setRailgunStorageChecked(true);
     setAccountExportStatus("");
+    setOwnerEnrollmentCode("");
+    setOwnerEnrollmentStatus("");
     setRailgunRepairStatus("");
     setRailgunRepairPreviousAddress(null);
     setRailgunReplacementRecoveryPhrase(null);
@@ -1751,11 +1826,18 @@ function WalletApp() {
             theme={theme}
             walletState={walletState}
             accountExportStatus={accountExportStatus}
+            ownerEnrollmentCode={ownerEnrollmentCode}
+            ownerEnrollmentStatus={ownerEnrollmentStatus}
             isExportingAccount={isExportingAccount}
             isImportingAccount={isImportingAccount}
+            isCreatingOwnerEnrollment={isCreatingOwnerEnrollment}
             onThemeChange={setTheme}
             onExportAccount={() => void exportAccount()}
             onImportAccountExport={(file) => void importAccountExportFile(file)}
+            onCreateOwnerEnrollmentCode={(kind) =>
+              void createOwnerEnrollmentCode(kind)
+            }
+            onCopyOwnerEnrollmentCode={() => void copyOwnerEnrollmentCode()}
             onPasskeyPreferenceChange={updatePasskeyPreference}
             onResetWallet={resetLocalWallet}
           />
