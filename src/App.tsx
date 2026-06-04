@@ -1,4 +1,4 @@
-import { ChevronDown, Eye, MoreHorizontal } from "lucide-react";
+import { Eye, MoreHorizontal } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { parseEther } from "viem";
 import { ActivityFeed, type ActivityItem } from "./components/ActivityFeed";
@@ -2112,7 +2112,6 @@ function WalletApp() {
               <span className="eyebrow">ETH mainnet</span>
               <BuildMetadataLink />
             </div>
-            <ChevronDown size={22} aria-hidden="true" />
           </div>
 
           <div className="header-actions">
