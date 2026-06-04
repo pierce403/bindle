@@ -48,6 +48,11 @@ import {
   type ShieldedEthBalance
 } from "./railgun/shieldedBalance";
 import {
+  clearCachedShieldedEthBalance,
+  loadCachedShieldedEthBalance,
+  saveCachedShieldedEthBalance
+} from "./railgun/shieldedBalanceCache";
+import {
   clearEncryptedRailgunWallet,
   createEncryptedRailgunWallet,
   exportEncryptedRailgunWallet,
@@ -269,24 +274,54 @@ const publicActivityToItems = (scan: PublicEthActivityScan): ActivityItem[] =>
     };
   });
 
-const shieldedBalanceNetworkStatus = (state: ShieldedBalanceState): string => {
+const shieldedBalanceNetworkStatus = (
+  state: ShieldedBalanceState,
+  cachedBalance: ShieldedEthBalance | null
+): string => {
   switch (state.status) {
     case "ready":
       return `shielded synced at block ${state.balance.blockNumber.toString()}`;
     case "syncing":
+      if (cachedBalance) {
+        return `updating; last synced at block ${cachedBalance.blockNumber.toString()}`;
+      }
       return "syncing shielded ETH";
     case "error":
+      if (cachedBalance) {
+        return `sync failed; last synced at block ${cachedBalance.blockNumber.toString()}`;
+      }
       return "shielded sync failed";
     case "missing-rpc":
+      if (cachedBalance) {
+        return `RPC required; last synced at block ${cachedBalance.blockNumber.toString()}`;
+      }
       return "RPC required";
     case "missing-secrets":
       return "wallet secrets missing";
     case "missing-wallet":
       return "0zk pending";
     case "idle":
+      if (cachedBalance) {
+        return `last synced at block ${cachedBalance.blockNumber.toString()}`;
+      }
       return "shielded ETH not synced";
   }
 };
+
+const loadCachedShieldedBalanceForWallet = (
+  railgunAddress: string | null
+): ShieldedEthBalance | null =>
+  railgunAddress ? loadCachedShieldedEthBalance(railgunAddress) : null;
+
+const isBalanceForRailgunAddress = (
+  balance: ShieldedEthBalance | null,
+  railgunAddress: string | null
+): balance is ShieldedEthBalance =>
+  Boolean(
+    balance &&
+      railgunAddress &&
+      balance.railgunAddress.toLowerCase() === railgunAddress.toLowerCase()
+  );
 
 function WalletApp() {
   const [draft, setDraft] = useState<IntentDraft>(initialDraft);
@@ -362,6 +397,10 @@ function WalletApp() {
   const [shieldedBalance, setShieldedBalance] = useState<ShieldedBalanceState>(
     initialShieldedBalanceState
   );
+  const [cachedShieldedBalance, setCachedShieldedBalance] =
+    useState<ShieldedEthBalance | null>(() =>
+      loadCachedShieldedBalanceForWallet(loadWalletState().railgunAddress)
+    );
   const [smartAccountDeployment, setSmartAccountDeployment] =
     useState<SmartAccountDeploymentStatus>(() =>
       initialSmartAccountDeploymentStatus(loadWalletState().smartWalletAddress)
@@ -415,6 +454,18 @@ function WalletApp() {
     walletState.railgunAddress !== null &&
     walletState.railgunKeyStore === "encrypted-local" &&
     railgunStorageMode === "browser-local";
+  const currentCachedShieldedBalance = isBalanceForRailgunAddress(
+    cachedShieldedBalance,
+    walletState.railgunAddress
+  )
+    ? cachedShieldedBalance
+    : null;
+  const visibleShieldedBalance =
+    shieldedBalance.status === "ready"
+      ? shieldedBalance.balance
+      : currentCachedShieldedBalance;
+  const isShowingCachedShieldedBalance =
+    visibleShieldedBalance !== null && shieldedBalance.status !== "ready";
   const railgunRepairMode =
     railgunStorageChecked &&
     walletState.railgunAddress !== null &&
@@ -427,8 +478,10 @@ function WalletApp() {
         : "missing"
       : null;
   const shieldedBalanceUsd =
-    shieldedBalance.status === "ready" ? shieldedBalance.balance.usd ?? "$--" : "$--";
-  const balanceLabel = "Shielded balance";
+    visibleShieldedBalance !== null ? visibleShieldedBalance.usd ?? "$--" : "$--";
+  const balanceLabel = isShowingCachedShieldedBalance
+    ? "Shielded balance (last synced)"
+    : "Shielded balance";
   const smartWalletDeploymentStatus = smartAccountDeploymentLabel(
     smartAccountDeployment
   );
@@ -453,6 +506,8 @@ function WalletApp() {
   const shieldedStatus =
     shieldedBalance.status === "ready"
       ? `${shieldedBalance.balance.formattedEth} shielded`
+      : currentCachedShieldedBalance
+        ? `${currentCachedShieldedBalance.formattedEth} shielded`
       : !hasRailgunWallet
         ? "0zk pending"
         : !hasRecoverableRailgunKeyMaterial
@@ -497,6 +552,12 @@ function WalletApp() {
       return nextEntries;
     });
   }, []);
+
+  useEffect(() => {
+    setCachedShieldedBalance(
+      loadCachedShieldedBalanceForWallet(walletState.railgunAddress)
+    );
+  }, [walletState.railgunAddress]);
 
   const clearDebugEvents = useCallback(() => {
     clearDebugLog();
@@ -1046,6 +1107,8 @@ function WalletApp() {
       ]);
 
       if (shieldedBalanceRequestRef.current === requestId) {
+        saveCachedShieldedEthBalance(balance);
+        setCachedShieldedBalance(balance);
         setShieldedBalance({ status: "ready", balance });
         setStatusMessage(
           `Shielded balance synced: ${balance.formattedEth}${
@@ -1328,7 +1391,8 @@ function WalletApp() {
     }
 
     setIsReplacingRailgunWallet(true);
-    setRailgunRepairPreviousAddress(walletState.railgunAddress);
+    const previousRailgunAddress = walletState.railgunAddress;
+    setRailgunRepairPreviousAddress(previousRailgunAddress);
     setRailgunReplacementRecoveryPhrase(null);
     setRailgunRepairStatus("Wiping incompatible local RAILGUN key record");
     setStatusMessage("Replacing shielded RAILGUN wallet");
@@ -1336,6 +1400,8 @@ function WalletApp() {
 
     try {
       await clearEncryptedRailgunWallet();
+      clearCachedShieldedEthBalance(previousRailgunAddress);
+      setCachedShieldedBalance(null);
       const clearedState = clearRailgunWalletState(walletState);
       setWalletState(clearedState);
       setRailgunStorageMode("missing");
@@ -2001,6 +2067,9 @@ function WalletApp() {
 
   const resetLocalWallet = () => {
     setWalletState(resetWalletState());
+    clearCachedShieldedEthBalance();
+    setCachedShieldedBalance(null);
+    setShieldedBalance({ status: "missing-wallet" });
     setRailgunStorageMode("missing");
     setRailgunStorageChecked(true);
     setAccountExportStatus("");
@@ -2119,7 +2188,10 @@ function WalletApp() {
             <BalancePanel
               totalBalance={shieldedBalanceUsd}
               balanceLabel={balanceLabel}
-              networkStatus={shieldedBalanceNetworkStatus(shieldedBalance)}
+              networkStatus={shieldedBalanceNetworkStatus(
+                shieldedBalance,
+                currentCachedShieldedBalance
+              )}
               shieldedStatus={shieldedStatus}
               networkLabel="Ethereum mainnet"
               smartWalletAddress={walletState.smartWalletAddress}
