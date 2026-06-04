@@ -16,6 +16,7 @@ type BalancePanelProps = {
   networkLabel: string;
   smartWalletAddress: string | null;
   smartWalletStatus: string;
+  smartWalletDeploymentStatus: string | null;
   railgunAddress: string | null;
   railgunStatus: string;
   canSyncShielded: boolean;
@@ -46,6 +47,7 @@ export function BalancePanel({
   networkLabel,
   smartWalletAddress,
   smartWalletStatus,
+  smartWalletDeploymentStatus,
   railgunAddress,
   railgunStatus,
   canSyncShielded,
@@ -63,7 +65,12 @@ export function BalancePanel({
     <section className="balance-panel" aria-labelledby="balance-heading">
       <div className="wallet-topline">
         <div className="wallet-address">
-          <span>Public 4337</span>
+          <div className="wallet-address-label">
+            <span>Public smart account</span>
+            {smartWalletDeploymentStatus ? (
+              <small>{smartWalletDeploymentStatus}</small>
+            ) : null}
+          </div>
           <strong>{smartWalletAddress ?? smartWalletStatus}</strong>
           {smartWalletAddress ? (
             <button

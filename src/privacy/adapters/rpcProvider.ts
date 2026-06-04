@@ -30,19 +30,30 @@ const requestRpc = async <T>(
   method: string,
   params: unknown[]
 ): Promise<T> => {
-  const response = await fetch(rpcUrl, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: nextRequestId++,
-      method,
-      params
-    })
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(rpcUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: nextRequestId++,
+        method,
+        params
+      })
+    });
+  } catch (error) {
+    throw new Error(
+      `Ethereum RPC ${method} could not be reached from this browser. The configured endpoint may be offline, blocking CORS, rate-limiting browser requests, or rejecting this RPC method. Endpoint: ${rpcUrl}`,
+      { cause: error }
+    );
+  }
 
   if (!response.ok) {
-    throw new Error(`Ethereum RPC ${method} failed with HTTP ${response.status}`);
+    throw new Error(
+      `Ethereum RPC ${method} failed with HTTP ${response.status}. Endpoint: ${rpcUrl}`
+    );
   }
 
   const payload = (await response.json()) as RpcResponse<T>;

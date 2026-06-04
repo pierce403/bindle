@@ -43,11 +43,32 @@ export const isWasmUnreachableTrap = (error: unknown): boolean =>
   error.name === "RuntimeError" &&
   /\bunreachable\b/i.test(error.message);
 
+export const isKohakuRpcFetchFailure = (error: unknown): boolean => {
+  const message = errorMessage(error);
+
+  return (
+    /utxo indexer error/i.test(message) &&
+    (/failed to fetch/i.test(message) ||
+      /eth_getLogs/i.test(message) ||
+      /could not be reached from this browser/i.test(message))
+  );
+};
+
 export const createKohakuWasmTrapError = (
   operation: string,
   error: unknown
 ): PrivacyToolkitStartupError => {
   const rawMessage = errorMessage(error);
+
+  if (isKohakuRpcFetchFailure(error)) {
+    return new PrivacyToolkitStartupError(
+      `Configured Ethereum RPC failed during ${operation}. RAILGUN note sync needs browser-accessible eth_getLogs. This usually means the visible RPC endpoint is blocking CORS, rate-limiting browser log scans, offline, or not suitable for RAILGUN RPC-only sync. Change the Ethereum RPC in Connections to an endpoint that supports browser eth_getLogs for mainnet RAILGUN sync. This is not caused by the shielded wallet password repair flow.`,
+      {
+        rawCause: error
+      }
+    );
+  }
+
   const trapDetail = isWasmUnreachableTrap(error)
     ? "The Kohaku RAILGUN WASM module trapped with `unreachable`."
     : `Kohaku RAILGUN WASM failed with ${rawMessage}.`;

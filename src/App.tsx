@@ -54,6 +54,7 @@ import {
 } from "./privacy/toolkit";
 import {
   describeToolkitStartFailure,
+  isKohakuRpcFetchFailure,
   type ToolkitRecoveryAction
 } from "./privacy/toolkitErrors";
 import { usePwaDisplayMode } from "./pwa/usePwaDisplayMode";
@@ -63,6 +64,12 @@ import {
   sendSmartWalletCalls,
   sendSmartWalletEthPayment
 } from "./wallet/smartAccountAdapter";
+import {
+  fetchSmartAccountDeploymentStatus,
+  initialSmartAccountDeploymentStatus,
+  smartAccountDeploymentLabel,
+  type SmartAccountDeploymentStatus
+} from "./wallet/smartAccountDeployment";
 import {
   fetchPublicEthBalance,
   type PublicEthBalance
@@ -116,11 +123,15 @@ type ShieldedBalanceState =
   | { status: "ready"; balance: ShieldedEthBalance }
   | { status: "error"; message: string };
 
+type AppNoticeAction =
+  | ToolkitRecoveryAction
+  | { kind: "open-connections"; label: string };
+
 type AppNotice = {
   kind: "error" | "warning";
   title: string;
   message: string;
-  action?: ToolkitRecoveryAction;
+  action?: AppNoticeAction;
 } | null;
 
 type RailgunStorageMode = "browser-local" | "legacy-passphrase" | "missing";
@@ -287,9 +298,14 @@ function WalletApp() {
   const [shieldedBalance, setShieldedBalance] = useState<ShieldedBalanceState>(
     initialShieldedBalanceState
   );
+  const [smartAccountDeployment, setSmartAccountDeployment] =
+    useState<SmartAccountDeploymentStatus>(() =>
+      initialSmartAccountDeploymentStatus(loadWalletState().smartWalletAddress)
+    );
   const publicBalanceRequestRef = useRef(0);
   const publicActivityRequestRef = useRef(0);
   const shieldedBalanceRequestRef = useRef(0);
+  const smartAccountDeploymentRequestRef = useRef(0);
   const publicBalanceAutoSyncKeyRef = useRef<string | null>(null);
   const hasRailgunWallet = walletState.railgunAddress !== null;
   const hasSmartWallet = walletState.smartWalletAddress !== null;
@@ -344,6 +360,9 @@ function WalletApp() {
   const shieldedBalanceUsd =
     shieldedBalance.status === "ready" ? shieldedBalance.balance.usd ?? "$--" : "$--";
   const balanceLabel = "Shielded balance";
+  const smartWalletDeploymentStatus = smartAccountDeploymentLabel(
+    smartAccountDeployment
+  );
   const shieldReadiness = assessShieldReadiness({
     smartWalletAddress: walletState.smartWalletAddress,
     railgunAddress: walletState.railgunAddress,
@@ -681,7 +700,7 @@ function WalletApp() {
     setPolicy(saveConnectionPolicy(nextPolicy));
   };
 
-  const handleNoticeAction = (action: ToolkitRecoveryAction) => {
+  const handleNoticeAction = (action: AppNoticeAction) => {
     if (action.kind === "switch-privacy-toolkit") {
       updateConnectionPolicy(
         markConnectionPolicyCustom({
@@ -701,7 +720,11 @@ function WalletApp() {
           "Bindle is using the explicit RAILGUN Wallet SDK fallback for this browser session. Endpoints remain visible in Connections before anything starts."
       });
       setActiveTab("nodes");
+      return;
     }
+
+    setActiveTab("nodes");
+    setAppNotice(null);
   };
 
   const syncPublicActivity = async (latestBlockNumber?: bigint) => {
@@ -757,6 +780,69 @@ function WalletApp() {
     }
   };
 
+  const syncSmartAccountDeployment = async () => {
+    const smartWalletAddress = walletState.smartWalletAddress;
+
+    if (!smartWalletAddress) {
+      setSmartAccountDeployment({ status: "missing-wallet" });
+      return;
+    }
+
+    if (!policy.ethereumRpcUrl.trim()) {
+      setSmartAccountDeployment({ status: "missing-rpc" });
+      return;
+    }
+
+    const requestId = smartAccountDeploymentRequestRef.current + 1;
+    smartAccountDeploymentRequestRef.current = requestId;
+    setSmartAccountDeployment({ status: "checking" });
+    recordDebugEvent({
+      level: "info",
+      source: "smart-account",
+      message: "Checking public smart-account deployment status",
+      detail: `Address: ${smartWalletAddress}\nRPC: ${policy.ethereumRpcUrl.trim()}`
+    });
+
+    try {
+      const deployment = await fetchSmartAccountDeploymentStatus(
+        policy,
+        smartWalletAddress
+      );
+
+      if (smartAccountDeploymentRequestRef.current === requestId) {
+        setSmartAccountDeployment(deployment);
+
+        if (
+          deployment.status === "deployed" ||
+          deployment.status === "counterfactual"
+        ) {
+          recordDebugEvent({
+            level: "info",
+            source: "smart-account",
+            message:
+              deployment.status === "deployed"
+                ? "Public smart account is deployed"
+                : "Public smart account is counterfactual",
+            detail:
+              deployment.status === "deployed"
+                ? `Address: ${smartWalletAddress}\nBlock: ${deployment.blockNumber.toString()}\nCode size: ${deployment.codeSize.toString()} bytes`
+                : `Address: ${smartWalletAddress}\nBlock: ${deployment.blockNumber.toString()}\nNo contract code is deployed yet; the first successful ERC-4337 UserOperation deploys this account.`
+          });
+        }
+      }
+    } catch (error) {
+      if (smartAccountDeploymentRequestRef.current === requestId) {
+        const message = messageFromError(
+          error,
+          "Unable to check smart-account deployment",
+          "smart-account",
+          `Address: ${smartWalletAddress}\nRPC: ${policy.ethereumRpcUrl.trim()}`
+        );
+        setSmartAccountDeployment({ status: "error", message });
+      }
+    }
+  };
+
   const syncPublicBalance = async () => {
     const smartWalletAddress = walletState.smartWalletAddress;
 
@@ -795,6 +881,7 @@ function WalletApp() {
           message: `Public ETH balance synced: ${balance.formatted}`,
           detail: `Block: ${balance.blockNumber.toString()}`
         });
+        void syncSmartAccountDeployment();
         void syncPublicActivity(balance.blockNumber);
       }
     } catch (error) {
@@ -868,7 +955,10 @@ function WalletApp() {
         setAppNotice({
           kind: "error",
           title: "Shielded sync failed",
-          message: `${message} Open Debug for the full stack trace.`
+          message: `${message} Open Debug for the full stack trace.`,
+          action: isKohakuRpcFetchFailure(error)
+            ? { kind: "open-connections", label: "Open Connections" }
+            : undefined
         });
       }
     }
@@ -878,8 +968,15 @@ function WalletApp() {
     const smartWalletAddress = walletState.smartWalletAddress;
     const ethereumRpcUrl = policy.ethereumRpcUrl.trim();
 
-    if (!smartWalletAddress || !ethereumRpcUrl) {
+    if (!smartWalletAddress) {
       publicBalanceAutoSyncKeyRef.current = null;
+      setSmartAccountDeployment({ status: "missing-wallet" });
+      return;
+    }
+
+    if (!ethereumRpcUrl) {
+      publicBalanceAutoSyncKeyRef.current = null;
+      setSmartAccountDeployment({ status: "missing-rpc" });
       return;
     }
 
@@ -1347,6 +1444,7 @@ function WalletApp() {
               networkLabel="Ethereum mainnet"
               smartWalletAddress={walletState.smartWalletAddress}
               smartWalletStatus={smartWalletStatus}
+              smartWalletDeploymentStatus={smartWalletDeploymentStatus}
               railgunAddress={walletState.railgunAddress}
               railgunStatus={railgunStatus}
               canSyncShielded={canSyncShieldedBalance}

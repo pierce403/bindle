@@ -166,6 +166,10 @@ Current shield/unshield status:
   RAILGUN wallet, registers the local signer with Kohaku, scans RAILGUN notes via
   RPC-only UTXO sync, and sums the wrapped-base-token private balance as ETH.
   First sync can be slow because no hidden Subsquid/default indexer is used.
+  Public/default RPC endpoints may reject or CORS-block large browser
+  `eth_getLogs` scans; in that case Bindle surfaces the failing visible RPC and
+  the user should switch the Ethereum RPC in Connections to one that supports
+  browser RAILGUN log sync.
 - RAILGUN wallet creation/import is real and local. The recovery phrase is
   encrypted into IndexedDB with a non-extractable browser-local WebCrypto key;
   localStorage stores only the public `0zk` address and a key-store marker.

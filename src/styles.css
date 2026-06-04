@@ -515,7 +515,7 @@ button:disabled {
 
 .wallet-address {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(94px, max-content) minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   width: 100%;
@@ -538,10 +538,26 @@ button:disabled {
   color: #fff7f7;
 }
 
+.wallet-address-label {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
 .wallet-address span,
 .balance-display span,
 .balance-meta span {
   color: color-mix(in srgb, var(--accent) 76%, #ffffff);
+}
+
+.wallet-address-label small {
+  max-width: 18ch;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--muted) 78%, #ffffff);
+  font-size: 0.64rem;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .wallet-address strong {

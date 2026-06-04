@@ -93,6 +93,9 @@ infrastructure.
       PWA session instead of trapping during shield prep after wallet creation.
 - [x] Auto-start the privacy toolkit after a real `0zk` wallet exists when the
       selected visible preset allows it.
+- [x] Classify RAILGUN shielded-sync `eth_getLogs` browser fetch failures as
+      visible RPC capability/connectivity problems and route users back to
+      Connections instead of the wallet key repair flow.
 
 ## Now
 

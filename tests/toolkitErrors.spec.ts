@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   createKohakuWasmTrapError,
   describeToolkitStartFailure,
+  isKohakuRpcFetchFailure,
   isWasmUnreachableTrap
 } from "../src/privacy/toolkitErrors";
 
@@ -40,4 +41,25 @@ test("ordinary toolkit errors keep their current startup step", () => {
     message: "Connecting configured Ethereum RPC: RPC request failed",
     action: undefined
   });
+});
+
+test("Kohaku RAILGUN RPC fetch failures point users at the visible RPC", () => {
+  const rawError = new Error(
+    "Utxo indexer error: Syncer error: RPC error: JsValue(TypeError: Failed to fetch)"
+  );
+  const error = createKohakuWasmTrapError(
+    "syncing RAILGUN shielded notes",
+    rawError
+  );
+  const failure = describeToolkitStartFailure("", error);
+
+  expect(isKohakuRpcFetchFailure(rawError)).toBe(true);
+  expect(failure.message).toContain(
+    "Configured Ethereum RPC failed during syncing RAILGUN shielded notes"
+  );
+  expect(failure.message).toContain("browser-accessible eth_getLogs");
+  expect(failure.message).toContain(
+    "not caused by the shielded wallet password repair flow"
+  );
+  expect(failure.action).toBeUndefined();
 });
