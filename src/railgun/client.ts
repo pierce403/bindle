@@ -40,6 +40,17 @@ type SharedModelsModule = {
   NetworkName?: Record<string, unknown>;
 };
 
+type RailgunFallbackProviderJsonConfig = {
+  chainId: number;
+  providers: Array<{
+    provider: string;
+    priority: number;
+    weight: number;
+    stallTimeout: number;
+    maxLogsPerBatch: number;
+  }>;
+};
+
 type LevelJsModule = {
   default: new (databaseName: string) => unknown;
 };
@@ -73,6 +84,29 @@ const getEthereumNetworkName = (sharedModels: SharedModelsModule): unknown => {
 
   return "Ethereum";
 };
+
+export const createRailgunFallbackProviderConfig = ({
+  chainId,
+  ethereumRpcUrl
+}: {
+  chainId: number;
+  ethereumRpcUrl: string;
+}): RailgunFallbackProviderJsonConfig => ({
+  chainId,
+  providers: [
+    {
+      provider: ethereumRpcUrl,
+      priority: 3,
+      // @railgun-community/shared-models rejects configs whose total provider
+      // weight is below 2. Bindle intentionally keeps this as one visible RPC
+      // endpoint instead of adding a hidden fallback, so the single provider
+      // carries quorum weight by itself.
+      weight: 2,
+      stallTimeout: 2500,
+      maxLogsPerBatch: 5
+    }
+  ]
+});
 
 const startRailgunBrowserEngineFresh = async (
   policy: ConnectionPolicy,
@@ -127,17 +161,10 @@ const startRailgunBrowserEngineFresh = async (
     onStatus("Connecting Ethereum provider");
 
     await wallet.loadProvider(
-      {
+      createRailgunFallbackProviderConfig({
         chainId: networkConfig.chain.id,
-        providers: [
-          {
-            provider: policy.ethereumRpcUrl,
-            priority: 1,
-            weight: 1,
-            maxLogsPerBatch: 1
-          }
-        ]
-      },
+        ethereumRpcUrl: policy.ethereumRpcUrl.trim()
+      }),
       networkName,
       1000 * 60 * 5
     );
