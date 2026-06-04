@@ -40,6 +40,7 @@ const hasLegacyCustomEndpoint = (parsed: Record<string, unknown>): boolean =>
   stringValue(parsed.providerResolverUrl).length > 0 ||
   stringValue(parsed.priceQuoteUrl).length > 0 ||
   stringValue(parsed.railgunSyncUrl).length > 0 ||
+  stringValue(parsed.railgunArtifactUrl).length > 0 ||
   stringValue(parsed.heliosConsensusRpcUrl).length > 0 ||
   stringValue(parsed.heliosCheckpoint).length > 0 ||
   stringValue(parsed.passkeyAttestationUrl).length > 0 ||
@@ -73,6 +74,10 @@ const normalizeConnectionPolicy = (value: unknown): ConnectionPolicy => {
     endpointPreset === "bindle-default" && !stringValue(parsed.priceQuoteUrl)
       ? presetPolicy.priceQuoteUrl
       : stringValue(parsed.priceQuoteUrl);
+  const railgunArtifactUrl =
+    endpointPreset === "bindle-default" && !stringValue(parsed.railgunArtifactUrl)
+      ? presetPolicy.railgunArtifactUrl
+      : stringValue(parsed.railgunArtifactUrl);
 
   return {
     endpointPreset,
@@ -83,6 +88,7 @@ const normalizeConnectionPolicy = (value: unknown): ConnectionPolicy => {
     heliosCheckpoint: stringValue(parsed.heliosCheckpoint),
     heliosNetwork: heliosNetworkValue(parsed.heliosNetwork),
     railgunSyncUrl,
+    railgunArtifactUrl,
     poiAggregatorUrls: stringArrayValue(parsed.poiAggregatorUrls),
     broadcasterUrl: stringValue(parsed.broadcasterUrl),
     providerResolverUrl: stringValue(parsed.providerResolverUrl),

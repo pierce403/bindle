@@ -10,7 +10,8 @@ import {
   Search,
   Send,
   Shuffle,
-  WalletCards
+  WalletCards,
+  X
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { getPayAsset, searchPayAssets } from "../intents/assets";
@@ -424,6 +425,7 @@ export function WalletActionPanel({
 
   if (action === "pay") {
     return (
+      <>
       <section className="panel action-panel" aria-labelledby="pay-heading">
         <div className="section-heading">
           <div>
@@ -590,48 +592,82 @@ export function WalletActionPanel({
           ))}
         </div>
 
-        {reviewingPayment ? (
-          <div className="review-card" aria-label="Review pay route">
-            <span>Review pay route</span>
-            <div>
-              <strong>Spend</strong>
-              <span>Shielded ETH through RAILGUN</span>
-            </div>
-            <div>
-              <strong>Convert</strong>
-              <span>
-                {paySwapRoutePlan?.executionLabel ?? "No conversion"}
-              </span>
-            </div>
-            <div>
-              <strong>Quote</strong>
-              <span>{paySwapRoutePlan?.quoteLabel ?? "pending"}</span>
-            </div>
-            <div>
-              <strong>Router</strong>
-              <span>{paySwapRoutePlan?.routerLabel ?? "pending"}</span>
-            </div>
-            <div>
-              <strong>Slippage</strong>
-              <span>{paySwapRoutePlan?.slippageLabel ?? "pending"}</span>
-            </div>
-            <div>
-              <strong>Remainder</strong>
-              <span>{paySwapRoutePlan?.remainderLabel ?? "pending"}</span>
-            </div>
-            <div>
-              <strong>Send</strong>
-              <span>
-                {draft.amount.trim()} {selectedPayAsset?.symbol} to{" "}
-                {draft.recipient.trim()}
-              </span>
-            </div>
-            {selectedPayAsset?.kind === "erc20" ? (
+        <button
+          className="primary-action wide"
+          type="button"
+          disabled={!canReviewPayIntent}
+          onClick={() => setReviewingPayment(true)}
+        >
+          <Send size={18} aria-hidden="true" />
+          Review pay route
+        </button>
+      </section>
+      {reviewingPayment ? (
+        <div className="modal-backdrop">
+          <section
+            className="modal-sheet pay-review-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Review pay route"
+          >
+            <div className="modal-sheet-header">
               <div>
-                <strong>Token</strong>
-                <span>{selectedPayAsset.address}</span>
+                <span>Pay</span>
+                <h2>Review route</h2>
               </div>
-            ) : null}
+              <button
+                className="icon-button ghost"
+                type="button"
+                aria-label="Close pay review"
+                onClick={() => setReviewingPayment(false)}
+              >
+                <X size={20} aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="review-card pay-review-card">
+              <span>Review pay route</span>
+              <div>
+                <strong>Spend</strong>
+                <span>Shielded ETH through RAILGUN</span>
+              </div>
+              <div>
+                <strong>Convert</strong>
+                <span>
+                  {paySwapRoutePlan?.executionLabel ?? "No conversion"}
+                </span>
+              </div>
+              <div>
+                <strong>Quote</strong>
+                <span>{paySwapRoutePlan?.quoteLabel ?? "pending"}</span>
+              </div>
+              <div>
+                <strong>Router</strong>
+                <span>{paySwapRoutePlan?.routerLabel ?? "pending"}</span>
+              </div>
+              <div>
+                <strong>Slippage</strong>
+                <span>{paySwapRoutePlan?.slippageLabel ?? "pending"}</span>
+              </div>
+              <div>
+                <strong>Remainder</strong>
+                <span>{paySwapRoutePlan?.remainderLabel ?? "pending"}</span>
+              </div>
+              <div>
+                <strong>Send</strong>
+                <span>
+                  {draft.amount.trim()} {selectedPayAsset?.symbol} to{" "}
+                  {draft.recipient.trim()}
+                </span>
+              </div>
+              {selectedPayAsset?.kind === "erc20" ? (
+                <div>
+                  <strong>Token</strong>
+                  <span>{selectedPayAsset.address}</span>
+                </div>
+              ) : null}
+            </div>
+
             <ProofProgressPanel progress={payProofProgress} />
             <div className="route-blockers">
               <AlertTriangle size={17} aria-hidden="true" />
@@ -662,19 +698,10 @@ export function WalletActionPanel({
             {payStatus ? (
               <p className="status-message pay-status-message">{payStatus}</p>
             ) : null}
-          </div>
-        ) : null}
-
-        <button
-          className="primary-action wide"
-          type="button"
-          disabled={!canReviewPayIntent}
-          onClick={() => setReviewingPayment(true)}
-        >
-          <Send size={18} aria-hidden="true" />
-          Review pay route
-        </button>
-      </section>
+          </section>
+        </div>
+      ) : null}
+      </>
     );
   }
 

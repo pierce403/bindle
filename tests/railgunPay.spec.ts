@@ -1,5 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { grossUpUnshieldAmount } from "../src/railgun/pay";
+import { defaultConnectionPolicy } from "../src/privacy/connectionPolicy";
+import {
+  grossUpUnshieldAmount,
+  validateKohakuRailgunArtifactPolicy
+} from "../src/railgun/pay";
 
 test("Pay grosses up RAILGUN unshield amount so public WETH covers the swap input", () => {
   expect(
@@ -17,4 +21,13 @@ test("Pay does not gross up when the chain reports no unshield fee", () => {
       unshieldFeeBps: 0
     })
   ).toBe(1_000_000n);
+});
+
+test("Pay blocks custom RAILGUN artifact origins until Kohaku exposes a loader", () => {
+  expect(() =>
+    validateKohakuRailgunArtifactPolicy({
+      ...defaultConnectionPolicy,
+      railgunArtifactUrl: "https://example.com/railgun-artifacts/"
+    })
+  ).toThrow(/cannot use a custom RAILGUN artifact origin/i);
 });

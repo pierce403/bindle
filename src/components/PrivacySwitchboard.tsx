@@ -256,6 +256,32 @@ export function PrivacySwitchboard({
       </label>
 
       <label className="field">
+        <span>RAILGUN proving artifacts</span>
+        <input
+          list="railgun-artifact-options"
+          value={policy.railgunArtifactUrl}
+          placeholder="off"
+          onChange={(event) =>
+            updateCustom({
+              ...policy,
+              railgunArtifactUrl: event.currentTarget.value
+            })
+          }
+        />
+        <small>
+          Kohaku alpha currently loads proving artifacts from this upstream origin
+          during proof generation.
+        </small>
+        <datalist id="railgun-artifact-options">
+          {endpointChoices.railgunArtifactUrl.map((choice) => (
+            <option key={choice.value} value={choice.value}>
+              {choice.label}
+            </option>
+          ))}
+        </datalist>
+      </label>
+
+      <label className="field">
         <span>POI aggregator</span>
         <input
           value={policy.poiAggregatorUrls[0] ?? ""}

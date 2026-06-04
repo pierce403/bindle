@@ -12,6 +12,7 @@ const expectedOutboundIds = [
   "helios-consensus-rpc",
   "helios-checkpoint",
   "railgun-sync",
+  "railgun-artifacts",
   "railgun-poi",
   "railgun-broadcaster",
   "provider-resolution",
@@ -29,6 +30,7 @@ test("default user mode has a visible sane preset selected", () => {
   expect(defaultConnectionPolicy.ethereumRpcUrl).toMatch(/^https:\/\//);
   expect(defaultConnectionPolicy.bundlerUrl).toMatch(/^https:\/\//);
   expect(defaultConnectionPolicy.railgunSyncUrl).toMatch(/^https:\/\//);
+  expect(defaultConnectionPolicy.railgunArtifactUrl).toMatch(/^https:\/\//);
   expect(defaultConnectionPolicy.priceQuoteUrl).toBe("onchain:uniswap-v4");
   expect(defaultConnectionPolicy.paymasterUrl).toBe("");
   expect(defaultConnectionPolicy.autoStartToolkit).toBe(true);
@@ -41,6 +43,7 @@ test("privacy max preset clears hosted endpoints", () => {
   expect(policy.heliosConsensusRpcUrl).toBe("");
   expect(policy.heliosCheckpoint).toBe("");
   expect(policy.railgunSyncUrl).toBe("");
+  expect(policy.railgunArtifactUrl).toBe("");
   expect(policy.poiAggregatorUrls).toEqual([]);
   expect(policy.broadcasterUrl).toBe("");
   expect(policy.providerResolverUrl).toBe("");
@@ -89,6 +92,11 @@ test("outbound summary exposes every endpoint class", () => {
         id: "railgun-sync",
         source: "default",
         value: endpointPresets["bindle-default"].policy.railgunSyncUrl
+      }),
+      expect.objectContaining({
+        id: "railgun-artifacts",
+        source: "default",
+        value: endpointPresets["bindle-default"].policy.railgunArtifactUrl
       }),
       expect.objectContaining({
         id: "price-quotes",
@@ -264,6 +272,12 @@ test("pay review preflight discloses self-broadcast route endpoints", () => {
       }),
       expect.objectContaining({
         id: "price-quotes",
+        configured: true,
+        required: true,
+        source: "default"
+      }),
+      expect.objectContaining({
+        id: "railgun-artifacts",
         configured: true,
         required: true,
         source: "default"

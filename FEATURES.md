@@ -73,6 +73,9 @@ infrastructure.
       preset selection.
 - [x] Label each outbound connection as default, custom, local, or off.
 - [x] Add preflight disclosure rows that include endpoint source and value.
+- [x] Add an explicit RAILGUN proving-artifact origin to `ConnectionPolicy`,
+      Connections, and Pay preflight disclosure. Custom mirrors stay blocked
+      until Kohaku exposes a configurable artifact loader.
 - [x] Validate decimal ETH amount as greater than zero.
 - [x] Validate recipient shape for `0zk`, `0x`, and `.eth`.
 - [x] Add tests that verify default endpoints are visible, Privacy max clears
@@ -113,6 +116,8 @@ infrastructure.
 - [x] Add a Pay intent builder for mainnet ETH/USDC with local asset search,
       payment request QR/paste import, route review, and endpoint preflight
       disclosure.
+- [x] Present Pay route review, proof progress, blockers, and submit state in a
+      modal sheet instead of inserting the review below the form.
 - [x] Wire USDC Pay for Ethereum mainnet with a Kohaku RAILGUN WETH unshield
       proof for the actual local `0zk` wallet, RAILGUN unshield-fee gross-up,
       WETH unwrap, Uniswap v4 exact-output ETH-to-USDC calldata, 1% default max
@@ -125,6 +130,10 @@ infrastructure.
       than the primary first-run flow.
 - [x] Use the legacy RAILGUN Wallet SDK only for lifecycle paths Kohaku does not
       currently support.
+- [x] Persist a non-secret local setup-complete flag after public smart-account
+      metadata and browser-local RAILGUN key storage are both present, so the
+      onboarding wizard does not flash during toolkit auto-start on later PWA
+      launches.
 - [ ] Replace the interim browser-local RAILGUN key encryption with
       passkey-backed wrapping when WebAuthn PRF support is usable across target
       browsers.
@@ -148,7 +157,7 @@ infrastructure.
 - [ ] Show a preflight disclosure summary before any action that can reveal a
       public address, RPC URL, resolver query, broadcaster request, or provider
       route.
-- [ ] Add explicit artifact download origin policy before downloading RAILGUN
+- [x] Add explicit artifact download origin policy before downloading RAILGUN
       proving artifacts.
 - [ ] Add explicit provider resolver and broadcaster policy for outgoing
       decloaked routes.

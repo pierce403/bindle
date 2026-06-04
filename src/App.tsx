@@ -111,6 +111,11 @@ import {
   type PendingOwnerEnrollment
 } from "./wallet/ownerEnrollmentState";
 import {
+  clearLocalOnboardingComplete,
+  loadLocalOnboardingComplete,
+  saveLocalOnboardingComplete
+} from "./wallet/onboardingState";
+import {
   clearRailgunWalletState,
   loadWalletState,
   markPasskeyEnrolled,
@@ -388,6 +393,9 @@ function WalletApp() {
   const [railgunStorageMode, setRailgunStorageMode] =
     useState<RailgunStorageMode>("missing");
   const [railgunStorageChecked, setRailgunStorageChecked] = useState(false);
+  const [localOnboardingComplete, setLocalOnboardingComplete] = useState(
+    loadLocalOnboardingComplete
+  );
   const [publicBalance, setPublicBalance] = useState<PublicBalanceState>(
     initialPublicBalanceState
   );
@@ -422,10 +430,18 @@ function WalletApp() {
       ? "pending"
       : "not created";
   const railgunStatus = walletState.railgunAddress ? "ready" : "not created";
+  const hasOnboardingWalletShape =
+    walletState.smartWalletAddress !== null && walletState.railgunAddress !== null;
+  const localWalletProvisioned =
+    hasOnboardingWalletShape &&
+    walletState.railgunKeyStore === "encrypted-local" &&
+    railgunStorageChecked &&
+    railgunStorageMode === "browser-local";
+  const localWalletFullyProvisioned =
+    localWalletProvisioned && toolkitState === "ready";
   const onboardingComplete =
-    walletState.smartWalletAddress !== null &&
-    walletState.railgunAddress !== null &&
-    toolkitState === "ready";
+    hasOnboardingWalletShape &&
+    (localOnboardingComplete || localWalletFullyProvisioned);
   const sendEndpointDisclosure = buildEndpointDisclosure(
     policy,
     hasSmartWallet && !hasRailgunWallet ? "public-smart-payment" : "send-review"
@@ -558,6 +574,19 @@ function WalletApp() {
       loadCachedShieldedBalanceForWallet(walletState.railgunAddress)
     );
   }, [walletState.railgunAddress]);
+
+  useEffect(() => {
+    if (localWalletFullyProvisioned && !localOnboardingComplete) {
+      saveLocalOnboardingComplete();
+      setLocalOnboardingComplete(true);
+      return;
+    }
+
+    if (!hasOnboardingWalletShape && localOnboardingComplete) {
+      clearLocalOnboardingComplete();
+      setLocalOnboardingComplete(false);
+    }
+  }, [hasOnboardingWalletShape, localOnboardingComplete, localWalletFullyProvisioned]);
 
   const clearDebugEvents = useCallback(() => {
     clearDebugLog();
@@ -2070,6 +2099,8 @@ function WalletApp() {
 
   const resetLocalWallet = () => {
     setWalletState(resetWalletState());
+    clearLocalOnboardingComplete();
+    setLocalOnboardingComplete(false);
     clearCachedShieldedEthBalance();
     setCachedShieldedBalance(null);
     setShieldedBalance({ status: "missing-wallet" });

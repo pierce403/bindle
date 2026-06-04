@@ -5,6 +5,7 @@ export type OutboundClass =
   | "helios-consensus-rpc"
   | "helios-checkpoint"
   | "railgun-sync"
+  | "railgun-artifacts"
   | "railgun-poi"
   | "railgun-broadcaster"
   | "provider-resolution"
@@ -38,6 +39,7 @@ export type ConnectionPolicy = {
   heliosCheckpoint: string;
   heliosNetwork: HeliosNetwork;
   railgunSyncUrl: string;
+  railgunArtifactUrl: string;
   poiAggregatorUrls: string[];
   broadcasterUrl: string;
   providerResolverUrl: string;
@@ -71,6 +73,9 @@ export type EndpointChoice = {
   value: string;
 };
 
+export const KOHAKU_RAILGUN_ARTIFACT_BASE_URL =
+  "https://github.com/Robert-MacWha/privacy-protocol-artifacts/raw/refs/heads/main/artifacts/";
+
 export const endpointChoices = {
   ethereumRpcUrl: [
     {
@@ -86,6 +91,12 @@ export const endpointChoices = {
     {
       label: "Bindle default RAILGUN sync indexer",
       value: "https://rail-squid.squids.live/squid-railgun-ethereum-v2/v/v1/graphql"
+    }
+  ],
+  railgunArtifactUrl: [
+    {
+      label: "Kohaku default RAILGUN proving artifacts",
+      value: KOHAKU_RAILGUN_ARTIFACT_BASE_URL
     }
   ],
   bundlerUrl: [
@@ -112,6 +123,7 @@ const policyBase = {
   heliosCheckpoint: "",
   heliosNetwork: "mainnet" as HeliosNetwork,
   railgunSyncUrl: "",
+  railgunArtifactUrl: "",
   poiAggregatorUrls: [],
   broadcasterUrl: "",
   providerResolverUrl: "",
@@ -137,6 +149,7 @@ export const endpointPresets: Record<EndpointPresetId, EndpointPreset> = {
       ethereumRpcUrl: "https://ethereum-rpc.publicnode.com",
       railgunSyncUrl:
         "https://rail-squid.squids.live/squid-railgun-ethereum-v2/v/v1/graphql",
+      railgunArtifactUrl: KOHAKU_RAILGUN_ARTIFACT_BASE_URL,
       bundlerUrl: "https://public.pimlico.io/v2/1/rpc",
       priceQuoteUrl: UNISWAP_V4_QUOTE_SOURCE
     }
@@ -153,6 +166,7 @@ export const endpointPresets: Record<EndpointPresetId, EndpointPreset> = {
       providerMode: "direct-rpc",
       ethereumRpcUrl: "",
       railgunSyncUrl: "",
+      railgunArtifactUrl: "",
       bundlerUrl: ""
     }
   },
@@ -167,6 +181,7 @@ export const endpointPresets: Record<EndpointPresetId, EndpointPreset> = {
       providerMode: "direct-rpc",
       ethereumRpcUrl: "",
       railgunSyncUrl: "",
+      railgunArtifactUrl: "",
       bundlerUrl: ""
     }
   },
@@ -180,6 +195,7 @@ export const endpointPresets: Record<EndpointPresetId, EndpointPreset> = {
       providerMode: "direct-rpc",
       ethereumRpcUrl: "http://127.0.0.1:8545",
       railgunSyncUrl: "",
+      railgunArtifactUrl: "",
       bundlerUrl: "http://127.0.0.1:4337"
     }
   }
@@ -313,6 +329,17 @@ export const summarizeOutbound = (
         bindleDefault.railgunSyncUrl
       ),
       value: policy.railgunSyncUrl || "not connected"
+    },
+    {
+      id: "railgun-artifacts",
+      label: "RAILGUN proving artifacts",
+      mode: policy.railgunArtifactUrl ? "optional" : "off",
+      source: sourceForValue(
+        policy,
+        policy.railgunArtifactUrl,
+        bindleDefault.railgunArtifactUrl
+      ),
+      value: policy.railgunArtifactUrl || "not connected"
     },
     {
       id: "railgun-poi",

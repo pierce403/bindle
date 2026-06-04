@@ -137,6 +137,9 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByLabel("RAILGUN sync indexer")).toHaveValue(
       "https://rail-squid.squids.live/squid-railgun-ethereum-v2/v/v1/graphql"
     );
+    await expect(page.getByLabel("RAILGUN proving artifacts")).toHaveValue(
+      "https://github.com/Robert-MacWha/privacy-protocol-artifacts/raw/refs/heads/main/artifacts/"
+    );
     await expect(page.getByLabel("Quote source")).toHaveValue(
       "onchain:uniswap-v4"
     );
@@ -147,6 +150,7 @@ test.describe("passkey-first onboarding", () => {
 
     await expect(page.getByLabel("Ethereum execution RPC")).toHaveValue("");
     await expect(page.getByLabel("RAILGUN sync indexer")).toHaveValue("");
+    await expect(page.getByLabel("RAILGUN proving artifacts")).toHaveValue("");
     await expect(page.getByLabel("ERC-4337 bundler")).toHaveValue("");
     await expect(page.getByLabel("ERC-4337 paymaster")).toHaveValue("");
     await expect(page.getByLabel("Quote source")).toHaveValue("");
@@ -158,6 +162,7 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByText("Passkey attestation").first()).toBeVisible();
     await expect(page.getByText("Wallet recovery").first()).toBeVisible();
     await expect(page.getByText("RAILGUN sync indexer").first()).toBeVisible();
+    await expect(page.getByText("RAILGUN proving artifacts").first()).toBeVisible();
   });
 
   test(

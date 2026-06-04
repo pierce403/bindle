@@ -75,6 +75,7 @@ const actionEndpointRequirements: Record<
   "pay-review": {
     "ethereum-rpc": "required",
     "railgun-sync": "possible",
+    "railgun-artifacts": "required",
     "railgun-poi": "possible",
     "provider-resolution": "possible",
     "price-quotes": "required",
@@ -90,6 +91,7 @@ const actionEndpointRequirements: Record<
   "private-send": {
     "ethereum-rpc": "required",
     "railgun-sync": "possible",
+    "railgun-artifacts": "required",
     "railgun-poi": "possible",
     "railgun-broadcaster": "possible",
     "provider-resolution": "possible"
@@ -99,6 +101,7 @@ const actionEndpointRequirements: Record<
     "helios-consensus-rpc": "possible",
     "helios-checkpoint": "possible",
     "railgun-sync": "possible",
+    "railgun-artifacts": "required",
     "railgun-poi": "possible",
     "railgun-broadcaster": "required"
   },

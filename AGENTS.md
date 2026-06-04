@@ -115,9 +115,9 @@ Current endpoint presets:
 
 - Bindle default: Kohaku RAILGUN, direct RPC mode,
   `https://ethereum-rpc.publicnode.com` for Ethereum RPC, and
-  `https://public.pimlico.io/v2/1/rpc` for the ERC-4337 bundler. These are
-  public defaults that can see network metadata; never imply they are trustless
-  or private.
+  `https://public.pimlico.io/v2/1/rpc` for the ERC-4337 bundler, plus
+  Kohaku's visible RAILGUN proving-artifact origin. These are public defaults
+  that can see network metadata; never imply they are trustless or private.
 - Privacy max: hosted endpoints empty/off for users bringing local or
   self-hosted infrastructure.
 - Custom: preserves user-entered values while editing each endpoint manually.
@@ -220,6 +220,12 @@ avoids requiring GitHub workflow scope.
 - The current Kohaku adapter uses `RailgunBuilder.withUtxoSyncer(UtxoSyncer.rpc(...))`
   so startup contacts only the active visible Ethereum RPC endpoint and
   same-origin bundled WASM assets.
+- Kohaku's current alpha RAILGUN prover downloads proving artifacts from
+  `https://github.com/Robert-MacWha/privacy-protocol-artifacts/raw/refs/heads/main/artifacts/`.
+  Keep this origin visible in `ConnectionPolicy`, Connections, and proof
+  preflight. Do not allow Pay/private proof flows to proceed with a custom
+  artifact mirror until Kohaku exposes a configurable artifact loader, because
+  the WASM would still contact its compiled-in origin.
 - Passkey-backed smart wallet work should stay behind the Kohaku/privacy
   adapter boundary. Any ERC-4337 bundler, paymaster, passkey attestation, or
   recovery service must be represented in `ConnectionPolicy` and preflight

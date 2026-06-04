@@ -44,7 +44,10 @@ not the default first-run experience.
   browser-local `0zk` target.
 - Wallet-tab onboarding wizard that appears while local setup is incomplete and
   advances through passkey, visible endpoints, funding address creation,
-  shielded wallet creation/import, and toolkit startup.
+  and shielded wallet creation/import. After both public smart-account metadata
+  and browser-local RAILGUN key storage are present, Bindle persists a
+  non-secret local setup-complete flag so the wizard does not flash during
+  toolkit auto-start on later launches.
 - Viem Coinbase Smart Wallet adapter for passkey-backed ERC-4337 funding
   addresses and public ETH user operations through visible RPC/bundler
   endpoints.
@@ -60,9 +63,10 @@ not the default first-run experience.
 - Local intent routing for `0zk`, `0x`, `.eth`, and `@provider` style recipients.
 - Pay has a real USDC route for Ethereum mainnet: asset search,
   recipient/amount entry, QR or pasted payment request import, endpoint
-  preflight disclosure, live RAILGUN proof progress, Uniswap v4 exact-output
-  ETH-to-USDC calldata, and ERC-4337 submission through the passkey smart
-  account. It quotes through the visible Ethereum RPC by default, uses a 1% max
+  preflight disclosure, modal route review, live RAILGUN proof progress,
+  Uniswap v4 exact-output ETH-to-USDC calldata, and ERC-4337 submission through
+  the passkey smart account. It quotes through the visible Ethereum RPC by
+  default, uses a 1% max
   slippage default, and lets leftover ETH remain unshielded in the public smart
   account for a later sweep. This route uses Kohaku to build the RAILGUN WETH
   unshield transaction for the actual local `0zk` wallet, grosses up the
@@ -72,8 +76,9 @@ not the default first-run experience.
   account.
 - Endpoint presets are visible in Connections. Bindle default currently uses a
   labelled public Ethereum RPC, RAILGUN sync indexer, and public ERC-4337
-  bundler, plus an explicit `onchain:uniswap-v4` quote source; Privacy max
-  starts with hosted endpoints empty/off.
+  bundler, plus an explicit RAILGUN proving-artifact origin and
+  `onchain:uniswap-v4` quote source; Privacy max starts with hosted endpoints
+  empty/off.
 - Endpoint settings are persisted locally in the browser after the user changes
   them, so reloads do not silently remove configured RPC/bundler fields.
 - Default dark black/red paisley theme, with black/white and black/blue variants plus light and dark modes.
@@ -176,6 +181,13 @@ WETH unwrap and Uniswap v4, and submit the calls from the passkey smart
 account. Standalone unshielding, private RAILGUN sends, non-USDC Pay assets,
 and any-network provider routing remain pending.
 
+Kohaku's current alpha RAILGUN prover downloads proving artifacts from
+`https://github.com/Robert-MacWha/privacy-protocol-artifacts/raw/refs/heads/main/artifacts/`.
+Bindle exposes that origin in `ConnectionPolicy`, Connections, and Pay
+preflight. Custom artifact mirrors are blocked for Pay until Kohaku exposes a
+configurable artifact loader; otherwise the app would claim one origin while the
+WASM still contacted the compiled-in default.
+
 ## RAILGUN Integration Notes
 
 The RAILGUN Wallet SDK remains available as a fallback path for generating private keys and `0zk` addresses, scanning private balances, generating deposits, and creating proofs for private sends or unshielding where Kohaku is not yet usable. The SDK requires browser storage such as `level-js`, proof artifacts that should be downloaded and persisted instead of bundled, a SnarkJS Groth16 prover for browser builds, and explicit RPC provider loading.
@@ -234,9 +246,10 @@ Current presets:
 - Bindle default: visible public defaults for normal use. It currently sets
   Ethereum RPC to `https://ethereum-rpc.publicnode.com`, RAILGUN sync indexer
   to `https://rail-squid.squids.live/squid-railgun-ethereum-v2/v/v1/graphql`,
-  and ERC-4337 bundler to `https://public.pimlico.io/v2/1/rpc`, and enables
-  toolkit auto-start after local `0zk` wallet creation. These services can see
-  network metadata and must not be presented as trustless or private.
+  ERC-4337 bundler to `https://public.pimlico.io/v2/1/rpc`, and Kohaku's
+  current RAILGUN proving-artifact origin. It also enables toolkit auto-start
+  after local `0zk` wallet creation. These services can see network metadata
+  and must not be presented as trustless or private.
 - Privacy max: all hosted endpoints empty/off for users bringing local or
   self-hosted infrastructure. Toolkit auto-start is off.
 - Custom: preserves user-entered values while editing individual endpoints.

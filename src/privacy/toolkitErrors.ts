@@ -54,6 +54,12 @@ export const isKohakuRpcFetchFailure = (error: unknown): boolean => {
   );
 };
 
+export const isKohakuArtifactLoaderFailure = (error: unknown): boolean => {
+  const message = errorMessage(error);
+
+  return /artifact loader error/i.test(message) && /http error/i.test(message);
+};
+
 export const createKohakuWasmTrapError = (
   operation: string,
   error: unknown

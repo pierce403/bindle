@@ -6,9 +6,13 @@ import {
   type UniswapV4PayRoute
 } from "../intents/uniswapV4PayRoute";
 import { createExplicitRpcProvider } from "../privacy/adapters/rpcProvider";
-import type { ConnectionPolicy } from "../privacy/connectionPolicy";
+import {
+  KOHAKU_RAILGUN_ARTIFACT_BASE_URL,
+  type ConnectionPolicy
+} from "../privacy/connectionPolicy";
 import { createKohakuIndexedDbDatabase } from "../privacy/storage/kohakuDatabase";
 import {
+  isKohakuArtifactLoaderFailure,
   isKohakuRpcFetchFailure,
   isWasmUnreachableTrap
 } from "../privacy/toolkitErrors";
@@ -51,6 +55,12 @@ export type PreparedRailgunPay = {
 
 export const kohakuRailgunPayErrorName = "KohakuRailgunPayError";
 
+const normalizeArtifactBaseUrl = (value: string): string => {
+  const trimmed = value.trim();
+
+  return trimmed ? `${trimmed.replace(/\/+$/, "")}/` : "";
+};
+
 const loadKohakuPayModule = ({
   debugLogging
 }: {
@@ -60,9 +70,38 @@ const loadKohakuPayModule = ({
     logLevel: debugLogging ? "Debug" : "Warn"
   });
 
-const createKohakuPayError = (operation: string, error: unknown): Error => {
+export const validateKohakuRailgunArtifactPolicy = (
+  policy: Pick<ConnectionPolicy, "railgunArtifactUrl">
+): void => {
+  const configuredArtifactUrl = normalizeArtifactBaseUrl(policy.railgunArtifactUrl);
+  const kohakuArtifactUrl = normalizeArtifactBaseUrl(
+    KOHAKU_RAILGUN_ARTIFACT_BASE_URL
+  );
+
+  if (!configuredArtifactUrl) {
+    throw new Error(
+      "Configure RAILGUN proving artifacts before Pay. Kohaku needs proving artifacts to build the unshield proof."
+    );
+  }
+
+  if (configuredArtifactUrl !== kohakuArtifactUrl) {
+    throw new Error(
+      `Kohaku Pay cannot use a custom RAILGUN artifact origin yet. The current Kohaku alpha loads ${kohakuArtifactUrl} internally, so Pay is blocked to avoid contacting a hidden endpoint. Set RAILGUN proving artifacts to the Kohaku default origin until Kohaku exposes a configurable artifact loader.`
+    );
+  }
+};
+
+const createKohakuPayError = (
+  operation: string,
+  error: unknown,
+  artifactUrl = KOHAKU_RAILGUN_ARTIFACT_BASE_URL
+): Error => {
   const rawMessage = error instanceof Error ? error.message : String(error);
-  const message = isKohakuRpcFetchFailure(error)
+  const configuredArtifactUrl =
+    normalizeArtifactBaseUrl(artifactUrl) || KOHAKU_RAILGUN_ARTIFACT_BASE_URL;
+  const message = isKohakuArtifactLoaderFailure(error)
+    ? `Kohaku could not download RAILGUN proving artifacts while ${operation}. Pay proof generation contacts the visible RAILGUN proving artifacts origin: ${configuredArtifactUrl}. This endpoint must be reachable from this browser and allow artifact downloads. The current Kohaku alpha uses this origin internally, so custom mirrors are blocked until Kohaku exposes a configurable artifact loader.`
+    : isKohakuRpcFetchFailure(error)
     ? `Configured Ethereum RPC failed while ${operation}. Pay needs browser-accessible RAILGUN note sync before it can build the unshield proof. Change the Ethereum RPC or RAILGUN sync indexer in Connections.`
     : isWasmUnreachableTrap(error)
       ? `Kohaku RAILGUN WASM trapped with \`unreachable\` while ${operation}. Pay uses Kohaku for this wallet because the shielded funds are tied to the local 0zk address.`
@@ -74,12 +113,13 @@ const createKohakuPayError = (operation: string, error: unknown): Error => {
 
 const withKohakuPayContext = async <T>(
   operation: string,
-  action: () => Promise<T> | T
+  action: () => Promise<T> | T,
+  artifactUrl?: string
 ): Promise<T> => {
   try {
     return await action();
   } catch (error) {
-    throw createKohakuPayError(operation, error);
+    throw createKohakuPayError(operation, error, artifactUrl);
   }
 };
 
@@ -254,7 +294,8 @@ const buildKohakuUnshieldCall = async ({
               wethAsset as AssetId,
               unshieldAmountWei
             )
-        )
+        ),
+      policy.railgunArtifactUrl
     );
 
     onProgress({ percent: 90, status: "RAILGUN unshield proof ready" });
@@ -310,6 +351,8 @@ export const prepareRailgunUsdcPayForRecipient = async ({
   if (!policy.bundlerUrl.trim()) {
     throw new Error("Configure an ERC-4337 bundler before Pay.");
   }
+
+  validateKohakuRailgunArtifactPolicy(policy);
 
   const smartWalletAddress = walletState.smartWalletAddress as Address;
 
