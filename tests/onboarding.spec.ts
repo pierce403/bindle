@@ -73,6 +73,32 @@ test.describe("passkey-first onboarding", () => {
     await expect(review).toBeDisabled();
   });
 
+  test("builds a USDC pay route review without enabling submission", async ({
+    page
+  }) => {
+    await page.goto("/");
+
+    await page.getByRole("button", { name: "Pay" }).click();
+
+    await expect(page.getByRole("heading", { name: "Pay" })).toBeVisible();
+    await page.getByRole("button", { name: /USDC/ }).click();
+    await page.getByLabel("Pay amount").fill("5");
+    await page.getByLabel("Pay recipient").fill("deanpierce.eth");
+    await page.getByRole("button", { name: "Review pay route" }).click();
+
+    await expect(page.getByLabel("Review pay route")).toContainText(
+      "ETH to USDC via explicit router"
+    );
+    await expect(page.getByLabel("Review pay route")).toContainText(
+      "5 USDC to deanpierce.eth"
+    );
+    await expect(page.getByLabel("Review pay route")).toContainText("Blocked");
+    await expect(page.getByText("RAILGUN unshield proof generation")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Pay submission pending" })
+    ).toBeDisabled();
+  });
+
   test("shows visible defaults and privacy-max clears hosted endpoints", async ({
     page
   }) => {

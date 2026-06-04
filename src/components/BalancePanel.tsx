@@ -35,7 +35,7 @@ const walletActions: Array<{
 }> = [
   { id: "receive", label: "Receive", status: "active", Icon: ArrowDownToLine },
   { id: "send", label: "Send", status: "active", Icon: ArrowUpFromLine },
-  { id: "pay", label: "Pay", status: "planned", Icon: ArrowRight },
+  { id: "pay", label: "Pay", status: "active", Icon: ArrowRight },
   { id: "swap", label: "Swap", status: "planned", Icon: Repeat2 }
 ];
 

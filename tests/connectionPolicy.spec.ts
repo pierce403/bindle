@@ -232,3 +232,36 @@ test("unshield review preflight requires a visible broadcaster", () => {
     ])
   );
 });
+
+test("pay review preflight discloses unshield, resolver, and quote endpoints", () => {
+  const disclosure = buildEndpointDisclosure(defaultConnectionPolicy, "pay-review");
+
+  expect(disclosure).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: "ethereum-rpc",
+        configured: true,
+        required: true,
+        source: "default"
+      }),
+      expect.objectContaining({
+        id: "railgun-broadcaster",
+        configured: false,
+        required: true,
+        source: "off"
+      }),
+      expect.objectContaining({
+        id: "provider-resolution",
+        configured: false,
+        required: false,
+        source: "off"
+      }),
+      expect.objectContaining({
+        id: "price-quotes",
+        configured: false,
+        required: true,
+        source: "off"
+      })
+    ])
+  );
+});

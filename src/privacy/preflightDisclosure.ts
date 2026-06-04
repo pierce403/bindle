@@ -12,6 +12,7 @@ export type IntendedWalletAction =
   | "public-balance-sync"
   | "shielded-balance-sync"
   | "send-review"
+  | "pay-review"
   | "public-smart-payment"
   | "private-send"
   | "unshield-review"
@@ -70,6 +71,14 @@ const actionEndpointRequirements: Record<
     "provider-resolution": "possible",
     "erc4337-bundler": "possible",
     "erc4337-paymaster": "possible"
+  },
+  "pay-review": {
+    "ethereum-rpc": "required",
+    "railgun-sync": "possible",
+    "railgun-poi": "possible",
+    "railgun-broadcaster": "required",
+    "provider-resolution": "possible",
+    "price-quotes": "required"
   },
   "public-smart-payment": {
     "ethereum-rpc": "required",

@@ -110,6 +110,9 @@ infrastructure.
 - [x] Scaffold a separate `bindle-migration` static bridge app for `bindle.me`
       that imports account exports, creates replacement passkeys, and submits
       explicit add-owner UserOperations.
+- [x] Add a Pay intent builder for mainnet ETH/USDC with local asset search,
+      payment request QR/paste import, route review, and endpoint preflight
+      disclosure while keeping live submission blocked.
 
 ## Now
 
@@ -239,6 +242,9 @@ infrastructure.
 - [ ] Implement unshield-to-public-address review and proof generation.
 - [ ] Implement broadcaster submission only through explicit broadcaster policy.
 - [ ] Implement provider payment routing for decloaked outbound messages.
+- [ ] Implement one-shot Pay execution for shielded ETH unshield, explicit
+      ETH-to-USDC routing, and final ERC-20 transfer after RAILGUN proof,
+      quote/router, and slippage controls are wired.
 - [ ] Explore LayerZero-style Pay routing for any-network settlement.
 - [ ] Add Uniswap-based Swap flow.
 - [ ] Add XMTP chat or payment messaging.

@@ -378,6 +378,10 @@ function WalletApp() {
     policy,
     hasSmartWallet && !hasRailgunWallet ? "public-smart-payment" : "send-review"
   );
+  const actionEndpointDisclosure =
+    activeAction === "pay"
+      ? buildEndpointDisclosure(policy, "pay-review")
+      : sendEndpointDisclosure;
   const publicBalanceDisclosure = buildEndpointDisclosure(
     policy,
     "public-balance-sync"
@@ -2030,7 +2034,7 @@ function WalletApp() {
                 walletState={walletState}
                 isSubmittingSmartPayment={isSubmittingSmartPayment}
                 smartPaymentStatus={smartPaymentStatus}
-                endpointDisclosures={sendEndpointDisclosure}
+                endpointDisclosures={actionEndpointDisclosure}
                 onDeriveSmartWallet={() => void deriveSmartWallet()}
                 onOpenConnections={() => setActiveTab("nodes")}
                 onSubmitSmartPayment={() => void submitSmartPayment()}

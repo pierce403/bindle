@@ -1,4 +1,4 @@
-export const isValidEthAmount = (amount: string): boolean => {
+export const isValidDecimalAmount = (amount: string): boolean => {
   const normalized = amount.trim();
 
   if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) {
@@ -8,6 +8,8 @@ export const isValidEthAmount = (amount: string): boolean => {
   const value = Number(normalized);
   return Number.isFinite(value) && value > 0;
 };
+
+export const isValidEthAmount = isValidDecimalAmount;
 
 export const isValidRecipientShape = (recipient: string): boolean => {
   const normalized = recipient.trim();

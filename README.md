@@ -58,6 +58,11 @@ not the default first-run experience.
 - Send Review stays disabled until wallet, toolkit, RPC, recipient, amount, and
   required endpoint preflight checks pass.
 - Local intent routing for `0zk`, `0x`, `.eth`, and `@provider` style recipients.
+- Pay now has a real local intent builder for mainnet ETH and USDC, including
+  asset search, recipient/amount entry, QR or pasted payment request import,
+  and endpoint preflight disclosure. Submission remains blocked until the
+  RAILGUN unshield proof, explicit quote/router, and swap/send execution path
+  are implemented safely.
 - Endpoint presets are visible in Connections. Bindle default currently uses a
   labelled public Ethereum RPC, RAILGUN sync indexer, and public ERC-4337
   bundler; Privacy max starts with hosted endpoints empty/off.

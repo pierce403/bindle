@@ -2,19 +2,56 @@ import {
   ArrowDownToLine,
   ArrowRight,
   ArrowUpFromLine,
+  AlertTriangle,
   Copy,
   LockKeyhole,
+  QrCode,
   Repeat2,
+  Search,
   Send,
   Shuffle,
   WalletCards
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { getPayAsset, searchPayAssets } from "../intents/assets";
+import { parsePaymentRequest } from "../intents/paymentRequests";
 import { routeIntent, type IntentDraft, type RoutedIntent } from "../intents/router";
-import { isValidEthAmount, isValidRecipientShape } from "../intents/validation";
+import { isValidDecimalAmount, isValidRecipientShape } from "../intents/validation";
 import type { EndpointDisclosure } from "../privacy/preflightDisclosure";
 import type { WalletState } from "../wallet/walletState";
 import type { WalletAction } from "./BalancePanel";
+
+type BarcodeDetectorResult = {
+  rawValue: string;
+};
+
+type BindleBarcodeDetector = {
+  detect: (source: HTMLVideoElement) => Promise<BarcodeDetectorResult[]>;
+};
+
+type BindleBarcodeDetectorConstructor = new (options: {
+  formats: string[];
+}) => BindleBarcodeDetector;
+
+const barcodeDetector = (): BindleBarcodeDetectorConstructor | null => {
+  const detector = (globalThis as typeof globalThis & {
+    BarcodeDetector?: BindleBarcodeDetectorConstructor;
+  }).BarcodeDetector;
+
+  return typeof detector === "function" ? detector : null;
+};
+
+const shortEndpointValue = (endpoint: EndpointDisclosure): string => {
+  if (!endpoint.configured) {
+    return endpoint.required ? "required, not connected" : "off";
+  }
+
+  if (endpoint.id === "price-quotes" && endpoint.source === "off") {
+    return "off";
+  }
+
+  return `${endpoint.source}: ${endpoint.value}`;
+};
 
 type WalletActionPanelProps = {
   action: WalletAction;
@@ -60,9 +97,19 @@ export function WalletActionPanel({
   );
   const [sendMode, setSendMode] = useState<"shielded" | "public">("shielded");
   const [reviewingPayment, setReviewingPayment] = useState(false);
+  const [assetQuery, setAssetQuery] = useState("");
+  const [paymentRequestOpen, setPaymentRequestOpen] = useState(false);
+  const [paymentRequestText, setPaymentRequestText] = useState("");
+  const [paymentRequestError, setPaymentRequestError] = useState("");
+  const [qrScanning, setQrScanning] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const qrStreamRef = useRef<MediaStream | null>(null);
+  const qrScanActiveRef = useRef(false);
   const hasRecipient = draft.recipient.trim().length > 0;
-  const hasAmount = isValidEthAmount(draft.amount);
+  const hasAmount = isValidDecimalAmount(draft.amount);
   const hasValidRecipient = isValidRecipientShape(draft.recipient);
+  const selectedPayAsset = getPayAsset(draft.asset);
+  const payAssetResults = searchPayAssets(assetQuery);
   const requiredEndpointsReady = endpointDisclosures.every(
     (endpoint) => !endpoint.required || endpoint.configured
   );
@@ -91,11 +138,134 @@ export function WalletActionPanel({
     walletState.passkeyPublicKey !== null &&
     rpcConfigured &&
     !walletState.smartWalletAddress;
+  const canReviewPayIntent =
+    hasRecipient && hasValidRecipient && hasAmount && selectedPayAsset !== null;
+  const payRouteBlockers = [
+    !hasRailgunWallet ? "Create or import a shielded 0zk wallet." : null,
+    !hasRecoverableRailgunKeyMaterial
+      ? "Repair local RAILGUN key storage before spending shielded funds."
+      : null,
+    !rpcReady ? "Start the toolkit with a visible Ethereum RPC." : null,
+    !requiredEndpointsReady ? "Configure every required endpoint first." : null,
+    "RAILGUN unshield proof generation is not wired for Pay yet.",
+    selectedPayAsset?.symbol === "USDC"
+      ? "ETH-to-USDC swap routing is not wired yet."
+      : null
+  ].filter((blocker): blocker is string => blocker !== null);
+  const payRouteReady = payRouteBlockers.length === 0;
 
   const updateDraft = (nextDraft: IntentDraft) => {
     setReviewingPayment(false);
     onDraftChange(nextDraft);
     onRouteChange(routeIntent(nextDraft));
+  };
+
+  const stopQrScanner = () => {
+    qrScanActiveRef.current = false;
+
+    if (qrStreamRef.current) {
+      for (const track of qrStreamRef.current.getTracks()) {
+        track.stop();
+      }
+    }
+
+    qrStreamRef.current = null;
+    setQrScanning(false);
+  };
+
+  useEffect(() => stopQrScanner, []);
+
+  useEffect(() => {
+    setReviewingPayment(false);
+    setPaymentRequestOpen(false);
+    setPaymentRequestError("");
+    stopQrScanner();
+  }, [action]);
+
+  const applyPaymentRequest = (rawRequest: string) => {
+    const parsed = parsePaymentRequest(rawRequest);
+
+    if (!parsed.ok) {
+      setPaymentRequestError(parsed.error);
+      return false;
+    }
+
+    updateDraft({ ...draft, ...parsed.request });
+    setAssetQuery(parsed.request.asset);
+    setPaymentRequestError("");
+    setPaymentRequestText("");
+    setPaymentRequestOpen(false);
+    return true;
+  };
+
+  const scanPaymentQr = async () => {
+    setPaymentRequestError("");
+
+    const BarcodeDetectorConstructor = barcodeDetector();
+
+    if (!BarcodeDetectorConstructor || !navigator.mediaDevices?.getUserMedia) {
+      setPaymentRequestOpen(true);
+      setPaymentRequestError(
+        "Camera QR scanning is not available in this browser. Paste the payment request instead."
+      );
+      return;
+    }
+
+    stopQrScanner();
+    setQrScanning(true);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: { ideal: "environment" } }
+      });
+      const detector = new BarcodeDetectorConstructor({ formats: ["qr_code"] });
+
+      qrStreamRef.current = stream;
+      qrScanActiveRef.current = true;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+
+      const detect = async () => {
+        if (!qrScanActiveRef.current || !videoRef.current) {
+          return;
+        }
+
+        try {
+          const results = await detector.detect(videoRef.current);
+          const rawValue = results[0]?.rawValue;
+
+          if (rawValue && applyPaymentRequest(rawValue)) {
+            stopQrScanner();
+            return;
+          }
+        } catch (error) {
+          stopQrScanner();
+          setPaymentRequestOpen(true);
+          setPaymentRequestError(
+            error instanceof Error
+              ? error.message
+              : "QR scanning failed. Paste the payment request instead."
+          );
+          return;
+        }
+
+        requestAnimationFrame(() => void detect());
+      };
+
+      requestAnimationFrame(() => void detect());
+    } catch (error) {
+      stopQrScanner();
+      setPaymentRequestOpen(true);
+      setPaymentRequestError(
+        error instanceof Error
+          ? error.message
+          : "Camera access failed. Paste the payment request instead."
+      );
+    }
   };
 
   const copyAddress = async (address: string) => {
@@ -219,16 +389,219 @@ export function WalletActionPanel({
         <div className="section-heading">
           <div>
             <h2 id="pay-heading">Pay</h2>
-            <span>LayerZero routing planned</span>
+            <span>Private route preview</span>
           </div>
           <ArrowRight size={21} aria-hidden="true" />
         </div>
 
-        <div className="empty-state compact">
-          <WalletCards size={22} aria-hidden="true" />
-          <strong>Provider payments unavailable</strong>
-          <span>Cross-network settlement is not wired.</span>
+        <div className="pay-tools">
+          <button
+            className="secondary-action"
+            type="button"
+            onClick={() => void scanPaymentQr()}
+          >
+            <QrCode size={17} aria-hidden="true" />
+            Scan QR
+          </button>
+          <button
+            className="secondary-action"
+            type="button"
+            onClick={() => {
+              stopQrScanner();
+              setPaymentRequestOpen((open) => !open);
+              setPaymentRequestError("");
+            }}
+          >
+            <WalletCards size={17} aria-hidden="true" />
+            Paste request
+          </button>
         </div>
+
+        {qrScanning ? (
+          <div className="qr-scanner" aria-label="QR scanner">
+            <video ref={videoRef} muted playsInline />
+            <button
+              className="secondary-action wide"
+              type="button"
+              onClick={stopQrScanner}
+            >
+              Cancel scan
+            </button>
+          </div>
+        ) : null}
+
+        {paymentRequestOpen ? (
+          <div className="payment-request-card">
+            <label className="field">
+              <span>Payment request</span>
+              <textarea
+                value={paymentRequestText}
+                onChange={(event) => {
+                  setPaymentRequestError("");
+                  setPaymentRequestText(event.currentTarget.value);
+                }}
+                placeholder="bindle:pay?to=deanpierce.eth&amount=5&asset=USDC"
+              />
+            </label>
+            {paymentRequestError ? (
+              <p className="status-message">{paymentRequestError}</p>
+            ) : null}
+            <button
+              className="primary-action wide"
+              type="button"
+              onClick={() => applyPaymentRequest(paymentRequestText)}
+            >
+              <ArrowRight size={18} aria-hidden="true" />
+              Use request
+            </button>
+          </div>
+        ) : paymentRequestError ? (
+          <p className="status-message">{paymentRequestError}</p>
+        ) : null}
+
+        <label className="field">
+          <span>Asset</span>
+          <div className="asset-search">
+            <Search size={17} aria-hidden="true" />
+            <input
+              value={assetQuery}
+              onChange={(event) => setAssetQuery(event.currentTarget.value)}
+              placeholder={selectedPayAsset?.symbol ?? "Search assets"}
+            />
+          </div>
+        </label>
+
+        <div className="asset-results" aria-label="Asset results">
+          {payAssetResults.map((asset) => (
+            <button
+              type="button"
+              key={asset.symbol}
+              aria-pressed={draft.asset === asset.symbol}
+              onClick={() => {
+                setAssetQuery(asset.symbol);
+                updateDraft({ ...draft, asset: asset.symbol });
+              }}
+            >
+              <strong>{asset.symbol}</strong>
+              <span>{asset.name}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="amount-entry single-asset">
+          <input
+            aria-label="Pay amount"
+            inputMode="decimal"
+            value={draft.amount}
+            placeholder="0.00"
+            onChange={(event) =>
+              updateDraft({ ...draft, amount: event.currentTarget.value })
+            }
+          />
+          <span>{selectedPayAsset?.symbol ?? "Asset"}</span>
+        </div>
+
+        <label className="field">
+          <span>To</span>
+          <input
+            aria-label="Pay recipient"
+            value={draft.recipient}
+            onChange={(event) =>
+              updateDraft({ ...draft, recipient: event.currentTarget.value })
+            }
+            placeholder="deanpierce.eth, 0x, or 0zk"
+          />
+        </label>
+
+        <label className="field">
+          <span>Note</span>
+          <input
+            aria-label="Pay note"
+            value={draft.note}
+            onChange={(event) =>
+              updateDraft({ ...draft, note: event.currentTarget.value })
+            }
+            placeholder="optional"
+          />
+        </label>
+
+        <div className="route-card pay-route">
+          <div>
+            <span>Intent</span>
+            <strong>
+              {hasAmount && selectedPayAsset
+                ? `${draft.amount.trim()} ${selectedPayAsset.symbol}`
+                : "pending"}
+            </strong>
+          </div>
+          <ArrowRight size={19} aria-hidden="true" />
+          <div>
+            <span>Recipient</span>
+            <strong>{hasRecipient ? draft.recipient.trim() : "pending"}</strong>
+          </div>
+        </div>
+
+        <div className="preflight-card" aria-label="Pay endpoint preflight">
+          <span>Could contact</span>
+          {endpointDisclosures.map((endpoint) => (
+            <div className="preflight-row" key={endpoint.id}>
+              <strong>{endpoint.label}</strong>
+              <span>{shortEndpointValue(endpoint)}</span>
+            </div>
+          ))}
+        </div>
+
+        {reviewingPayment ? (
+          <div className="review-card" aria-label="Review pay route">
+            <span>Review pay route</span>
+            <div>
+              <strong>Spend</strong>
+              <span>Shielded ETH through RAILGUN</span>
+            </div>
+            <div>
+              <strong>Convert</strong>
+              <span>
+                {selectedPayAsset?.symbol === "USDC"
+                  ? "ETH to USDC via explicit router"
+                  : "No conversion"}
+              </span>
+            </div>
+            <div>
+              <strong>Send</strong>
+              <span>
+                {draft.amount.trim()} {selectedPayAsset?.symbol} to{" "}
+                {draft.recipient.trim()}
+              </span>
+            </div>
+            {selectedPayAsset?.kind === "erc20" ? (
+              <div>
+                <strong>Token</strong>
+                <span>{selectedPayAsset.address}</span>
+              </div>
+            ) : null}
+            <div className="route-blockers">
+              <AlertTriangle size={17} aria-hidden="true" />
+              <span>{payRouteReady ? "Ready" : "Blocked"}</span>
+              {payRouteBlockers.map((blocker) => (
+                <small key={blocker}>{blocker}</small>
+              ))}
+            </div>
+            <button className="secondary-action wide" type="button" disabled>
+              <Send size={18} aria-hidden="true" />
+              Pay submission pending
+            </button>
+          </div>
+        ) : null}
+
+        <button
+          className="primary-action wide"
+          type="button"
+          disabled={!canReviewPayIntent}
+          onClick={() => setReviewingPayment(true)}
+        >
+          <Send size={18} aria-hidden="true" />
+          Review pay route
+        </button>
       </section>
     );
   }

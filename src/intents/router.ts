@@ -1,9 +1,10 @@
+import type { PayAssetSymbol } from "./assets";
 import { findProviderRoute, type ProviderRoute } from "./providers";
 
 export type IntentDraft = {
   recipient: string;
   amount: string;
-  asset: "ETH";
+  asset: PayAssetSymbol;
   note: string;
 };
 
