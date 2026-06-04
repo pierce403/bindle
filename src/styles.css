@@ -56,9 +56,11 @@ button:disabled {
   --warning: #ffb13d;
   --negative: #ff5c6b;
   --shadow: 0 24px 70px rgba(0, 0, 0, 0.46);
-  --paisley-line: rgba(228, 35, 53, 0.28);
-  --paisley-dot: rgba(255, 236, 236, 0.13);
-  --paisley-fill: rgba(228, 35, 53, 0.08);
+  --paisley-filter: invert(1) sepia(1) saturate(2.6) hue-rotate(318deg)
+    brightness(0.78) contrast(1.18);
+  --paisley-blend: screen;
+  --paisley-opacity: 0.22;
+  --paisley-panel-opacity: 0.08;
   position: relative;
   display: grid;
   grid-template-columns: minmax(320px, 430px);
@@ -69,8 +71,12 @@ button:disabled {
   padding: 28px;
   overflow: hidden;
   background:
-    radial-gradient(circle at 10% 0%, var(--accent-soft), transparent 34%),
-    linear-gradient(135deg, var(--bg), #0a0707 55%, var(--bg));
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--accent) 6%, var(--bg)),
+      #0a0707 55%,
+      var(--bg)
+    );
   color: var(--text);
 }
 
@@ -90,45 +96,43 @@ button:disabled {
   --warning: #9c6718;
   --negative: #b31828;
   --shadow: 0 24px 60px rgba(24, 19, 19, 0.14);
-  --paisley-line: rgba(201, 29, 44, 0.22);
-  --paisley-dot: rgba(24, 19, 19, 0.08);
-  --paisley-fill: rgba(201, 29, 44, 0.07);
+  --paisley-filter: sepia(1) saturate(1.8) hue-rotate(318deg)
+    brightness(0.74) contrast(1.2);
+  --paisley-blend: multiply;
+  --paisley-opacity: 0.17;
+  --paisley-panel-opacity: 0.06;
 }
 
 .app-shell[data-theme-accent="white"] {
   --accent: #f4eee8;
   --accent-soft: rgba(255, 255, 255, 0.13);
   --accent-contrast: #090707;
-  --paisley-line: rgba(255, 255, 255, 0.28);
-  --paisley-dot: rgba(255, 255, 255, 0.15);
-  --paisley-fill: rgba(255, 255, 255, 0.06);
+  --paisley-filter: invert(1) grayscale(1) brightness(0.82) contrast(1.15);
+  --paisley-opacity: 0.2;
 }
 
 .app-shell[data-theme-mode="light"][data-theme-accent="white"] {
   --accent: #171515;
   --accent-soft: rgba(23, 21, 21, 0.1);
   --accent-contrast: #ffffff;
-  --paisley-line: rgba(23, 21, 21, 0.2);
-  --paisley-dot: rgba(23, 21, 21, 0.08);
-  --paisley-fill: rgba(23, 21, 21, 0.05);
+  --paisley-filter: grayscale(1) brightness(0.74) contrast(1.2);
+  --paisley-opacity: 0.16;
 }
 
 .app-shell[data-theme-accent="blue"] {
   --accent: #40a6ff;
   --accent-soft: rgba(64, 166, 255, 0.16);
   --accent-contrast: #06111c;
-  --paisley-line: rgba(64, 166, 255, 0.3);
-  --paisley-dot: rgba(219, 239, 255, 0.15);
-  --paisley-fill: rgba(64, 166, 255, 0.07);
+  --paisley-filter: invert(1) sepia(1) saturate(2.8) hue-rotate(174deg)
+    brightness(0.9) contrast(1.14);
 }
 
 .app-shell[data-theme-mode="light"][data-theme-accent="blue"] {
   --accent: #006bb8;
   --accent-soft: rgba(0, 107, 184, 0.12);
   --accent-contrast: #ffffff;
-  --paisley-line: rgba(0, 107, 184, 0.22);
-  --paisley-dot: rgba(24, 19, 19, 0.08);
-  --paisley-fill: rgba(0, 107, 184, 0.06);
+  --paisley-filter: sepia(1) saturate(2.1) hue-rotate(172deg)
+    brightness(0.76) contrast(1.2);
 }
 
 .app-shell::before {
@@ -136,14 +140,12 @@ button:disabled {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background-image:
-    radial-gradient(ellipse 78px 42px at 28px 22px, transparent 56%, var(--paisley-line) 58%, transparent 62%),
-    radial-gradient(circle at 47px 24px, var(--paisley-dot) 0 3px, transparent 4px),
-    radial-gradient(ellipse 42px 76px at 132px 94px, transparent 55%, var(--paisley-line) 57%, transparent 62%),
-    radial-gradient(circle at 120px 82px, var(--paisley-dot) 0 2px, transparent 3px),
-    repeating-radial-gradient(ellipse at 44% 46%, transparent 0 18px, var(--paisley-fill) 19px 31px, transparent 32px 64px);
-  background-size: 220px 170px, 220px 170px, 260px 190px, 260px 190px, 320px 260px;
-  opacity: 0.9;
+  background-image: url("/paisley-monochrome.png");
+  background-position: center top;
+  background-size: 560px 560px;
+  filter: var(--paisley-filter);
+  mix-blend-mode: var(--paisley-blend);
+  opacity: var(--paisley-opacity);
 }
 
 .app-shell > * {
@@ -332,9 +334,12 @@ button:disabled {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background:
-    radial-gradient(ellipse at 18% 8%, var(--paisley-fill), transparent 28%),
-    radial-gradient(ellipse at 85% 20%, var(--paisley-fill), transparent 24%);
+  background-image: url("/paisley-monochrome.png");
+  background-position: center top;
+  background-size: 520px 520px;
+  filter: var(--paisley-filter);
+  mix-blend-mode: var(--paisley-blend);
+  opacity: var(--paisley-panel-opacity);
 }
 
 .phone-frame > * {

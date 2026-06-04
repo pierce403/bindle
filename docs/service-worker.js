@@ -1,10 +1,11 @@
-const CACHE_NAME = "bindle-shell-v3";
+const CACHE_NAME = "bindle-shell-v4";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/favicon-16.png",
   "/favicon-32.png",
   "/logo.png",
+  "/paisley-monochrome.png",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
