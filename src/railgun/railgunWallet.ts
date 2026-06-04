@@ -68,6 +68,14 @@ export type UnlockedRailgunWallet = RailgunWalletResult & {
   viewingKey: `0x${string}`;
 };
 
+export type ExportedRailgunWallet = {
+  railgunAddress: string;
+  recoveryPhrase: string;
+  keyIndex: number;
+  chainId: string;
+  exportedFrom: "browser-local";
+};
+
 const databaseName = "bindle-railgun-wallet-secrets";
 const objectStoreName = "wallets";
 const primaryRecordId = "primary";
@@ -433,6 +441,25 @@ export const unlockEncryptedRailgunWallet =
       keyIndex: payload.keyIndex,
       chainId,
       storedAt: record.updatedAt
+    };
+  };
+
+export const exportEncryptedRailgunWallet =
+  async (): Promise<ExportedRailgunWallet | null> => {
+    const record = await loadEncryptedWalletRecord();
+
+    if (!record) {
+      return null;
+    }
+
+    const unlocked = await unlockEncryptedRailgunWallet();
+
+    return {
+      railgunAddress: unlocked.railgunAddress,
+      recoveryPhrase: unlocked.recoveryPhrase,
+      keyIndex: unlocked.keyIndex,
+      chainId: unlocked.chainId.toString(),
+      exportedFrom: "browser-local"
     };
   };
 

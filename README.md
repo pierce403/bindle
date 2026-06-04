@@ -30,6 +30,11 @@ not the default first-run experience.
 - Encrypted local RAILGUN recovery phrase storage in IndexedDB. Bindle derives
   Kohaku RAILGUN spending/viewing keys from the phrase locally to display a
   real `0zk` address.
+- Settings can export a local account JSON file and import it later. When a
+  RAILGUN wallet exists, the export includes the RAILGUN recovery phrase so it
+  can be re-encrypted into another Bindle PWA session. WebAuthn/passkey private
+  material is never exportable; the platform passkey must still exist or sync
+  through the user's passkey provider.
 - A stale `0zk` repair prompt appears when saved RAILGUN metadata points at
   missing or password-era local key storage. It can wipe only the incompatible
   RAILGUN local state, preserve the passkey funding wallet, and generate a new

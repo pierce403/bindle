@@ -1,0 +1,164 @@
+import type { ExportedRailgunWallet } from "../railgun/railgunWallet";
+import {
+  emptyWalletState,
+  type CustodyModel,
+  type RailgunKeyStore,
+  type WalletState,
+  type WalletStatus
+} from "./walletState";
+
+export type BindleAccountExport = {
+  schema: "me.bindle.account-export";
+  version: 1;
+  exportedAt: string;
+  wallet: WalletState;
+  railgunWallet: ExportedRailgunWallet | null;
+  warnings: string[];
+};
+
+const schema = "me.bindle.account-export";
+
+const exportWarnings = [
+  "If railgunWallet is present, this file contains the RAILGUN recovery phrase and can recover shielded funds.",
+  "This file does not contain WebAuthn/passkey private material; the platform passkey must still exist or sync separately.",
+  "Keep this file private and import it only into a trusted Bindle PWA session."
+];
+
+const isWalletStatus = (value: unknown): value is WalletStatus =>
+  value === "none" ||
+  value === "passkey-ready" ||
+  value === "smart-wallet-planned" ||
+  value === "railgun-ready" ||
+  value === "error";
+
+const isCustodyModel = (value: unknown): value is CustodyModel =>
+  value === "passkey-4337" ||
+  value === "mnemonic-railgun" ||
+  value === "external-wallet" ||
+  value === null;
+
+const isRailgunKeyStore = (value: unknown): value is RailgunKeyStore =>
+  value === "encrypted-local" || value === null;
+
+const stringOrNull = (value: unknown): string | null =>
+  typeof value === "string" && value.length > 0 ? value : null;
+
+const hexOrNull = (value: unknown): `0x${string}` | null =>
+  typeof value === "string" && /^0x[0-9a-fA-F]+$/.test(value)
+    ? (value as `0x${string}`)
+    : null;
+
+const booleanValue = (value: unknown): boolean => value === true;
+
+const normalizeWallet = (value: unknown): WalletState => {
+  if (!value || typeof value !== "object") {
+    return emptyWalletState;
+  }
+
+  const parsed = value as Record<string, unknown>;
+
+  return {
+    status: isWalletStatus(parsed.status) ? parsed.status : emptyWalletState.status,
+    smartWalletAddress: stringOrNull(parsed.smartWalletAddress),
+    railgunAddress: stringOrNull(parsed.railgunAddress),
+    railgunKeyStore: isRailgunKeyStore(parsed.railgunKeyStore)
+      ? parsed.railgunKeyStore
+      : emptyWalletState.railgunKeyStore,
+    passkeyPresent: booleanValue(parsed.passkeyPresent),
+    mnemonicPresent: booleanValue(parsed.mnemonicPresent),
+    createdAt: stringOrNull(parsed.createdAt),
+    railgunWalletCreatedAt: stringOrNull(parsed.railgunWalletCreatedAt),
+    railgunWalletImportedAt: stringOrNull(parsed.railgunWalletImportedAt),
+    lastError: stringOrNull(parsed.lastError),
+    custodyModel: isCustodyModel(parsed.custodyModel)
+      ? parsed.custodyModel
+      : emptyWalletState.custodyModel,
+    passkeyCredentialId: stringOrNull(parsed.passkeyCredentialId),
+    passkeyPublicKey: hexOrNull(parsed.passkeyPublicKey)
+  };
+};
+
+const normalizeRailgunWallet = (
+  value: unknown
+): ExportedRailgunWallet | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (!value || typeof value !== "object") {
+    throw new Error("Account export RAILGUN wallet section is invalid.");
+  }
+
+  const parsed = value as Record<string, unknown>;
+
+  if (
+    typeof parsed.railgunAddress !== "string" ||
+    typeof parsed.recoveryPhrase !== "string" ||
+    typeof parsed.keyIndex !== "number" ||
+    typeof parsed.chainId !== "string" ||
+    parsed.exportedFrom !== "browser-local"
+  ) {
+    throw new Error("Account export RAILGUN wallet section is invalid.");
+  }
+
+  return {
+    railgunAddress: parsed.railgunAddress,
+    recoveryPhrase: parsed.recoveryPhrase,
+    keyIndex: parsed.keyIndex,
+    chainId: parsed.chainId,
+    exportedFrom: "browser-local"
+  };
+};
+
+export const createBindleAccountExport = ({
+  railgunWallet,
+  wallet
+}: {
+  railgunWallet: ExportedRailgunWallet | null;
+  wallet: WalletState;
+}): BindleAccountExport => ({
+  schema,
+  version: 1,
+  exportedAt: new Date().toISOString(),
+  wallet: normalizeWallet(wallet),
+  railgunWallet,
+  warnings: exportWarnings
+});
+
+export const parseBindleAccountExport = (text: string): BindleAccountExport => {
+  const parsed = JSON.parse(text) as unknown;
+
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("Account export is not a JSON object.");
+  }
+
+  const record = parsed as Record<string, unknown>;
+
+  if (record.schema !== schema || record.version !== 1) {
+    throw new Error("Account export is not a supported Bindle export file.");
+  }
+
+  return {
+    schema,
+    version: 1,
+    exportedAt:
+      typeof record.exportedAt === "string"
+        ? record.exportedAt
+        : new Date().toISOString(),
+    wallet: normalizeWallet(record.wallet),
+    railgunWallet: normalizeRailgunWallet(record.railgunWallet),
+    warnings: Array.isArray(record.warnings)
+      ? record.warnings.filter((item): item is string => typeof item === "string")
+      : exportWarnings
+  };
+};
+
+export const accountExportFilename = (wallet: WalletState): string => {
+  const date = new Date().toISOString().slice(0, 10);
+  const suffix =
+    wallet.smartWalletAddress?.slice(2, 8) ??
+    wallet.railgunAddress?.slice(3, 9) ??
+    "local";
+
+  return `bindle-account-${suffix}-${date}.json`;
+};

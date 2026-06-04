@@ -714,6 +714,10 @@ button:disabled {
   color: var(--text);
 }
 
+.secondary-action:disabled {
+  opacity: 0.55;
+}
+
 .wide {
   width: 100%;
 }
@@ -1249,6 +1253,23 @@ button:disabled {
   display: grid;
   min-width: 0;
   gap: 3px;
+}
+
+.settings-row small {
+  color: color-mix(in srgb, var(--text) 54%, transparent);
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.file-input {
+  display: none;
 }
 
 .settings-panel .theme-dock {

@@ -44,6 +44,7 @@ import {
 import {
   clearEncryptedRailgunWallet,
   createEncryptedRailgunWallet,
+  exportEncryptedRailgunWallet,
   getEncryptedRailgunWalletStorageMode,
   importEncryptedRailgunWallet
 } from "./railgun/railgunWallet";
@@ -59,6 +60,11 @@ import {
 } from "./privacy/toolkitErrors";
 import { usePwaDisplayMode } from "./pwa/usePwaDisplayMode";
 import { defaultTheme, type ThemeSelection } from "./theme/theme";
+import {
+  accountExportFilename,
+  createBindleAccountExport,
+  parseBindleAccountExport
+} from "./wallet/accountExport";
 import {
   deriveSmartWalletAddressFromPasskey,
   sendSmartWalletCalls,
@@ -91,6 +97,7 @@ import {
   markSmartWalletReady,
   markWalletError,
   resetWalletState,
+  saveWalletState,
   type WalletState
 } from "./wallet/walletState";
 
@@ -280,6 +287,9 @@ function WalletApp() {
   const [smartPaymentStatus, setSmartPaymentStatus] = useState("");
   const [isSubmittingShield, setIsSubmittingShield] = useState(false);
   const [shieldStatus, setShieldStatus] = useState("");
+  const [isExportingAccount, setIsExportingAccount] = useState(false);
+  const [isImportingAccount, setIsImportingAccount] = useState(false);
+  const [accountExportStatus, setAccountExportStatus] = useState("");
   const [isReplacingRailgunWallet, setIsReplacingRailgunWallet] = useState(false);
   const [railgunRepairStatus, setRailgunRepairStatus] = useState("");
   const [railgunRepairPreviousAddress, setRailgunRepairPreviousAddress] =
@@ -1326,10 +1336,198 @@ function WalletApp() {
     }
   };
 
+  const exportAccount = async () => {
+    if (isExportingAccount || isImportingAccount) {
+      return;
+    }
+
+    if (
+      !walletState.passkeyPresent &&
+      !walletState.smartWalletAddress &&
+      !walletState.railgunAddress
+    ) {
+      setAccountExportStatus("No local account exists to export.");
+      return;
+    }
+
+    setIsExportingAccount(true);
+    setAccountExportStatus("Preparing account export");
+    setStatusMessage("Preparing account export");
+    setAppNotice(null);
+
+    try {
+      const railgunWallet = await exportEncryptedRailgunWallet();
+      const accountExport = createBindleAccountExport({
+        railgunWallet,
+        wallet: walletState
+      });
+      const blob = new Blob([JSON.stringify(accountExport, null, 2)], {
+        type: "application/json"
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = accountExportFilename(walletState);
+      link.rel = "noopener";
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+
+      const message = railgunWallet
+        ? "Account export downloaded. It includes the RAILGUN recovery phrase; keep it private."
+        : "Account metadata export downloaded. No local RAILGUN recovery phrase was included.";
+      setAccountExportStatus(message);
+      setStatusMessage("Account export downloaded");
+      recordDebugEvent({
+        level: "info",
+        source: "settings",
+        message: "Account export downloaded",
+        detail: railgunWallet
+          ? `Railgun address: ${railgunWallet.railgunAddress}`
+          : "No RAILGUN wallet secrets included"
+      });
+    } catch (error) {
+      const message = messageFromError(
+        error,
+        "Unable to export account",
+        "settings"
+      );
+      setAccountExportStatus(message);
+      setStatusMessage(message);
+      setAppNotice({
+        kind: "error",
+        title: "Account export failed",
+        message: `${message} Open Debug for the full stack trace.`
+      });
+    } finally {
+      setIsExportingAccount(false);
+    }
+  };
+
+  const importAccountExportFile = async (file: File) => {
+    if (isExportingAccount || isImportingAccount) {
+      return;
+    }
+
+    if (
+      (walletState.passkeyPresent ||
+        walletState.smartWalletAddress ||
+        walletState.railgunAddress) &&
+      !window.confirm(
+        "Importing an account export replaces local Bindle wallet metadata and Bindle-owned encrypted RAILGUN secrets in this browser. Continue?"
+      )
+    ) {
+      return;
+    }
+
+    setIsImportingAccount(true);
+    setAccountExportStatus("Importing account export");
+    setStatusMessage("Importing account export");
+    setAppNotice(null);
+
+    try {
+      const accountExport = parseBindleAccountExport(await file.text());
+      const importedWallet = accountExport.railgunWallet
+        ? await importEncryptedRailgunWallet({
+            recoveryPhrase: accountExport.railgunWallet.recoveryPhrase,
+            keyIndex: accountExport.railgunWallet.keyIndex,
+            chainId: BigInt(accountExport.railgunWallet.chainId)
+          })
+        : null;
+
+      if (
+        importedWallet &&
+        accountExport.railgunWallet &&
+        importedWallet.railgunAddress !== accountExport.railgunWallet.railgunAddress
+      ) {
+        await clearEncryptedRailgunWallet();
+        throw new Error(
+          "Account export RAILGUN address does not match its recovery phrase."
+        );
+      }
+
+      const baseState: WalletState = {
+        ...accountExport.wallet,
+        railgunAddress: null,
+        railgunKeyStore: null,
+        mnemonicPresent: false,
+        railgunWalletCreatedAt: null,
+        railgunWalletImportedAt: null,
+        lastError: null,
+        status: accountExport.wallet.smartWalletAddress
+          ? "smart-wallet-planned"
+          : accountExport.wallet.passkeyPresent
+            ? "passkey-ready"
+            : "none"
+      };
+      const nextState = importedWallet
+        ? markRailgunWalletReady(
+            baseState,
+            importedWallet.railgunAddress,
+            "imported"
+          )
+        : saveWalletState(baseState);
+
+      if (!importedWallet) {
+        await clearEncryptedRailgunWallet();
+      }
+
+      setWalletState(nextState);
+      setRailgunStorageMode(importedWallet ? "browser-local" : "missing");
+      setRailgunStorageChecked(true);
+      setRailgunRepairPreviousAddress(null);
+      setRailgunRepairStatus("");
+      setRailgunReplacementRecoveryPhrase(null);
+      setPublicBalance(
+        nextState.smartWalletAddress ? { status: "idle" } : { status: "missing-wallet" }
+      );
+      setPublicActivity(
+        nextState.smartWalletAddress
+          ? { status: "idle", items: [] }
+          : { status: "missing-wallet", items: [] }
+      );
+      setShieldedBalance(
+        nextState.railgunAddress ? { status: "idle" } : { status: "missing-wallet" }
+      );
+      setSmartAccountDeployment(
+        initialSmartAccountDeploymentStatus(nextState.smartWalletAddress)
+      );
+
+      const message = importedWallet
+        ? "Account export imported. RAILGUN recovery phrase was re-encrypted for this browser."
+        : "Account metadata imported. No RAILGUN recovery phrase was present.";
+      setAccountExportStatus(message);
+      setStatusMessage("Account export imported");
+      recordDebugEvent({
+        level: "info",
+        source: "settings",
+        message: "Account export imported",
+        detail: importedWallet
+          ? `Railgun address: ${importedWallet.railgunAddress}`
+          : "No RAILGUN wallet secrets imported"
+      });
+    } catch (error) {
+      const message = messageFromError(
+        error,
+        "Unable to import account export",
+        "settings"
+      );
+      setAccountExportStatus(message);
+      setStatusMessage(message);
+      setAppNotice({
+        kind: "error",
+        title: "Account import failed",
+        message: `${message} Open Debug for the full stack trace.`
+      });
+    } finally {
+      setIsImportingAccount(false);
+    }
+  };
+
   const resetLocalWallet = () => {
     setWalletState(resetWalletState());
     setRailgunStorageMode("missing");
     setRailgunStorageChecked(true);
+    setAccountExportStatus("");
     setRailgunRepairStatus("");
     setRailgunRepairPreviousAddress(null);
     setRailgunReplacementRecoveryPhrase(null);
@@ -1518,7 +1716,12 @@ function WalletApp() {
         {activeTab === "settings" ? (
           <SettingsPanel
             theme={theme}
+            accountExportStatus={accountExportStatus}
+            isExportingAccount={isExportingAccount}
+            isImportingAccount={isImportingAccount}
             onThemeChange={setTheme}
+            onExportAccount={() => void exportAccount()}
+            onImportAccountExport={(file) => void importAccountExportFile(file)}
             onResetWallet={resetLocalWallet}
           />
         ) : null}

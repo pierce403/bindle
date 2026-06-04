@@ -96,6 +96,9 @@ infrastructure.
 - [x] Classify RAILGUN shielded-sync `eth_getLogs` browser fetch failures as
       visible RPC capability/connectivity problems and route users back to
       Connections instead of the wallet key repair flow.
+- [x] Add Settings account export/import JSON for local wallet metadata and
+      RAILGUN recovery phrase recovery, while documenting that WebAuthn passkey
+      private material cannot be exported.
 
 ## Now
 
