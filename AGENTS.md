@@ -26,7 +26,7 @@ Work style for this repo:
 - Prefer small, verifiable changes that keep outbound services visible,
   replaceable, and disclosed.
 - Commit finished knowledge and implementation changes. Push `main` when the
-  change is meant to update the GitHub repo or `bindle.me`.
+  change is meant to update the GitHub repo or `bindle.cash`.
 
 ## Responsibilities
 
@@ -53,7 +53,7 @@ Current stack:
 - RAILGUN Wallet SDK fallback, loaded only behind an explicit adapter choice.
 - GitHub Pages from `main:/docs`.
 - Manual PWA manifest and service worker from `public/`.
-- Custom domain: `bindle.me`.
+- Custom domain: `bindle.cash`.
 - Target first-run onboarding: mobile PWA passkey creates a smart wallet, then
   Bindle connects that account to shielded ETH through the privacy toolkit.
   Seed phrases, EOA imports, and legacy SDK wallet lifecycle paths are
@@ -183,8 +183,8 @@ git push origin main
 Verify Pages:
 
 ```bash
-curl -sS -I https://bindle.me/
-curl -sS https://bindle.me/
+curl -sS -I https://bindle.cash/
+curl -sS https://bindle.cash/
 ```
 
 GitHub Pages is configured as legacy branch publishing from `main:/docs`; this

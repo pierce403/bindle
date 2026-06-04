@@ -14,7 +14,7 @@ not the default first-run experience.
 
 - Vite, React, and TypeScript.
 - GitHub Pages-ready `docs` build output.
-- `bindle.me` custom domain marker in `public/CNAME`.
+- `bindle.cash` custom domain marker in `public/CNAME`.
 - Browser visits show a public information and install page; the actual wallet
   UI mounts only when the app is running in installed PWA display mode.
 - Kohaku-first privacy toolkit boundary in `src/privacy/toolkit.ts`.
