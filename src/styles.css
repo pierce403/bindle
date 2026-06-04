@@ -61,6 +61,8 @@ button:disabled {
   --paisley-blend: screen;
   --paisley-opacity: 0.24;
   --paisley-panel-opacity: 0.09;
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --mobile-nav-gutter: max(34px, var(--safe-area-bottom));
   position: relative;
   display: grid;
   grid-template-columns: minmax(320px, 430px);
@@ -1519,7 +1521,7 @@ button:disabled {
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 4px;
   margin-top: 12px;
-  padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+  padding: 8px;
   border: 1px solid var(--border);
   border-radius: 20px;
   background: color-mix(in srgb, var(--surface-raised) 94%, transparent);
@@ -1625,6 +1627,7 @@ button:disabled {
     height: 100dvh;
     min-height: 100dvh;
     max-height: 100dvh;
+    padding-bottom: calc(18px + var(--mobile-nav-gutter));
     border: 0;
     border-radius: 0;
     box-shadow: none;
@@ -1648,7 +1651,7 @@ button:disabled {
   }
 
   .phone-frame {
-    padding: 14px;
+    padding: 14px 14px calc(14px + var(--mobile-nav-gutter));
   }
 
   .balance-display h1 {
