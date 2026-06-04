@@ -7,6 +7,7 @@ import {
 } from "../intents/uniswapV4PayRoute";
 import { createExplicitRpcProvider } from "../privacy/adapters/rpcProvider";
 import {
+  BINDLE_RAILGUN_ARTIFACT_BASE_PATH,
   KOHAKU_RAILGUN_ARTIFACT_BASE_URL,
   type ConnectionPolicy
 } from "../privacy/connectionPolicy";
@@ -54,6 +55,7 @@ export type PreparedRailgunPay = {
 };
 
 export const kohakuRailgunPayErrorName = "KohakuRailgunPayError";
+const bindleArtifactProxyVersion = "railgun-artifacts-v1";
 
 const normalizeArtifactBaseUrl = (value: string): string => {
   const trimmed = value.trim();
@@ -74,8 +76,8 @@ export const validateKohakuRailgunArtifactPolicy = (
   policy: Pick<ConnectionPolicy, "railgunArtifactUrl">
 ): void => {
   const configuredArtifactUrl = normalizeArtifactBaseUrl(policy.railgunArtifactUrl);
-  const kohakuArtifactUrl = normalizeArtifactBaseUrl(
-    KOHAKU_RAILGUN_ARTIFACT_BASE_URL
+  const bindleArtifactUrl = normalizeArtifactBaseUrl(
+    BINDLE_RAILGUN_ARTIFACT_BASE_PATH
   );
 
   if (!configuredArtifactUrl) {
@@ -84,9 +86,106 @@ export const validateKohakuRailgunArtifactPolicy = (
     );
   }
 
-  if (configuredArtifactUrl !== kohakuArtifactUrl) {
+  if (configuredArtifactUrl !== bindleArtifactUrl) {
     throw new Error(
-      `Kohaku Pay cannot use a custom RAILGUN artifact origin yet. The current Kohaku alpha loads ${kohakuArtifactUrl} internally, so Pay is blocked to avoid contacting a hidden endpoint. Set RAILGUN proving artifacts to the Kohaku default origin until Kohaku exposes a configurable artifact loader.`
+      `Pay requires Bindle-hosted RAILGUN proving artifacts at ${bindleArtifactUrl}. Custom artifact origins are blocked until Kohaku exposes a configurable artifact loader.`
+    );
+  }
+};
+
+const waitForServiceWorkerController = async (): Promise<ServiceWorker> => {
+  if (!("serviceWorker" in navigator)) {
+    throw new Error(
+      "Bindle-hosted RAILGUN proving artifacts require the installed PWA service worker."
+    );
+  }
+
+  await navigator.serviceWorker.ready;
+
+  if (navigator.serviceWorker.controller) {
+    return navigator.serviceWorker.controller;
+  }
+
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      navigator.serviceWorker.removeEventListener(
+        "controllerchange",
+        handleControllerChange
+      );
+      reject(
+        new Error(
+          "Bindle's artifact proxy service worker is not controlling this page yet. Reopen or reload the PWA before Pay."
+        )
+      );
+    }, 5_000);
+
+    const handleControllerChange = () => {
+      if (!navigator.serviceWorker.controller) {
+        return;
+      }
+
+      window.clearTimeout(timeout);
+      navigator.serviceWorker.removeEventListener(
+        "controllerchange",
+        handleControllerChange
+      );
+      resolve(navigator.serviceWorker.controller);
+    };
+
+    navigator.serviceWorker.addEventListener(
+      "controllerchange",
+      handleControllerChange
+    );
+  });
+};
+
+export const ensureKohakuRailgunArtifactPolicyReady = async (
+  policy: Pick<ConnectionPolicy, "railgunArtifactUrl">
+): Promise<void> => {
+  validateKohakuRailgunArtifactPolicy(policy);
+
+  if (typeof navigator === "undefined" || typeof window === "undefined") {
+    return;
+  }
+
+  const controller = await waitForServiceWorkerController();
+  const version = await new Promise<string>((resolve, reject) => {
+    const channel = new MessageChannel();
+    const timeout = window.setTimeout(() => {
+      reject(
+        new Error(
+          "Bindle's artifact proxy service worker did not confirm RAILGUN artifact support. Reopen or reload the PWA before Pay."
+        )
+      );
+    }, 5_000);
+
+    channel.port1.onmessage = (event: MessageEvent) => {
+      window.clearTimeout(timeout);
+      const data = event.data as { type?: string; version?: string };
+
+      if (data.type !== "BINDLE_ARTIFACT_PROXY_READY" || !data.version) {
+        reject(
+          new Error(
+            "Bindle's artifact proxy service worker returned an invalid readiness response."
+          )
+        );
+        return;
+      }
+
+      resolve(data.version);
+    };
+
+    controller.postMessage(
+      {
+        type: "BINDLE_ARTIFACT_PROXY_READY"
+      },
+      [channel.port2]
+    );
+  });
+
+  if (version !== bindleArtifactProxyVersion) {
+    throw new Error(
+      `Bindle's artifact proxy service worker is ${version}, expected ${bindleArtifactProxyVersion}. Reopen or reload the PWA before Pay.`
     );
   }
 };
@@ -100,7 +199,7 @@ const createKohakuPayError = (
   const configuredArtifactUrl =
     normalizeArtifactBaseUrl(artifactUrl) || KOHAKU_RAILGUN_ARTIFACT_BASE_URL;
   const message = isKohakuArtifactLoaderFailure(error)
-    ? `Kohaku could not download RAILGUN proving artifacts while ${operation}. Pay proof generation contacts the visible RAILGUN proving artifacts origin: ${configuredArtifactUrl}. This endpoint must be reachable from this browser and allow artifact downloads. The current Kohaku alpha uses this origin internally, so custom mirrors are blocked until Kohaku exposes a configurable artifact loader.`
+    ? `Kohaku could not load Bindle-hosted RAILGUN proving artifacts while ${operation}. Pay proof generation is configured for ${configuredArtifactUrl}; Bindle's service worker maps Kohaku's compiled artifact URL (${KOHAKU_RAILGUN_ARTIFACT_BASE_URL}) to that same-origin path before the request leaves the browser. Reopen or reload the PWA so the latest service worker controls the page, then retry.`
     : isKohakuRpcFetchFailure(error)
     ? `Configured Ethereum RPC failed while ${operation}. Pay needs browser-accessible RAILGUN note sync before it can build the unshield proof. Change the Ethereum RPC or RAILGUN sync indexer in Connections.`
     : isWasmUnreachableTrap(error)
@@ -352,7 +451,7 @@ export const prepareRailgunUsdcPayForRecipient = async ({
     throw new Error("Configure an ERC-4337 bundler before Pay.");
   }
 
-  validateKohakuRailgunArtifactPolicy(policy);
+  await ensureKohakuRailgunArtifactPolicyReady(policy);
 
   const smartWalletAddress = walletState.smartWalletAddress as Address;
 

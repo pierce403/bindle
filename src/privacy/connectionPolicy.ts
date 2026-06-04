@@ -75,6 +75,7 @@ export type EndpointChoice = {
 
 export const KOHAKU_RAILGUN_ARTIFACT_BASE_URL =
   "https://github.com/Robert-MacWha/privacy-protocol-artifacts/raw/refs/heads/main/artifacts/";
+export const BINDLE_RAILGUN_ARTIFACT_BASE_PATH = "/railgun-artifacts/";
 
 export const endpointChoices = {
   ethereumRpcUrl: [
@@ -95,8 +96,8 @@ export const endpointChoices = {
   ],
   railgunArtifactUrl: [
     {
-      label: "Kohaku default RAILGUN proving artifacts",
-      value: KOHAKU_RAILGUN_ARTIFACT_BASE_URL
+      label: "Bindle-hosted RAILGUN proving artifacts",
+      value: BINDLE_RAILGUN_ARTIFACT_BASE_PATH
     }
   ],
   bundlerUrl: [
@@ -149,7 +150,7 @@ export const endpointPresets: Record<EndpointPresetId, EndpointPreset> = {
       ethereumRpcUrl: "https://ethereum-rpc.publicnode.com",
       railgunSyncUrl:
         "https://rail-squid.squids.live/squid-railgun-ethereum-v2/v/v1/graphql",
-      railgunArtifactUrl: KOHAKU_RAILGUN_ARTIFACT_BASE_URL,
+      railgunArtifactUrl: BINDLE_RAILGUN_ARTIFACT_BASE_PATH,
       bundlerUrl: "https://public.pimlico.io/v2/1/rpc",
       priceQuoteUrl: UNISWAP_V4_QUOTE_SOURCE
     }

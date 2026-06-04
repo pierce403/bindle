@@ -76,9 +76,9 @@ not the default first-run experience.
   account.
 - Endpoint presets are visible in Connections. Bindle default currently uses a
   labelled public Ethereum RPC, RAILGUN sync indexer, and public ERC-4337
-  bundler, plus an explicit RAILGUN proving-artifact origin and
-  `onchain:uniswap-v4` quote source; Privacy max starts with hosted endpoints
-  empty/off.
+  bundler, plus same-origin static RAILGUN proving artifacts at
+  `/railgun-artifacts/` and `onchain:uniswap-v4` quote source; Privacy max
+  starts with hosted endpoints empty/off.
 - Endpoint settings are persisted locally in the browser after the user changes
   them, so reloads do not silently remove configured RPC/bundler fields.
 - Default dark black/red paisley theme, with black/white and black/blue variants plus light and dark modes.
@@ -181,12 +181,13 @@ WETH unwrap and Uniswap v4, and submit the calls from the passkey smart
 account. Standalone unshielding, private RAILGUN sends, non-USDC Pay assets,
 and any-network provider routing remain pending.
 
-Kohaku's current alpha RAILGUN prover downloads proving artifacts from
-`https://github.com/Robert-MacWha/privacy-protocol-artifacts/raw/refs/heads/main/artifacts/`.
-Bindle exposes that origin in `ConnectionPolicy`, Connections, and Pay
-preflight. Custom artifact mirrors are blocked for Pay until Kohaku exposes a
-configurable artifact loader; otherwise the app would claim one origin while the
-WASM still contacted the compiled-in default.
+Kohaku's current alpha RAILGUN prover has
+`https://github.com/Robert-MacWha/privacy-protocol-artifacts/raw/refs/heads/main/artifacts/`
+compiled in as its artifact base. Bindle mirrors Kohaku's compressed RAILGUN
+`.br` proving artifacts under `/railgun-artifacts/` and the service worker maps
+Kohaku's compiled third-party URL to that same-origin path before the request
+leaves the controlled PWA. Custom artifact mirrors remain blocked for Pay until
+Kohaku exposes a configurable artifact loader.
 
 ## RAILGUN Integration Notes
 
@@ -246,10 +247,10 @@ Current presets:
 - Bindle default: visible public defaults for normal use. It currently sets
   Ethereum RPC to `https://ethereum-rpc.publicnode.com`, RAILGUN sync indexer
   to `https://rail-squid.squids.live/squid-railgun-ethereum-v2/v/v1/graphql`,
-  ERC-4337 bundler to `https://public.pimlico.io/v2/1/rpc`, and Kohaku's
-  current RAILGUN proving-artifact origin. It also enables toolkit auto-start
-  after local `0zk` wallet creation. These services can see network metadata
-  and must not be presented as trustless or private.
+  ERC-4337 bundler to `https://public.pimlico.io/v2/1/rpc`, and same-origin
+  static RAILGUN proving artifacts at `/railgun-artifacts/`. It also enables
+  toolkit auto-start after local `0zk` wallet creation. These services can see
+  network metadata and must not be presented as trustless or private.
 - Privacy max: all hosted endpoints empty/off for users bringing local or
   self-hosted infrastructure. Toolkit auto-start is off.
 - Custom: preserves user-entered values while editing individual endpoints.

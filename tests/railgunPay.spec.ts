@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { defaultConnectionPolicy } from "../src/privacy/connectionPolicy";
 import {
+  ensureKohakuRailgunArtifactPolicyReady,
   grossUpUnshieldAmount,
   validateKohakuRailgunArtifactPolicy
 } from "../src/railgun/pay";
@@ -29,5 +30,11 @@ test("Pay blocks custom RAILGUN artifact origins until Kohaku exposes a loader",
       ...defaultConnectionPolicy,
       railgunArtifactUrl: "https://example.com/railgun-artifacts/"
     })
-  ).toThrow(/cannot use a custom RAILGUN artifact origin/i);
+  ).toThrow(/Custom artifact origins are blocked/i);
+});
+
+test("Pay accepts the Bindle-hosted RAILGUN artifact path in non-browser checks", async () => {
+  await expect(
+    ensureKohakuRailgunArtifactPolicyReady(defaultConnectionPolicy)
+  ).resolves.toBeUndefined();
 });

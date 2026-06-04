@@ -269,8 +269,8 @@ export function PrivacySwitchboard({
           }
         />
         <small>
-          Kohaku alpha currently loads proving artifacts from this upstream origin
-          during proof generation.
+          Bindle serves these static files same-origin and proxies Kohaku's
+          compiled artifact URL before it leaves the PWA.
         </small>
         <datalist id="railgun-artifact-options">
           {endpointChoices.railgunArtifactUrl.map((choice) => (

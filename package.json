@@ -8,6 +8,7 @@
   "description": "A privacy centric Railgun wallet interface for Ethereum.",
   "scripts": {
     "preinstall": "node scripts/require-pnpm.mjs",
+    "artifacts:railgun": "node scripts/mirror-railgun-artifacts.mjs",
     "dev": "vite --host 127.0.0.1",
     "build": "node scripts/build.mjs",
     "build:app": "tsc -b && vite build",

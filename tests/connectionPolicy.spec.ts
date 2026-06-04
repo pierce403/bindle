@@ -30,7 +30,7 @@ test("default user mode has a visible sane preset selected", () => {
   expect(defaultConnectionPolicy.ethereumRpcUrl).toMatch(/^https:\/\//);
   expect(defaultConnectionPolicy.bundlerUrl).toMatch(/^https:\/\//);
   expect(defaultConnectionPolicy.railgunSyncUrl).toMatch(/^https:\/\//);
-  expect(defaultConnectionPolicy.railgunArtifactUrl).toMatch(/^https:\/\//);
+  expect(defaultConnectionPolicy.railgunArtifactUrl).toBe("/railgun-artifacts/");
   expect(defaultConnectionPolicy.priceQuoteUrl).toBe("onchain:uniswap-v4");
   expect(defaultConnectionPolicy.paymasterUrl).toBe("");
   expect(defaultConnectionPolicy.autoStartToolkit).toBe(true);

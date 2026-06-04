@@ -1,4 +1,5 @@
 import {
+  KOHAKU_RAILGUN_ARTIFACT_BASE_URL,
   defaultConnectionPolicy,
   endpointPresets,
   type ConnectionPolicy,
@@ -17,6 +18,12 @@ const stringArrayValue = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
 
 const booleanValue = (value: unknown): boolean => value === true;
+
+const normalizeUrlLike = (value: string): string => {
+  const trimmed = value.trim();
+
+  return trimmed ? `${trimmed.replace(/\/+$/, "")}/` : "";
+};
 
 const endpointPresetValue = (value: unknown): EndpointPresetId =>
   value === "privacy-max" || value === "custom" || value === "local-dev"
@@ -74,10 +81,14 @@ const normalizeConnectionPolicy = (value: unknown): ConnectionPolicy => {
     endpointPreset === "bindle-default" && !stringValue(parsed.priceQuoteUrl)
       ? presetPolicy.priceQuoteUrl
       : stringValue(parsed.priceQuoteUrl);
+  const parsedRailgunArtifactUrl = stringValue(parsed.railgunArtifactUrl);
   const railgunArtifactUrl =
-    endpointPreset === "bindle-default" && !stringValue(parsed.railgunArtifactUrl)
+    endpointPreset === "bindle-default" &&
+    (!parsedRailgunArtifactUrl ||
+      normalizeUrlLike(parsedRailgunArtifactUrl) ===
+        normalizeUrlLike(KOHAKU_RAILGUN_ARTIFACT_BASE_URL))
       ? presetPolicy.railgunArtifactUrl
-      : stringValue(parsed.railgunArtifactUrl);
+      : parsedRailgunArtifactUrl;
 
   return {
     endpointPreset,

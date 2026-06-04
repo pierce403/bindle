@@ -138,7 +138,7 @@ test.describe("passkey-first onboarding", () => {
       "https://rail-squid.squids.live/squid-railgun-ethereum-v2/v/v1/graphql"
     );
     await expect(page.getByLabel("RAILGUN proving artifacts")).toHaveValue(
-      "https://github.com/Robert-MacWha/privacy-protocol-artifacts/raw/refs/heads/main/artifacts/"
+      "/railgun-artifacts/"
     );
     await expect(page.getByLabel("Quote source")).toHaveValue(
       "onchain:uniswap-v4"

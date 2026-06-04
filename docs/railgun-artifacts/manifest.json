@@ -1,0 +1,413 @@
+{
+  "generatedAt": "2026-06-04T23:05:13.670Z",
+  "sourceTreeSha": "67fc576f7cfd6bb5caa5beebbefcca3b4275f53c",
+  "sourceRawBase": "https://github.com/Robert-MacWha/privacy-protocol-artifacts/raw/refs/heads/main/artifacts/",
+  "artifactBasePath": "/railgun-artifacts/",
+  "files": [
+    {
+      "path": "railgun/01x01/matrices.bin.br",
+      "size": 157040,
+      "sha": "9284799a6c82a52933e2a7f0f1078f0eec38b04a"
+    },
+    {
+      "path": "railgun/01x01/proving_key.bin.br",
+      "size": 3241389,
+      "sha": "5994ecb1b34f71a724620330b54481bdc088f893"
+    },
+    {
+      "path": "railgun/01x01/wasm.br",
+      "size": 895378,
+      "sha": "e696bbcff182c3c17e1b67356df47aee09d37c60"
+    },
+    {
+      "path": "railgun/01x02/matrices.bin.br",
+      "size": 141046,
+      "sha": "b712bbd2ebb67375891c83f093ceb91105ab18cb"
+    },
+    {
+      "path": "railgun/01x02/proving_key.bin.br",
+      "size": 3341841,
+      "sha": "1f5e2c53fb63b948e456266d2390b63eebf952f6"
+    },
+    {
+      "path": "railgun/01x02/wasm.br",
+      "size": 891957,
+      "sha": "786a177834c8748a1178bb4b309dc927e1cf4b6e"
+    },
+    {
+      "path": "railgun/01x03/matrices.bin.br",
+      "size": 174302,
+      "sha": "80c3fa4cbbafbad8a9a63954769d8b8792ee1bb3"
+    },
+    {
+      "path": "railgun/01x03/proving_key.bin.br",
+      "size": 3444663,
+      "sha": "84e0264a05840117271bcd5ebf148751dbd3c7fa"
+    },
+    {
+      "path": "railgun/01x03/wasm.br",
+      "size": 897691,
+      "sha": "2be903037c5068517b853ee1b33892d8a0a6ce9d"
+    },
+    {
+      "path": "railgun/01x04/matrices.bin.br",
+      "size": 182759,
+      "sha": "b8d14b41934ecc81ad375cf280ba64610d490c2e"
+    },
+    {
+      "path": "railgun/01x04/proving_key.bin.br",
+      "size": 3545409,
+      "sha": "0d9a038d1aa1b372742aa756948b8333a3da08c5"
+    },
+    {
+      "path": "railgun/01x04/wasm.br",
+      "size": 899100,
+      "sha": "547646c24821d901cb66d8e54ef8389d3c642742"
+    },
+    {
+      "path": "railgun/01x05/matrices.bin.br",
+      "size": 191741,
+      "sha": "1e21158f1270aedf22829dfd61e03423ea71f6be"
+    },
+    {
+      "path": "railgun/01x05/proving_key.bin.br",
+      "size": 3644949,
+      "sha": "641c767fd980056363328a52ed817c7eeedeca63"
+    },
+    {
+      "path": "railgun/01x05/wasm.br",
+      "size": 899429,
+      "sha": "d179edd261f1daac58bc1b67a615d9bccd03bffc"
+    },
+    {
+      "path": "railgun/02x01/matrices.bin.br",
+      "size": 162957,
+      "sha": "ed0b460c7b5279218f62ea622e47edba286b5dc6"
+    },
+    {
+      "path": "railgun/02x01/proving_key.bin.br",
+      "size": 4390299,
+      "sha": "15e60547ca3216d19ac86baf7c5497cb8458803f"
+    },
+    {
+      "path": "railgun/02x01/wasm.br",
+      "size": 896553,
+      "sha": "8554b221a584959e6e260477bf84c03a34133190"
+    },
+    {
+      "path": "railgun/02x02/matrices.bin.br",
+      "size": 196536,
+      "sha": "94a635f59be43e4ef4271292b2589b62b5fada07"
+    },
+    {
+      "path": "railgun/02x02/proving_key.bin.br",
+      "size": 4481699,
+      "sha": "2f81fcf3ee1cf73be84325108b2b84840bbead01"
+    },
+    {
+      "path": "railgun/02x02/wasm.br",
+      "size": 901910,
+      "sha": "b715ca956ec7d1d45b183fd19b86153d660ec225"
+    },
+    {
+      "path": "railgun/02x03/matrices.bin.br",
+      "size": 206301,
+      "sha": "496aa17f1490adb1aaeff53cff4aaae34d759cca"
+    },
+    {
+      "path": "railgun/02x03/proving_key.bin.br",
+      "size": 4583038,
+      "sha": "3d38147c358f87a0ebba847a74ef0f3cfee62635"
+    },
+    {
+      "path": "railgun/02x03/wasm.br",
+      "size": 917132,
+      "sha": "8cfd1e09a6fa2e389ae2eafe4ef7627f7a07dcda"
+    },
+    {
+      "path": "railgun/02x04/matrices.bin.br",
+      "size": 212998,
+      "sha": "e1f7a59e8af0b0c30d580f27ec3aeb2419f72f22"
+    },
+    {
+      "path": "railgun/02x04/proving_key.bin.br",
+      "size": 4682541,
+      "sha": "2638fb4ffa1d8a5783427503812eae3dc09f6a1e"
+    },
+    {
+      "path": "railgun/02x04/wasm.br",
+      "size": 904856,
+      "sha": "1a88bb2b9129e8df2573977cf5dd2d87d5f2c4f0"
+    },
+    {
+      "path": "railgun/02x05/matrices.bin.br",
+      "size": 220693,
+      "sha": "f75fafae513cec7235e5410312fc254ce6ba635d"
+    },
+    {
+      "path": "railgun/02x05/proving_key.bin.br",
+      "size": 4780797,
+      "sha": "3b01e9fd6c7864f5e378dd7cd746879c9ec7d2a9"
+    },
+    {
+      "path": "railgun/02x05/wasm.br",
+      "size": 912922,
+      "sha": "4c4eec97e034ed0cf9c5bb55790bd4a826902a7f"
+    },
+    {
+      "path": "railgun/03x01/matrices.bin.br",
+      "size": 220353,
+      "sha": "e2a014a5814a2ac65c13f4088221ac8db9ef52b0"
+    },
+    {
+      "path": "railgun/03x01/proving_key.bin.br",
+      "size": 6567901,
+      "sha": "6426cf9faf891768d549cfde1778c2bced3eda93"
+    },
+    {
+      "path": "railgun/03x01/wasm.br",
+      "size": 914507,
+      "sha": "340842c3cf7ba0046b5a1045522fba5706c66e1e"
+    },
+    {
+      "path": "railgun/03x02/matrices.bin.br",
+      "size": 227929,
+      "sha": "596c038a36af9bf72a71fcd5ade4df92c22c2460"
+    },
+    {
+      "path": "railgun/03x02/proving_key.bin.br",
+      "size": 6669163,
+      "sha": "0a6d37d72142676f3af77a78eb21d72d7b0cae3d"
+    },
+    {
+      "path": "railgun/03x02/wasm.br",
+      "size": 907288,
+      "sha": "c2428849dfd8174510f0fdea91019a094737cc84"
+    },
+    {
+      "path": "railgun/03x03/matrices.bin.br",
+      "size": 237236,
+      "sha": "31314b91661c0790bc523575b1e958bc42464ce1"
+    },
+    {
+      "path": "railgun/03x03/proving_key.bin.br",
+      "size": 6768680,
+      "sha": "dfbd8eee90e9b404df84696de2b92f86fa3a7547"
+    },
+    {
+      "path": "railgun/03x03/wasm.br",
+      "size": 907213,
+      "sha": "f0a8c46bd1de8ca70a15a02f1d3edebb658bca11"
+    },
+    {
+      "path": "railgun/03x04/matrices.bin.br",
+      "size": 244375,
+      "sha": "493d93f2db053c0ca3366fcbaa819173d16f87d9"
+    },
+    {
+      "path": "railgun/03x04/proving_key.bin.br",
+      "size": 6866665,
+      "sha": "cd103c72ada212f96aea82b6d6d16d71c764c41f"
+    },
+    {
+      "path": "railgun/03x04/wasm.br",
+      "size": 916983,
+      "sha": "74cc2dedc7f38b911e01cdc8c85a6d6df937544b"
+    },
+    {
+      "path": "railgun/03x05/matrices.bin.br",
+      "size": 255967,
+      "sha": "8c44fbe90c274ca650ed45cb77427c0943174c58"
+    },
+    {
+      "path": "railgun/03x05/proving_key.bin.br",
+      "size": 6971476,
+      "sha": "f9d30159fd7020b406ed3aaddcc1082e52a01ff7"
+    },
+    {
+      "path": "railgun/03x05/wasm.br",
+      "size": 917618,
+      "sha": "aeb7e01a3568a1a900adbbc9877d3bad11815eb4"
+    },
+    {
+      "path": "railgun/04x01/matrices.bin.br",
+      "size": 252136,
+      "sha": "579c8f95d129087b8ad2dc6d8cc29bf21e77ab93"
+    },
+    {
+      "path": "railgun/04x01/proving_key.bin.br",
+      "size": 7706517,
+      "sha": "ce2b67322796c9a648035726fce8760ad4452fbc"
+    },
+    {
+      "path": "railgun/04x01/wasm.br",
+      "size": 925548,
+      "sha": "259f71f34c969a477e58090cc4065696f1ab2a3f"
+    },
+    {
+      "path": "railgun/04x02/matrices.bin.br",
+      "size": 258737,
+      "sha": "e411d3dfe1ab96526a7685cbca55c9e4d583aa6d"
+    },
+    {
+      "path": "railgun/04x02/proving_key.bin.br",
+      "size": 7806072,
+      "sha": "dbe568b1c2af88036063a3346055e06cbbeee3af"
+    },
+    {
+      "path": "railgun/04x02/wasm.br",
+      "size": 911467,
+      "sha": "90fdef9f381770667685ef4268a8f67ec196a73f"
+    },
+    {
+      "path": "railgun/04x03/matrices.bin.br",
+      "size": 266553,
+      "sha": "80cb2f6bf8f70b76d589083376b115f3f3279936"
+    },
+    {
+      "path": "railgun/04x03/proving_key.bin.br",
+      "size": 7904244,
+      "sha": "9713a2445153d2b65c1bfe49c5f2e5f39617a9da"
+    },
+    {
+      "path": "railgun/04x03/wasm.br",
+      "size": 921111,
+      "sha": "35e97597c0859cd903bf5482d6bdc38db9b8f6e0"
+    },
+    {
+      "path": "railgun/04x04/matrices.bin.br",
+      "size": 280468,
+      "sha": "9226bcaaf91d914260f1170625842289d27fd1f2"
+    },
+    {
+      "path": "railgun/04x04/proving_key.bin.br",
+      "size": 8008955,
+      "sha": "8b807559dfa886f3a49211b617183b72d3b1e28b"
+    },
+    {
+      "path": "railgun/04x04/wasm.br",
+      "size": 925547,
+      "sha": "b8faa2299d367948e432f4cb8be63f405de875d1"
+    },
+    {
+      "path": "railgun/04x05/matrices.bin.br",
+      "size": 284836,
+      "sha": "e6a85929337629987de6178792370b9454dd63ad"
+    },
+    {
+      "path": "railgun/04x05/proving_key.bin.br",
+      "size": 8104868,
+      "sha": "6738cb52beb5039d643fda688bebf7f7319dbfaa"
+    },
+    {
+      "path": "railgun/04x05/wasm.br",
+      "size": 924719,
+      "sha": "011a597d6b2720b77aa1136d7179835ab8a17e05"
+    },
+    {
+      "path": "railgun/05x01/matrices.bin.br",
+      "size": 284549,
+      "sha": "2a8e907567e78b22b4240fb09aaea5784f639157"
+    },
+    {
+      "path": "railgun/05x01/proving_key.bin.br",
+      "size": 8843801,
+      "sha": "28768f9883780eb015d2bd1bbc464939e5c7d7e7"
+    },
+    {
+      "path": "railgun/05x01/wasm.br",
+      "size": 919157,
+      "sha": "235aa29c033603e28d51dc8c89262a40976b090d"
+    },
+    {
+      "path": "railgun/05x02/matrices.bin.br",
+      "size": 290094,
+      "sha": "aea59b01041425759db5d1ccd1aee2e75ecfcd81"
+    },
+    {
+      "path": "railgun/05x02/proving_key.bin.br",
+      "size": 8941855,
+      "sha": "95df5fd96abc7760277d99508050288442797546"
+    },
+    {
+      "path": "railgun/05x02/wasm.br",
+      "size": 929681,
+      "sha": "0086855747c87ab387d822c4b1450a96970011dc"
+    },
+    {
+      "path": "railgun/05x03/matrices.bin.br",
+      "size": 302583,
+      "sha": "ff64bcb6951922380e990cb1324c94285233cd71"
+    },
+    {
+      "path": "railgun/05x03/proving_key.bin.br",
+      "size": 9046551,
+      "sha": "d091c51133b0a65a4ccfa0001cd186a1200685b2"
+    },
+    {
+      "path": "railgun/05x03/wasm.br",
+      "size": 919668,
+      "sha": "6ef7b97281ed8fbf60250b6705c30c9cdc562da3"
+    },
+    {
+      "path": "railgun/05x04/matrices.bin.br",
+      "size": 308716,
+      "sha": "d632c6b46000e81b52776e12ec01d6b020d6521e"
+    },
+    {
+      "path": "railgun/05x04/proving_key.bin.br",
+      "size": 9142643,
+      "sha": "a983170519143459ca062f597a73840d59f80c8d"
+    },
+    {
+      "path": "railgun/05x04/wasm.br",
+      "size": 918715,
+      "sha": "cb70060ce20efd0fe4d8fceee30743f286447ace"
+    },
+    {
+      "path": "railgun/05x05/matrices.bin.br",
+      "size": 323207,
+      "sha": "7fb2ce72493fce010d0ccdbb2a7334315e383079"
+    },
+    {
+      "path": "railgun/05x05/proving_key.bin.br",
+      "size": 9246461,
+      "sha": "aa58727b2cfd04596a2b6ed41b259dfe934c84c1"
+    },
+    {
+      "path": "railgun/05x05/wasm.br",
+      "size": 919410,
+      "sha": "1ade266157a080c9b44d7f94d8d2fa7362262314"
+    },
+    {
+      "path": "railgun/poi/03x03/matrices.bin.br",
+      "size": 232630,
+      "sha": "13b689c3aba892ce6f06d211a19b27799956b6f9"
+    },
+    {
+      "path": "railgun/poi/03x03/proving_key.bin.br",
+      "size": 7470194,
+      "sha": "95d0085e8a09254633f6a5a67230cee432321d50"
+    },
+    {
+      "path": "railgun/poi/03x03/wasm.br",
+      "size": 917042,
+      "sha": "9f1117f4459a1aa8c9fc64229bbf99467c975032"
+    },
+    {
+      "path": "railgun/poi/13x13/matrices.bin.br",
+      "size": 508169,
+      "sha": "17cb9db73744fb7af4cdcb51918cbbf05fe9ec34"
+    },
+    {
+      "path": "railgun/poi/13x13/proving_key.bin.br",
+      "size": 27069921,
+      "sha": "b5e36476b974cbc5fc47d1cab5ae02eddbb1c53e"
+    },
+    {
+      "path": "railgun/poi/13x13/wasm.br",
+      "size": 968387,
+      "sha": "32f6fe2d21c56b7c36181c236b4eb1a1889c2c2a"
+    }
+  ]
+}

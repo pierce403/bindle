@@ -73,9 +73,11 @@ infrastructure.
       preset selection.
 - [x] Label each outbound connection as default, custom, local, or off.
 - [x] Add preflight disclosure rows that include endpoint source and value.
-- [x] Add an explicit RAILGUN proving-artifact origin to `ConnectionPolicy`,
-      Connections, and Pay preflight disclosure. Custom mirrors stay blocked
-      until Kohaku exposes a configurable artifact loader.
+- [x] Add same-origin static RAILGUN proving artifacts to `ConnectionPolicy`,
+      Connections, and Pay preflight disclosure.
+- [x] Mirror Kohaku's compressed RAILGUN `.br` proving artifacts into the static
+      site and proxy Kohaku's compiled artifact URL to `/railgun-artifacts/`
+      through the PWA service worker.
 - [x] Validate decimal ETH amount as greater than zero.
 - [x] Validate recipient shape for `0zk`, `0x`, and `.eth`.
 - [x] Add tests that verify default endpoints are visible, Privacy max clears
@@ -141,6 +143,8 @@ infrastructure.
       Subsquid-plus-RPC sync when that visible endpoint matches the chain config.
 - [ ] Add fully configurable custom RAILGUN indexer routing once Kohaku exposes
       a browser API for non-default sync URLs.
+- [ ] Replace the service-worker artifact proxy with a direct custom artifact
+      loader once Kohaku exposes a browser API for artifact origins.
 - [ ] Add a Kohaku-compatible browser smart-account adapter once `pq-account` or
       equivalent passkey ERC-4337 address derivation is available.
 - [ ] Reproduce and report/fix the upstream Kohaku RAILGUN WASM initialization
