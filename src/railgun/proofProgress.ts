@@ -75,8 +75,8 @@ export const buildPayProofProgress = ({
       detail: proofReady
         ? "RAILGUN proof generated"
         : routeReady
-          ? (proofStatus ?? "Generating RAILGUN cross-contract proof")
-          : "Waiting for RAILGUN cross-contract proof generation",
+          ? (proofStatus ?? "Generating RAILGUN unshield proof")
+          : "Waiting for RAILGUN unshield proof generation",
       status: proofReady ? "complete" : routeReady ? "active" : "waiting"
     },
     {

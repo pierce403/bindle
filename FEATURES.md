@@ -113,16 +113,17 @@ infrastructure.
 - [x] Add a Pay intent builder for mainnet ETH/USDC with local asset search,
       payment request QR/paste import, route review, and endpoint preflight
       disclosure.
-- [x] Wire USDC Pay for Ethereum mainnet with RAILGUN Wallet SDK fallback
-      cross-contract proof generation, Uniswap v4 exact-output ETH-to-USDC
-      calldata, 1% default max slippage, leftover ETH refund to the public smart
-      account, and ERC-4337 submission through visible RPC/bundler policy.
+- [x] Wire USDC Pay for Ethereum mainnet with a Kohaku RAILGUN WETH unshield
+      proof for the actual local `0zk` wallet, RAILGUN unshield-fee gross-up,
+      WETH unwrap, Uniswap v4 exact-output ETH-to-USDC calldata, 1% default max
+      slippage, leftover public funds allowed for a later sweep, and ERC-4337
+      submission through visible RPC/bundler policy.
 
 ## Now
 
 - [ ] Keep mnemonic import as an advanced compatibility/recovery path rather
       than the primary first-run flow.
-- [ ] Use the legacy RAILGUN Wallet SDK only for lifecycle paths Kohaku does not
+- [x] Use the legacy RAILGUN Wallet SDK only for lifecycle paths Kohaku does not
       currently support.
 - [ ] Replace the interim browser-local RAILGUN key encryption with
       passkey-backed wrapping when WebAuthn PRF support is usable across target

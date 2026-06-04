@@ -64,10 +64,12 @@ not the default first-run experience.
   ETH-to-USDC calldata, and ERC-4337 submission through the passkey smart
   account. It quotes through the visible Ethereum RPC by default, uses a 1% max
   slippage default, and lets leftover ETH remain unshielded in the public smart
-  account for a later sweep. This route uses the explicit RAILGUN Wallet SDK
-  fallback for cross-contract proof generation while the Kohaku Pay adapter is
-  still pending; it does not require a RAILGUN broadcaster because the proved
-  RelayAdapt call is submitted by the public smart account.
+  account for a later sweep. This route uses Kohaku to build the RAILGUN WETH
+  unshield transaction for the actual local `0zk` wallet, grosses up the
+  unshield amount for the chain's RAILGUN unshield fee, unwraps WETH, and then
+  calls Uniswap v4 from the public smart account. It does not require a RAILGUN
+  broadcaster because the proved RAILGUN call is submitted by the public smart
+  account.
 - Endpoint presets are visible in Connections. Bindle default currently uses a
   labelled public Ethereum RPC, RAILGUN sync indexer, and public ERC-4337
   bundler, plus an explicit `onchain:uniswap-v4` quote source; Privacy max
@@ -169,10 +171,10 @@ ERC-4337 bundler.
 For the visible Pimlico default bundler, Bindle requests User Operation gas
 prices from that same bundler endpoint before submission so the bundler does not
 reject underpriced priority fees. Pay can prepare a RAILGUN cross-contract
-unshield proof for USDC output, route the unshielded ETH through Uniswap v4, and
-submit the proved call from the passkey smart account. Standalone unshielding,
-private RAILGUN sends, non-USDC Pay assets, and any-network provider routing
-remain pending.
+unshield proof for USDC output through Kohaku, route the unshielded WETH through
+WETH unwrap and Uniswap v4, and submit the calls from the passkey smart
+account. Standalone unshielding, private RAILGUN sends, non-USDC Pay assets,
+and any-network provider routing remain pending.
 
 ## RAILGUN Integration Notes
 
@@ -202,10 +204,11 @@ Current shield/unshield status:
   RPC/bundler policy after an explicit review of amount and contacted endpoints.
 - Pimlico ERC-4337 submissions use the configured bundler's
   `pimlico_getUserOperationGasPrice` response for User Operation fee fields.
-- Pay-to-USDC is wired as a RAILGUN cross-contract unshield proof plus Uniswap
-  v4 exact-output ETH-to-USDC route, submitted by the passkey smart wallet
-  through visible RPC/bundler policy. The proof path uses the isolated RAILGUN
-  Wallet SDK fallback until Kohaku exposes a usable Pay adapter.
+- Pay-to-USDC is wired as a Kohaku RAILGUN WETH unshield proof plus WETH unwrap
+  and Uniswap v4 exact-output ETH-to-USDC route, submitted by the passkey smart
+  wallet through visible RPC/bundler policy. The gross unshield amount accounts
+  for the chain's RAILGUN unshield fee so the public smart account has enough
+  WETH for the swap input.
 - Standalone unshield and private send flows remain blocked until their review,
   proof, unlock, and visible submission policies are implemented.
 

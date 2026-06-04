@@ -110,7 +110,7 @@ test.describe("passkey-first onboarding", () => {
       "ETH to USDC through Uniswap v4"
     );
     await expect(page.getByLabel("Proof generation progress")).toContainText(
-      "RAILGUN cross-contract proof"
+      "RAILGUN unshield proof"
     );
     await expect(
       page.getByRole("button", { name: "Open Connections" })

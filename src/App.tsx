@@ -40,7 +40,6 @@ import {
   summarizeMissingRequirements
 } from "./railgun/shielding";
 import {
-  isRailgunSdkAddressMismatchError,
   prepareRailgunUsdcPayForRecipient,
   type RailgunPayProgress
 } from "./railgun/pay";
@@ -1552,11 +1551,14 @@ function WalletApp() {
         message: "Submitting Pay user operation",
         detail: [
           preparedPay.route.debugLabel,
+          `RAILGUN adapter: ${preparedPay.railgunAdapter}`,
+          `RAILGUN 0zk: ${preparedPay.railgunAddress}`,
           `Quoted input wei: ${preparedPay.route.quotedInputAmount.toString()}`,
           `Max input wei: ${preparedPay.route.maxInputAmount.toString()}`,
-          `RelayAdapt target: ${preparedPay.relayAdaptTransaction.to}`,
-          `RelayAdapt value wei: ${preparedPay.relayAdaptTransaction.value.toString()}`,
-          `Nullifiers: ${preparedPay.nullifiers.length.toString()}`
+          `Unshield target: ${preparedPay.railgunUnshieldTransaction.to}`,
+          `Unshield tx value wei: ${preparedPay.railgunUnshieldTransaction.value.toString()}`,
+          `Gross unshield WETH wei: ${preparedPay.unshieldAmountWei.toString()}`,
+          `Public swap WETH wei: ${preparedPay.publicWethInputWei.toString()}`
         ].join("\n")
       });
       setPayStatus("Submitting Pay user operation");
@@ -1589,14 +1591,11 @@ function WalletApp() {
           `Smart account: ${walletState.smartWalletAddress ?? "missing"}`
         ].join("\n")
       );
-      const statusMessage = isRailgunSdkAddressMismatchError(error)
-        ? "Pay is blocked for this 0zk wallet because the current SDK fallback derives a different shielded address than the local Kohaku wallet. Existing shielded funds remain tied to the local 0zk address. Open Debug to copy the full mismatch."
-        : message;
-      setPayStatus(statusMessage);
+      setPayStatus(message);
       setAppNotice({
         kind: "error",
         title: "Pay failed",
-        message: `${statusMessage} Open Debug for the full stack trace.`
+        message: `${message} Open Debug for the full stack trace.`
       });
     } finally {
       setIsSubmittingPay(false);
