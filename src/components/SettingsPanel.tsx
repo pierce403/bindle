@@ -63,6 +63,14 @@ export function SettingsPanel({
             Passkey RP ID: {passkeyRpId}
             {currentHostname ? `; current host: ${currentHostname}` : ""}
           </span>
+          {walletState.passkeyAuthenticatorAttachment ||
+          walletState.passkeyUserVerification ? (
+            <small>
+              Authenticator:{" "}
+              {walletState.passkeyAuthenticatorAttachment ?? "unknown"}; user
+              verification: {walletState.passkeyUserVerification ?? "default"}
+            </small>
+          ) : null}
           {migratedPasskeyExpected ? (
             <small>
               Migrated account detected. This site must be allowed by the

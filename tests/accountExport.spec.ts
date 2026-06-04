@@ -20,7 +20,9 @@ const wallet: WalletState = {
   custodyModel: "passkey-4337",
   passkeyCredentialId: "credential-id",
   passkeyPublicKey: "0x04",
-  passkeyRpId: "bindle.me"
+  passkeyRpId: "bindle.me",
+  passkeyAuthenticatorAttachment: "cross-platform",
+  passkeyUserVerification: "preferred"
 };
 
 test("creates an account export with explicit recovery warnings", () => {
@@ -40,6 +42,8 @@ test("creates an account export with explicit recovery warnings", () => {
   expect(parsed.schema).toBe("me.bindle.account-export");
   expect(parsed.wallet.smartWalletAddress).toBe(wallet.smartWalletAddress);
   expect(parsed.wallet.passkeyRpId).toBe("bindle.me");
+  expect(parsed.wallet.passkeyAuthenticatorAttachment).toBe("cross-platform");
+  expect(parsed.wallet.passkeyUserVerification).toBe("preferred");
   expect(parsed.railgunWallet?.recoveryPhrase).toContain("abandon");
   expect(parsed.reclaimPlan.publicSmartAccount.status).toBe(
     "requires-synced-passkey"

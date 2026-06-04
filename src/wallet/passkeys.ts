@@ -13,6 +13,8 @@ export type BindlePasskeyCredential = {
   id: string;
   publicKey: `0x${string}`;
   rpId: string;
+  authenticatorAttachment: AuthenticatorAttachment;
+  userVerification: UserVerificationRequirement;
 };
 
 type PasskeyLookupContext = {
@@ -147,6 +149,8 @@ export const detectPasskeyCapability = async (): Promise<PasskeyCapability> => {
 export const createBindlePasskeyCredential =
   async (): Promise<BindlePasskeyCredential> => {
     const rpId = getDefaultPasskeyRpId();
+    const authenticatorAttachment = "platform";
+    const userVerification = "required";
     const credential = await createWebAuthnCredential({
       name: "Bindle",
       rp: {
@@ -154,10 +158,10 @@ export const createBindlePasskeyCredential =
         name: "Bindle"
       },
       authenticatorSelection: {
-        authenticatorAttachment: "platform",
+        authenticatorAttachment,
         residentKey: "preferred",
         requireResidentKey: false,
-        userVerification: "required"
+        userVerification
       },
       attestation: "none",
       timeout: 60_000
@@ -166,9 +170,29 @@ export const createBindlePasskeyCredential =
     return {
       id: credential.id,
       publicKey: credential.publicKey,
-      rpId
+      rpId,
+      authenticatorAttachment,
+      userVerification
     };
   };
+
+export const createPasskeyRequestFn = (
+  userVerification: UserVerificationRequirement | null | undefined
+) => {
+  if (!userVerification || userVerification === "required") {
+    return undefined;
+  }
+
+  return async (options?: unknown): Promise<Credential | null> => {
+    const credentialOptions = options as CredentialRequestOptions | undefined;
+
+    if (credentialOptions?.publicKey) {
+      credentialOptions.publicKey.userVerification = userVerification;
+    }
+
+    return navigator.credentials.get(credentialOptions);
+  };
+};
 
 export const hasFundingCredential = (credential: {
   passkeyCredentialId: string | null;

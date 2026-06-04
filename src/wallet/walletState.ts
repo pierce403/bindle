@@ -13,6 +13,9 @@ export type CustodyModel =
 
 export type RailgunKeyStore = "encrypted-local" | null;
 
+export type PasskeyAuthenticatorAttachment = AuthenticatorAttachment | null;
+export type PasskeyUserVerification = UserVerificationRequirement | null;
+
 export type WalletState = {
   status: WalletStatus;
   smartWalletAddress: string | null;
@@ -28,6 +31,8 @@ export type WalletState = {
   passkeyCredentialId: string | null;
   passkeyPublicKey: `0x${string}` | null;
   passkeyRpId: string | null;
+  passkeyAuthenticatorAttachment?: PasskeyAuthenticatorAttachment;
+  passkeyUserVerification?: PasskeyUserVerification;
 };
 
 const storageKey = "bindle.wallet.metadata.v1";
@@ -46,7 +51,9 @@ export const emptyWalletState: WalletState = {
   custodyModel: null,
   passkeyCredentialId: null,
   passkeyPublicKey: null,
-  passkeyRpId: null
+  passkeyRpId: null,
+  passkeyAuthenticatorAttachment: null,
+  passkeyUserVerification: null
 };
 
 const isWalletStatus = (value: unknown): value is WalletStatus =>
@@ -74,6 +81,16 @@ const hexOrNull = (value: unknown): `0x${string}` | null =>
     : null;
 
 const booleanValue = (value: unknown): boolean => value === true;
+
+const authenticatorAttachmentOrNull = (
+  value: unknown
+): PasskeyAuthenticatorAttachment =>
+  value === "platform" || value === "cross-platform" ? value : null;
+
+const userVerificationOrNull = (value: unknown): PasskeyUserVerification =>
+  value === "required" || value === "preferred" || value === "discouraged"
+    ? value
+    : null;
 
 const normalizeWalletState = (value: unknown): WalletState => {
   if (!value || typeof value !== "object") {
@@ -104,7 +121,13 @@ const normalizeWalletState = (value: unknown): WalletState => {
     lastError: stringOrNull(parsed.lastError),
     passkeyCredentialId: stringOrNull(parsed.passkeyCredentialId),
     passkeyPublicKey: hexOrNull(parsed.passkeyPublicKey),
-    passkeyRpId: stringOrNull(parsed.passkeyRpId)
+    passkeyRpId: stringOrNull(parsed.passkeyRpId),
+    passkeyAuthenticatorAttachment: authenticatorAttachmentOrNull(
+      parsed.passkeyAuthenticatorAttachment
+    ),
+    passkeyUserVerification: userVerificationOrNull(
+      parsed.passkeyUserVerification
+    )
   };
 };
 
@@ -144,6 +167,8 @@ export const saveWalletState = (state: WalletState): WalletState => {
     // WebAuthn credential IDs, RP IDs, and public P-256 keys are public account
     // metadata used to reconstruct the smart-account owner; they are not
     // signing secrets.
+    // Authenticator attachment and user-verification values are policy hints
+    // for how to ask the browser for that same credential later.
     window.localStorage.setItem(storageKey, JSON.stringify(normalized));
   }
 
@@ -183,7 +208,13 @@ export const clearRailgunWalletState = (currentState: WalletState): WalletState 
 
 export const markPasskeyEnrolled = (
   currentState: WalletState,
-  credential: { id: string; publicKey: `0x${string}` | null; rpId: string | null }
+  credential: {
+    id: string;
+    publicKey: `0x${string}` | null;
+    rpId: string | null;
+    authenticatorAttachment?: PasskeyAuthenticatorAttachment;
+    userVerification?: PasskeyUserVerification;
+  }
 ): WalletState =>
   saveWalletState({
     ...currentState,
@@ -195,6 +226,10 @@ export const markPasskeyEnrolled = (
     passkeyCredentialId: credential.id,
     passkeyPublicKey: credential.publicKey,
     passkeyRpId: credential.rpId,
+    passkeyAuthenticatorAttachment:
+      credential.authenticatorAttachment ?? currentState.passkeyAuthenticatorAttachment,
+    passkeyUserVerification:
+      credential.userVerification ?? currentState.passkeyUserVerification,
     smartWalletAddress: credential.publicKey
       ? currentState.smartWalletAddress
       : null

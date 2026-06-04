@@ -2,6 +2,8 @@ import type { ExportedRailgunWallet } from "../railgun/railgunWallet";
 import {
   emptyWalletState,
   type CustodyModel,
+  type PasskeyAuthenticatorAttachment,
+  type PasskeyUserVerification,
   type RailgunKeyStore,
   type WalletState,
   type WalletStatus
@@ -71,6 +73,16 @@ const hexOrNull = (value: unknown): `0x${string}` | null =>
 
 const booleanValue = (value: unknown): boolean => value === true;
 
+const authenticatorAttachmentOrNull = (
+  value: unknown
+): PasskeyAuthenticatorAttachment =>
+  value === "platform" || value === "cross-platform" ? value : null;
+
+const userVerificationOrNull = (value: unknown): PasskeyUserVerification =>
+  value === "required" || value === "preferred" || value === "discouraged"
+    ? value
+    : null;
+
 const normalizeWallet = (value: unknown): WalletState => {
   if (!value || typeof value !== "object") {
     return emptyWalletState;
@@ -96,7 +108,13 @@ const normalizeWallet = (value: unknown): WalletState => {
       : emptyWalletState.custodyModel,
     passkeyCredentialId: stringOrNull(parsed.passkeyCredentialId),
     passkeyPublicKey: hexOrNull(parsed.passkeyPublicKey),
-    passkeyRpId: stringOrNull(parsed.passkeyRpId)
+    passkeyRpId: stringOrNull(parsed.passkeyRpId),
+    passkeyAuthenticatorAttachment: authenticatorAttachmentOrNull(
+      parsed.passkeyAuthenticatorAttachment
+    ),
+    passkeyUserVerification: userVerificationOrNull(
+      parsed.passkeyUserVerification
+    )
   };
 };
 

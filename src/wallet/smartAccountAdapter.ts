@@ -11,7 +11,7 @@ import {
   withCoinbaseSignatureOwnerIndex
 } from "./coinbaseSmartWalletOwners";
 import { createVisibleMainnetClient } from "./mainnetClient";
-import { explainPasskeyLookupError } from "./passkeys";
+import { createPasskeyRequestFn, explainPasskeyLookupError } from "./passkeys";
 import { estimateVisibleUserOperationFees } from "./userOperationGas";
 import type { WalletState } from "./walletState";
 
@@ -84,6 +84,7 @@ const createSmartAccount = async (
   );
   const owner = toWebAuthnAccount({
     credential: getFundingCredential(walletState),
+    getFn: createPasskeyRequestFn(walletState.passkeyUserVerification),
     rpId: walletState.passkeyRpId ?? undefined
   });
   const account = await toCoinbaseSmartAccount({
