@@ -1845,24 +1845,25 @@ function WalletApp() {
           </div>
         </header>
 
-        {appNotice ? (
-          <section
-            className={`app-notice ${appNotice.kind}`}
-            aria-label={`${appNotice.title} notice`}
-          >
-            <strong>{appNotice.title}</strong>
-            <span>{appNotice.message}</span>
-            {noticeAction ? (
-              <button
-                className="notice-action"
-                type="button"
-                onClick={() => handleNoticeAction(noticeAction)}
-              >
-                {noticeAction.label}
-              </button>
-            ) : null}
-          </section>
-        ) : null}
+        <div className="app-content">
+          {appNotice ? (
+            <section
+              className={`app-notice ${appNotice.kind}`}
+              aria-label={`${appNotice.title} notice`}
+            >
+              <strong>{appNotice.title}</strong>
+              <span>{appNotice.message}</span>
+              {noticeAction ? (
+                <button
+                  className="notice-action"
+                  type="button"
+                  onClick={() => handleNoticeAction(noticeAction)}
+                >
+                  {noticeAction.label}
+                </button>
+              ) : null}
+            </section>
+          ) : null}
 
         {showRailgunRepairPrompt ? (
           <RailgunKeyRecoveryPrompt
@@ -2014,7 +2015,8 @@ function WalletApp() {
           <DebugPanel entries={debugLog} onClear={clearDebugEvents} />
         ) : null}
 
-        <PwaInstallPrompt />
+          <PwaInstallPrompt />
+        </div>
         <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
       </section>
     </main>

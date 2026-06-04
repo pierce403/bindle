@@ -320,12 +320,16 @@ button:disabled {
 
 .phone-frame {
   position: relative;
+  display: flex;
+  flex-direction: column;
   width: min(100%, 430px);
-  min-height: calc(100vh - 56px);
+  height: calc(100vh - 56px);
+  min-height: 620px;
+  max-height: calc(100vh - 56px);
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 28px;
-  padding: 18px 18px 88px;
+  padding: 18px;
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   box-shadow: var(--shadow);
 }
@@ -378,7 +382,26 @@ button:disabled {
 }
 
 .app-header {
+  flex: 0 0 auto;
   padding: 4px 4px 14px;
+}
+
+.app-content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  flex: 1 1 auto;
+  align-content: start;
+  gap: 16px;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0 0 12px;
+  scrollbar-width: none;
+}
+
+.app-content::-webkit-scrollbar {
+  display: none;
 }
 
 .section-status {
@@ -1489,14 +1512,14 @@ button:disabled {
 }
 
 .bottom-nav {
-  position: sticky;
-  bottom: 14px;
+  position: relative;
   z-index: 5;
   display: grid;
+  flex: 0 0 auto;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 4px;
-  margin-top: 16px;
-  padding: 8px;
+  margin-top: 12px;
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
   border: 1px solid var(--border);
   border-radius: 20px;
   background: color-mix(in srgb, var(--surface-raised) 94%, transparent);
@@ -1599,7 +1622,9 @@ button:disabled {
 
   .phone-frame {
     width: 100%;
-    min-height: 100vh;
+    height: 100dvh;
+    min-height: 100dvh;
+    max-height: 100dvh;
     border: 0;
     border-radius: 0;
     box-shadow: none;
@@ -1623,7 +1648,7 @@ button:disabled {
   }
 
   .phone-frame {
-    padding: 14px 14px 96px;
+    padding: 14px;
   }
 
   .balance-display h1 {
