@@ -3,6 +3,7 @@ import type { PrivacyToolkitHandle } from "../toolkit";
 import { createKohakuIndexedDbDatabase } from "../storage/kohakuDatabase";
 import { createKohakuWasmTrapError } from "../toolkitErrors";
 import { loadKohakuRailgunBrowserModule } from "../../railgun/kohakuRailgunModule";
+import { createVisibleRailgunUtxoSyncer } from "../../railgun/utxoSyncer";
 import { createExplicitRpcProvider } from "./rpcProvider";
 
 type KohakuRailgunTypes = typeof import("@kohaku-eth/railgun");
@@ -60,19 +61,22 @@ export const startKohakuRailgunAdapter = async (
     throw new Error(`Kohaku RAILGUN does not support chain ID ${chainId}.`);
   }
 
-  if (policy.poiAggregatorUrls.length > 0) {
-    onStatus("Kohaku custom POI endpoints are not wired; starting RPC-only");
-  } else {
-    onStatus(`Provider connected to chain ${chain.id}`);
-  }
+  onStatus(`Provider connected to chain ${chain.id}`);
 
   const database = createKohakuIndexedDbDatabase(`railgun:${chain.id}`);
   const syncer = await withKohakuWasmTrapContext(
-    "creating the Kohaku RAILGUN RPC syncer",
-    () => kohaku.UtxoSyncer.rpc(chain, provider, 10n)
+    "creating the Kohaku RAILGUN syncer",
+    () =>
+      createVisibleRailgunUtxoSyncer({
+        chain,
+        kohaku,
+        policy,
+        provider,
+        onStatus
+      })
   );
 
-  onStatus("Starting Kohaku RAILGUN provider with RPC-only sync");
+  onStatus("Starting Kohaku RAILGUN provider");
   const railgunProvider = await withKohakuWasmTrapContext(
     "building the Kohaku RAILGUN provider",
     () =>

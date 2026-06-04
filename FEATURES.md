@@ -120,8 +120,10 @@ infrastructure.
 - [ ] Replace the interim browser-local RAILGUN key encryption with
       passkey-backed wrapping when WebAuthn PRF support is usable across target
       browsers.
-- [ ] Add a visible, configurable RAILGUN indexer/POI sync preset for faster
-      first shielded-balance sync without hiding defaults.
+- [x] Add a visible RAILGUN sync-indexer default and use Kohaku chained
+      Subsquid-plus-RPC sync when that visible endpoint matches the chain config.
+- [ ] Add fully configurable custom RAILGUN indexer routing once Kohaku exposes
+      a browser API for non-default sync URLs.
 - [ ] Add a Kohaku-compatible browser smart-account adapter once `pq-account` or
       equivalent passkey ERC-4337 address derivation is available.
 - [ ] Reproduce and report/fix the upstream Kohaku RAILGUN WASM initialization

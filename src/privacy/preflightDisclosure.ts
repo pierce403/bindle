@@ -34,6 +34,7 @@ const actionEndpointRequirements: Record<
     "ethereum-rpc": "required",
     "helios-consensus-rpc": "possible",
     "helios-checkpoint": "possible",
+    "railgun-sync": "possible",
     "railgun-poi": "possible",
     "waku": "possible"
   },
@@ -58,10 +59,12 @@ const actionEndpointRequirements: Record<
     "ethereum-rpc": "required",
     "helios-consensus-rpc": "possible",
     "helios-checkpoint": "possible",
+    "railgun-sync": "possible",
     "railgun-poi": "possible"
   },
   "send-review": {
     "ethereum-rpc": "required",
+    "railgun-sync": "possible",
     "railgun-poi": "possible",
     "railgun-broadcaster": "possible",
     "provider-resolution": "possible",
@@ -76,6 +79,7 @@ const actionEndpointRequirements: Record<
   },
   "private-send": {
     "ethereum-rpc": "required",
+    "railgun-sync": "possible",
     "railgun-poi": "possible",
     "railgun-broadcaster": "possible",
     "provider-resolution": "possible"
@@ -84,6 +88,7 @@ const actionEndpointRequirements: Record<
     "ethereum-rpc": "required",
     "helios-consensus-rpc": "possible",
     "helios-checkpoint": "possible",
+    "railgun-sync": "possible",
     "railgun-poi": "possible",
     "railgun-broadcaster": "required"
   },
@@ -91,6 +96,7 @@ const actionEndpointRequirements: Record<
     "ethereum-rpc": "required",
     "helios-consensus-rpc": "possible",
     "helios-checkpoint": "possible",
+    "railgun-sync": "possible",
     "railgun-poi": "possible",
     "erc4337-bundler": "required",
     "erc4337-paymaster": "possible"

@@ -39,6 +39,7 @@ const hasLegacyCustomEndpoint = (parsed: Record<string, unknown>): boolean =>
   stringValue(parsed.broadcasterUrl).length > 0 ||
   stringValue(parsed.providerResolverUrl).length > 0 ||
   stringValue(parsed.priceQuoteUrl).length > 0 ||
+  stringValue(parsed.railgunSyncUrl).length > 0 ||
   stringValue(parsed.heliosConsensusRpcUrl).length > 0 ||
   stringValue(parsed.heliosCheckpoint).length > 0 ||
   stringValue(parsed.passkeyAttestationUrl).length > 0 ||
@@ -63,6 +64,12 @@ const normalizeConnectionPolicy = (value: unknown): ConnectionPolicy => {
     return defaultConnectionPolicy;
   }
 
+  const presetPolicy = endpointPresets[endpointPreset].policy;
+  const railgunSyncUrl =
+    endpointPreset === "bindle-default" && !stringValue(parsed.railgunSyncUrl)
+      ? presetPolicy.railgunSyncUrl
+      : stringValue(parsed.railgunSyncUrl);
+
   return {
     endpointPreset,
     providerMode: providerModeValue(parsed.providerMode),
@@ -71,6 +78,7 @@ const normalizeConnectionPolicy = (value: unknown): ConnectionPolicy => {
     heliosConsensusRpcUrl: stringValue(parsed.heliosConsensusRpcUrl),
     heliosCheckpoint: stringValue(parsed.heliosCheckpoint),
     heliosNetwork: heliosNetworkValue(parsed.heliosNetwork),
+    railgunSyncUrl,
     poiAggregatorUrls: stringArrayValue(parsed.poiAggregatorUrls),
     broadcasterUrl: stringValue(parsed.broadcasterUrl),
     providerResolverUrl: stringValue(parsed.providerResolverUrl),
@@ -82,7 +90,7 @@ const normalizeConnectionPolicy = (value: unknown): ConnectionPolicy => {
     autoStartToolkit:
       typeof parsed.autoStartToolkit === "boolean"
         ? parsed.autoStartToolkit
-        : endpointPresets[endpointPreset].policy.autoStartToolkit,
+        : presetPolicy.autoStartToolkit,
     wakuEnabled: booleanValue(parsed.wakuEnabled),
     debugLogging: booleanValue(parsed.debugLogging)
   };

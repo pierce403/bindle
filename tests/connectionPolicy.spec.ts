@@ -11,6 +11,7 @@ const expectedOutboundIds = [
   "ethereum-rpc",
   "helios-consensus-rpc",
   "helios-checkpoint",
+  "railgun-sync",
   "railgun-poi",
   "railgun-broadcaster",
   "provider-resolution",
@@ -27,6 +28,7 @@ test("default user mode has a visible sane preset selected", () => {
   expect(defaultConnectionPolicy.providerMode).toBe("direct-rpc");
   expect(defaultConnectionPolicy.ethereumRpcUrl).toMatch(/^https:\/\//);
   expect(defaultConnectionPolicy.bundlerUrl).toMatch(/^https:\/\//);
+  expect(defaultConnectionPolicy.railgunSyncUrl).toMatch(/^https:\/\//);
   expect(defaultConnectionPolicy.paymasterUrl).toBe("");
   expect(defaultConnectionPolicy.autoStartToolkit).toBe(true);
 });
@@ -37,6 +39,7 @@ test("privacy max preset clears hosted endpoints", () => {
   expect(policy.ethereumRpcUrl).toBe("");
   expect(policy.heliosConsensusRpcUrl).toBe("");
   expect(policy.heliosCheckpoint).toBe("");
+  expect(policy.railgunSyncUrl).toBe("");
   expect(policy.poiAggregatorUrls).toEqual([]);
   expect(policy.broadcasterUrl).toBe("");
   expect(policy.providerResolverUrl).toBe("");
@@ -80,6 +83,11 @@ test("outbound summary exposes every endpoint class", () => {
         id: "erc4337-bundler",
         source: "default",
         value: endpointPresets["bindle-default"].policy.bundlerUrl
+      }),
+      expect.objectContaining({
+        id: "railgun-sync",
+        source: "default",
+        value: endpointPresets["bindle-default"].policy.railgunSyncUrl
       }),
       expect.objectContaining({
         id: "erc4337-paymaster",
@@ -128,6 +136,7 @@ test("start toolkit preflight includes direct and Helios endpoint classes", () =
       expect.objectContaining({ id: "ethereum-rpc", required: true }),
       expect.objectContaining({ id: "helios-consensus-rpc", required: false }),
       expect.objectContaining({ id: "helios-checkpoint", required: false }),
+      expect.objectContaining({ id: "railgun-sync", required: false }),
       expect.objectContaining({ id: "railgun-poi", required: false }),
       expect.objectContaining({ id: "waku", required: false })
     ])
@@ -179,6 +188,13 @@ test("shielded balance sync preflight discloses the selected RPC", () => {
       expect.objectContaining({
         id: "railgun-poi",
         required: false
+      }),
+      expect.objectContaining({
+        id: "railgun-sync",
+        configured: true,
+        required: false,
+        source: "default",
+        value: endpointPresets["bindle-default"].policy.railgunSyncUrl
       })
     ])
   );
@@ -206,6 +222,12 @@ test("unshield review preflight requires a visible broadcaster", () => {
       expect.objectContaining({
         id: "railgun-poi",
         required: false
+      }),
+      expect.objectContaining({
+        id: "railgun-sync",
+        configured: true,
+        required: false,
+        source: "default"
       })
     ])
   );

@@ -6,6 +6,7 @@ import { createKohakuWasmTrapError } from "../privacy/toolkitErrors";
 import { createVisibleMainnetClient } from "../wallet/mainnetClient";
 import { loadKohakuRailgunBrowserModule } from "./kohakuRailgunModule";
 import { unlockEncryptedRailgunWallet } from "./railgunWallet";
+import { createVisibleRailgunUtxoSyncer } from "./utxoSyncer";
 
 type KohakuRailgunTypes = typeof import("@kohaku-eth/railgun");
 type KohakuBalanceModule = Pick<
@@ -239,10 +240,17 @@ export const fetchShieldedEthBalance = async (
   }
 
   const database = createKohakuIndexedDbDatabase(`railgun:${chain.id}`);
-  options.onStatus?.("Creating RAILGUN UTXO RPC syncer");
+  options.onStatus?.("Creating RAILGUN UTXO syncer");
   const syncer = await withKohakuWasmTrapContext(
     "creating the Kohaku RAILGUN balance syncer",
-    () => kohaku.UtxoSyncer.rpc(chain, provider, 10n)
+    () =>
+      createVisibleRailgunUtxoSyncer({
+        chain,
+        kohaku,
+        policy,
+        provider,
+        onStatus: options.onStatus
+      })
   );
   options.onStatus?.("Building RAILGUN balance provider");
   const railgunProvider = await withKohakuWasmTrapContext(

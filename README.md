@@ -59,8 +59,8 @@ not the default first-run experience.
   required endpoint preflight checks pass.
 - Local intent routing for `0zk`, `0x`, `.eth`, and `@provider` style recipients.
 - Endpoint presets are visible in Connections. Bindle default currently uses a
-  labelled public Ethereum RPC and public ERC-4337 bundler; Privacy max starts
-  with hosted endpoints empty/off.
+  labelled public Ethereum RPC, RAILGUN sync indexer, and public ERC-4337
+  bundler; Privacy max starts with hosted endpoints empty/off.
 - Endpoint settings are persisted locally in the browser after the user changes
   them, so reloads do not silently remove configured RPC/bundler fields.
 - Default dark black/red paisley theme, with black/white and black/blue variants plus light and dark modes.
@@ -130,7 +130,7 @@ Bindle UI
 
 The default adapter is `kohaku-railgun`. It uses Kohaku's low-level RAILGUN WASM bindings, an IndexedDB-backed local database, and a JSON-RPC provider created only from the active `ConnectionPolicy` endpoint shown in the Connections panel.
 
-Important privacy constraint: Kohaku's higher-level `createRailgunPlugin()` helper currently wires a default Subsquid syncer. Bindle does not call that helper because hidden indexer traffic would violate the product rules. The current Kohaku adapter explicitly builds `RailgunBuilder` with `UtxoSyncer.rpc(...)` only.
+Important privacy constraint: Kohaku's higher-level `createRailgunPlugin()` helper wires a default Subsquid syncer. Bindle does not call that helper because hidden indexer traffic would violate the product rules. The current Kohaku adapter explicitly builds `RailgunBuilder` itself and uses the visible RAILGUN sync indexer only when that endpoint is present in `ConnectionPolicy`; otherwise it falls back to RPC-only sync.
 
 The `railgun-wallet-sdk` adapter remains as an explicit fallback for paths Kohaku does not cover yet, such as the older browser Wallet SDK engine and artifact store. App state should not talk to `@railgun-community/wallet` directly.
 
@@ -171,13 +171,11 @@ Current shield/unshield status:
   through the selected visible RPC. Contract-internal transfers still need an
   explicit, visible indexer or trace provider.
 - Shielded ETH balance sync is real and explicit. It unlocks the local encrypted
-  RAILGUN wallet, registers the local signer with Kohaku, scans RAILGUN notes via
-  RPC-only UTXO sync, and sums the wrapped-base-token private balance as ETH.
-  First sync can be slow because no hidden Subsquid/default indexer is used.
-  Public/default RPC endpoints may reject or CORS-block large browser
-  `eth_getLogs` scans; in that case Bindle surfaces the failing visible RPC and
-  the user should switch the Ethereum RPC in Connections to one that supports
-  browser RAILGUN log sync.
+  RAILGUN wallet, registers the local signer with Kohaku, scans RAILGUN notes
+  through the visible RAILGUN sync indexer when configured, falls back to the
+  visible RPC syncer, and sums the wrapped-base-token private balance as ETH.
+  If the sync indexer is off, first sync can be slow and public/default RPC
+  endpoints may reject or CORS-block large browser `eth_getLogs` scans.
 - RAILGUN wallet creation/import is real and local. The recovery phrase is
   encrypted into IndexedDB with a non-extractable browser-local WebCrypto key;
   localStorage stores only the public `0zk` address and a key-store marker.
@@ -211,10 +209,11 @@ magic, CDN imports, or undocumented library defaults.
 Current presets:
 
 - Bindle default: visible public defaults for normal use. It currently sets
-  Ethereum RPC to `https://ethereum-rpc.publicnode.com` and ERC-4337 bundler to
-  `https://public.pimlico.io/v2/1/rpc`, and enables toolkit auto-start after
-  local `0zk` wallet creation. These services can see network metadata and must
-  not be presented as trustless or private.
+  Ethereum RPC to `https://ethereum-rpc.publicnode.com`, RAILGUN sync indexer
+  to `https://rail-squid.squids.live/squid-railgun-ethereum-v2/v/v1/graphql`,
+  and ERC-4337 bundler to `https://public.pimlico.io/v2/1/rpc`, and enables
+  toolkit auto-start after local `0zk` wallet creation. These services can see
+  network metadata and must not be presented as trustless or private.
 - Privacy max: all hosted endpoints empty/off for users bringing local or
   self-hosted infrastructure. Toolkit auto-start is off.
 - Custom: preserves user-entered values while editing individual endpoints.

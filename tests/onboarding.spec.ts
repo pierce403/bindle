@@ -87,12 +87,16 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByLabel("ERC-4337 bundler")).toHaveValue(
       "https://public.pimlico.io/v2/1/rpc"
     );
+    await expect(page.getByLabel("RAILGUN sync indexer")).toHaveValue(
+      "https://rail-squid.squids.live/squid-railgun-ethereum-v2/v/v1/graphql"
+    );
     await expect(page.getByLabel("Auto-start toolkit")).toBeChecked();
     await expect(page.getByText("default").first()).toBeVisible();
 
     await page.getByLabel("Active preset").selectOption("privacy-max");
 
     await expect(page.getByLabel("Ethereum execution RPC")).toHaveValue("");
+    await expect(page.getByLabel("RAILGUN sync indexer")).toHaveValue("");
     await expect(page.getByLabel("ERC-4337 bundler")).toHaveValue("");
     await expect(page.getByLabel("ERC-4337 paymaster")).toHaveValue("");
     await expect(page.getByLabel("Auto-start toolkit")).not.toBeChecked();
@@ -102,6 +106,7 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByText("Paymaster").first()).toBeVisible();
     await expect(page.getByText("Passkey attestation").first()).toBeVisible();
     await expect(page.getByText("Wallet recovery").first()).toBeVisible();
+    await expect(page.getByText("RAILGUN sync indexer").first()).toBeVisible();
   });
 
   test(

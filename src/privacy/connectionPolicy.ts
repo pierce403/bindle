@@ -2,6 +2,7 @@ export type OutboundClass =
   | "ethereum-rpc"
   | "helios-consensus-rpc"
   | "helios-checkpoint"
+  | "railgun-sync"
   | "railgun-poi"
   | "railgun-broadcaster"
   | "provider-resolution"
@@ -34,6 +35,7 @@ export type ConnectionPolicy = {
   heliosConsensusRpcUrl: string;
   heliosCheckpoint: string;
   heliosNetwork: HeliosNetwork;
+  railgunSyncUrl: string;
   poiAggregatorUrls: string[];
   broadcasterUrl: string;
   providerResolverUrl: string;
@@ -67,6 +69,7 @@ const policyBase = {
   heliosConsensusRpcUrl: "",
   heliosCheckpoint: "",
   heliosNetwork: "mainnet" as HeliosNetwork,
+  railgunSyncUrl: "",
   poiAggregatorUrls: [],
   broadcasterUrl: "",
   providerResolverUrl: "",
@@ -90,6 +93,8 @@ export const endpointPresets: Record<EndpointPresetId, EndpointPreset> = {
       endpointPreset: "bindle-default",
       providerMode: "direct-rpc",
       ethereumRpcUrl: "https://ethereum-rpc.publicnode.com",
+      railgunSyncUrl:
+        "https://rail-squid.squids.live/squid-railgun-ethereum-v2/v/v1/graphql",
       bundlerUrl: "https://public.pimlico.io/v2/1/rpc"
     }
   },
@@ -104,6 +109,7 @@ export const endpointPresets: Record<EndpointPresetId, EndpointPreset> = {
       endpointPreset: "privacy-max",
       providerMode: "direct-rpc",
       ethereumRpcUrl: "",
+      railgunSyncUrl: "",
       bundlerUrl: ""
     }
   },
@@ -117,6 +123,7 @@ export const endpointPresets: Record<EndpointPresetId, EndpointPreset> = {
       endpointPreset: "custom",
       providerMode: "direct-rpc",
       ethereumRpcUrl: "",
+      railgunSyncUrl: "",
       bundlerUrl: ""
     }
   },
@@ -129,6 +136,7 @@ export const endpointPresets: Record<EndpointPresetId, EndpointPreset> = {
       endpointPreset: "local-dev",
       providerMode: "direct-rpc",
       ethereumRpcUrl: "http://127.0.0.1:8545",
+      railgunSyncUrl: "",
       bundlerUrl: "http://127.0.0.1:4337"
     }
   }
@@ -251,6 +259,17 @@ export const summarizeOutbound = (
         policy.providerMode === "helios"
           ? policy.heliosCheckpoint || "not configured"
           : "off"
+    },
+    {
+      id: "railgun-sync",
+      label: "RAILGUN sync indexer",
+      mode: policy.railgunSyncUrl ? "optional" : "off",
+      source: sourceForValue(
+        policy,
+        policy.railgunSyncUrl,
+        bindleDefault.railgunSyncUrl
+      ),
+      value: policy.railgunSyncUrl || "not connected"
     },
     {
       id: "railgun-poi",

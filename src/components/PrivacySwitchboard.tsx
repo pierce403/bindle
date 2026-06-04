@@ -217,7 +217,21 @@ export function PrivacySwitchboard({
       </label>
 
       <label className="field">
-        <span>POI / sync endpoint</span>
+        <span>RAILGUN sync indexer</span>
+        <input
+          value={policy.railgunSyncUrl}
+          placeholder="optional"
+          onChange={(event) =>
+            updateCustom({
+              ...policy,
+              railgunSyncUrl: event.currentTarget.value
+            })
+          }
+        />
+      </label>
+
+      <label className="field">
+        <span>POI aggregator</span>
         <input
           value={policy.poiAggregatorUrls[0] ?? ""}
           placeholder="optional"
