@@ -5,6 +5,7 @@ import { ActivityFeed, type ActivityItem } from "./components/ActivityFeed";
 import { BalancePanel, type WalletAction } from "./components/BalancePanel";
 import { BottomNav, type AppTab } from "./components/BottomNav";
 import { BrowserLandingPage } from "./components/BrowserLandingPage";
+import { BuildMetadataLink } from "./components/BuildMetadataLink";
 import { DebugPanel } from "./components/DebugPanel";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { PrivacySwitchboard } from "./components/PrivacySwitchboard";
@@ -2040,6 +2041,7 @@ function WalletApp() {
             <div className="brand-copy">
               <strong>Bindle</strong>
               <span className="eyebrow">ETH mainnet</span>
+              <BuildMetadataLink />
             </div>
             <ChevronDown size={22} aria-hidden="true" />
           </div>

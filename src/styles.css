@@ -450,6 +450,23 @@ button:disabled {
   font-size: 1.2rem;
 }
 
+.build-metadata-link {
+  max-width: 188px;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--muted) 82%, transparent);
+  font-size: 0.66rem;
+  line-height: 1.1;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.build-metadata-link:focus-visible,
+.build-metadata-link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
 .eyebrow,
 .field span,
 .amount-entry select,

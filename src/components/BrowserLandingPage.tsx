@@ -5,6 +5,7 @@ import {
   ShieldCheck,
   WalletCards
 } from "lucide-react";
+import { BuildMetadataLink } from "./BuildMetadataLink";
 import { PwaInstallPrompt } from "./PwaInstallPrompt";
 
 const principles = [
@@ -42,6 +43,7 @@ export function BrowserLandingPage() {
             <div className="brand-copy">
               <strong>Bindle</strong>
               <span className="eyebrow">Private Ethereum wallet</span>
+              <BuildMetadataLink />
             </div>
           </div>
           <span className="landing-mode">Browser mode: info only</span>
