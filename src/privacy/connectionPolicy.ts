@@ -1,3 +1,5 @@
+import { UNISWAP_V4_QUOTE_SOURCE } from "../intents/swapRouting";
+
 export type OutboundClass =
   | "ethereum-rpc"
   | "helios-consensus-rpc"
@@ -64,6 +66,46 @@ export type EndpointPreset = {
   policy: ConnectionPolicy;
 };
 
+export type EndpointChoice = {
+  label: string;
+  value: string;
+};
+
+export const endpointChoices = {
+  ethereumRpcUrl: [
+    {
+      label: "Bindle default RPC",
+      value: "https://ethereum-rpc.publicnode.com"
+    },
+    {
+      label: "Local node",
+      value: "http://127.0.0.1:8545"
+    }
+  ],
+  railgunSyncUrl: [
+    {
+      label: "Bindle default RAILGUN sync indexer",
+      value: "https://rail-squid.squids.live/squid-railgun-ethereum-v2/v/v1/graphql"
+    }
+  ],
+  bundlerUrl: [
+    {
+      label: "Bindle default ERC-4337 bundler",
+      value: "https://public.pimlico.io/v2/1/rpc"
+    },
+    {
+      label: "Local ERC-4337 bundler",
+      value: "http://127.0.0.1:4337"
+    }
+  ],
+  priceQuoteUrl: [
+    {
+      label: "Bindle default Uniswap v4 onchain quote",
+      value: UNISWAP_V4_QUOTE_SOURCE
+    }
+  ]
+} as const;
+
 const policyBase = {
   privacyToolkit: "kohaku-railgun" as PrivacyToolkitId,
   heliosConsensusRpcUrl: "",
@@ -95,7 +137,8 @@ export const endpointPresets: Record<EndpointPresetId, EndpointPreset> = {
       ethereumRpcUrl: "https://ethereum-rpc.publicnode.com",
       railgunSyncUrl:
         "https://rail-squid.squids.live/squid-railgun-ethereum-v2/v/v1/graphql",
-      bundlerUrl: "https://public.pimlico.io/v2/1/rpc"
+      bundlerUrl: "https://public.pimlico.io/v2/1/rpc",
+      priceQuoteUrl: UNISWAP_V4_QUOTE_SOURCE
     }
   },
   "privacy-max": {

@@ -1,6 +1,7 @@
 import { PlugZap, ShieldCheck, WifiOff } from "lucide-react";
 import {
   applyEndpointPreset,
+  endpointChoices,
   endpointPresets,
   markConnectionPolicyCustom,
   summarizeOutbound,
@@ -126,12 +127,20 @@ export function PrivacySwitchboard({
       <label className="field">
         <span>Ethereum execution RPC</span>
         <input
+          list="ethereum-rpc-options"
           value={policy.ethereumRpcUrl}
           placeholder="https://ethereum-rpc.publicnode.com"
           onChange={(event) =>
             updateCustom({ ...policy, ethereumRpcUrl: event.currentTarget.value })
           }
         />
+        <datalist id="ethereum-rpc-options">
+          {endpointChoices.ethereumRpcUrl.map((choice) => (
+            <option key={choice.value} value={choice.value}>
+              {choice.label}
+            </option>
+          ))}
+        </datalist>
       </label>
 
       {policy.providerMode === "helios" ? (
@@ -186,12 +195,20 @@ export function PrivacySwitchboard({
       <label className="field">
         <span>ERC-4337 bundler</span>
         <input
+          list="bundler-options"
           value={policy.bundlerUrl}
           placeholder="https://public.pimlico.io/v2/1/rpc"
           onChange={(event) =>
             updateCustom({ ...policy, bundlerUrl: event.currentTarget.value })
           }
         />
+        <datalist id="bundler-options">
+          {endpointChoices.bundlerUrl.map((choice) => (
+            <option key={choice.value} value={choice.value}>
+              {choice.label}
+            </option>
+          ))}
+        </datalist>
       </label>
 
       <label className="field">
@@ -219,6 +236,7 @@ export function PrivacySwitchboard({
       <label className="field">
         <span>RAILGUN sync indexer</span>
         <input
+          list="railgun-sync-options"
           value={policy.railgunSyncUrl}
           placeholder="optional"
           onChange={(event) =>
@@ -228,6 +246,13 @@ export function PrivacySwitchboard({
             })
           }
         />
+        <datalist id="railgun-sync-options">
+          {endpointChoices.railgunSyncUrl.map((choice) => (
+            <option key={choice.value} value={choice.value}>
+              {choice.label}
+            </option>
+          ))}
+        </datalist>
       </label>
 
       <label className="field">
@@ -263,12 +288,20 @@ export function PrivacySwitchboard({
       <label className="field">
         <span>Quote source</span>
         <input
+          list="quote-source-options"
           value={policy.priceQuoteUrl}
-          placeholder="manual"
+          placeholder="onchain:uniswap-v4"
           onChange={(event) =>
             updateCustom({ ...policy, priceQuoteUrl: event.currentTarget.value })
           }
         />
+        <datalist id="quote-source-options">
+          {endpointChoices.priceQuoteUrl.map((choice) => (
+            <option key={choice.value} value={choice.value}>
+              {choice.label}
+            </option>
+          ))}
+        </datalist>
       </label>
 
       <label className="field">

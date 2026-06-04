@@ -60,12 +60,15 @@ not the default first-run experience.
 - Local intent routing for `0zk`, `0x`, `.eth`, and `@provider` style recipients.
 - Pay now has a real local intent builder for mainnet ETH and USDC, including
   asset search, recipient/amount entry, QR or pasted payment request import,
-  and endpoint preflight disclosure. Submission remains blocked until the
-  RAILGUN unshield proof, explicit quote/router, and swap/send execution path
-  are implemented safely.
+  endpoint preflight disclosure, and a proof-path progress panel. USDC Pay is
+  planned as shielded ETH unshielded into a Uniswap v4 route, quoted through
+  the visible Ethereum RPC by default. Submission remains blocked until the
+  RAILGUN cross-contract proof, v4 calldata, broadcaster, and final swap/send
+  execution path are implemented safely.
 - Endpoint presets are visible in Connections. Bindle default currently uses a
   labelled public Ethereum RPC, RAILGUN sync indexer, and public ERC-4337
-  bundler; Privacy max starts with hosted endpoints empty/off.
+  bundler, plus an explicit `onchain:uniswap-v4` quote source; Privacy max
+  starts with hosted endpoints empty/off.
 - Endpoint settings are persisted locally in the browser after the user changes
   them, so reloads do not silently remove configured RPC/bundler fields.
 - Default dark black/red paisley theme, with black/white and black/blue variants plus light and dark modes.

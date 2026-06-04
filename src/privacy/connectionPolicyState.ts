@@ -69,6 +69,10 @@ const normalizeConnectionPolicy = (value: unknown): ConnectionPolicy => {
     endpointPreset === "bindle-default" && !stringValue(parsed.railgunSyncUrl)
       ? presetPolicy.railgunSyncUrl
       : stringValue(parsed.railgunSyncUrl);
+  const priceQuoteUrl =
+    endpointPreset === "bindle-default" && !stringValue(parsed.priceQuoteUrl)
+      ? presetPolicy.priceQuoteUrl
+      : stringValue(parsed.priceQuoteUrl);
 
   return {
     endpointPreset,
@@ -82,7 +86,7 @@ const normalizeConnectionPolicy = (value: unknown): ConnectionPolicy => {
     poiAggregatorUrls: stringArrayValue(parsed.poiAggregatorUrls),
     broadcasterUrl: stringValue(parsed.broadcasterUrl),
     providerResolverUrl: stringValue(parsed.providerResolverUrl),
-    priceQuoteUrl: stringValue(parsed.priceQuoteUrl),
+    priceQuoteUrl,
     bundlerUrl: stringValue(parsed.bundlerUrl),
     paymasterUrl: stringValue(parsed.paymasterUrl),
     passkeyAttestationUrl: stringValue(parsed.passkeyAttestationUrl),

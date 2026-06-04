@@ -29,6 +29,7 @@ test("default user mode has a visible sane preset selected", () => {
   expect(defaultConnectionPolicy.ethereumRpcUrl).toMatch(/^https:\/\//);
   expect(defaultConnectionPolicy.bundlerUrl).toMatch(/^https:\/\//);
   expect(defaultConnectionPolicy.railgunSyncUrl).toMatch(/^https:\/\//);
+  expect(defaultConnectionPolicy.priceQuoteUrl).toBe("onchain:uniswap-v4");
   expect(defaultConnectionPolicy.paymasterUrl).toBe("");
   expect(defaultConnectionPolicy.autoStartToolkit).toBe(true);
 });
@@ -88,6 +89,11 @@ test("outbound summary exposes every endpoint class", () => {
         id: "railgun-sync",
         source: "default",
         value: endpointPresets["bindle-default"].policy.railgunSyncUrl
+      }),
+      expect.objectContaining({
+        id: "price-quotes",
+        source: "default",
+        value: "onchain:uniswap-v4"
       }),
       expect.objectContaining({
         id: "erc4337-paymaster",
@@ -258,9 +264,9 @@ test("pay review preflight discloses unshield, resolver, and quote endpoints", (
       }),
       expect.objectContaining({
         id: "price-quotes",
-        configured: false,
+        configured: true,
         required: true,
-        source: "off"
+        source: "default"
       })
     ])
   );

@@ -16,10 +16,16 @@ import { useEffect, useRef, useState } from "react";
 import { getPayAsset, searchPayAssets } from "../intents/assets";
 import { parsePaymentRequest } from "../intents/paymentRequests";
 import { routeIntent, type IntentDraft, type RoutedIntent } from "../intents/router";
+import {
+  getPaySwapRoutePlan,
+  UNISWAP_V4_PROTOCOL_LABEL
+} from "../intents/swapRouting";
 import { isValidDecimalAmount, isValidRecipientShape } from "../intents/validation";
 import type { EndpointDisclosure } from "../privacy/preflightDisclosure";
+import { buildPayProofProgress } from "../railgun/proofProgress";
 import type { WalletState } from "../wallet/walletState";
 import type { WalletAction } from "./BalancePanel";
+import { ProofProgressPanel } from "./ProofProgressPanel";
 
 type BarcodeDetectorResult = {
   rawValue: string;
@@ -109,6 +115,7 @@ export function WalletActionPanel({
   const hasAmount = isValidDecimalAmount(draft.amount);
   const hasValidRecipient = isValidRecipientShape(draft.recipient);
   const selectedPayAsset = getPayAsset(draft.asset);
+  const paySwapRoutePlan = getPaySwapRoutePlan(selectedPayAsset);
   const payAssetResults = searchPayAssets(assetQuery);
   const requiredEndpointsReady = endpointDisclosures.every(
     (endpoint) => !endpoint.required || endpoint.configured
@@ -143,6 +150,19 @@ export function WalletActionPanel({
     !walletState.smartWalletAddress;
   const canReviewPayIntent =
     hasRecipient && hasValidRecipient && hasAmount && selectedPayAsset !== null;
+  const paySwapRouteReady =
+    paySwapRoutePlan !== null && !paySwapRoutePlan.requiresSwap;
+  const payProofProgress = buildPayProofProgress({
+    intentReady: canReviewPayIntent,
+    endpointsReady: requiredEndpointsReady,
+    routeReady: paySwapRouteReady,
+    proofReady: false,
+    submitting: false,
+    missingEndpointLabels: missingRequiredEndpoints.map(
+      (endpoint) => endpoint.label
+    ),
+    routeLabel: paySwapRoutePlan?.executionLabel ?? "Route"
+  });
   const payRouteBlockers = [
     !hasRailgunWallet ? "Create or import a shielded 0zk wallet." : null,
     !hasRecoverableRailgunKeyMaterial
@@ -154,9 +174,9 @@ export function WalletActionPanel({
           .map((endpoint) => endpoint.label)
           .join(", ")}.`
       : null,
-    "RAILGUN unshield proof generation is not wired for Pay yet.",
+    "RAILGUN cross-contract unshield proof generation is not wired for Pay yet.",
     selectedPayAsset?.symbol === "USDC"
-      ? "ETH-to-USDC swap routing is not wired yet."
+      ? `${UNISWAP_V4_PROTOCOL_LABEL} ETH-to-USDC swap calldata is not wired yet.`
       : null
   ].filter((blocker): blocker is string => blocker !== null);
   const payRouteReady = payRouteBlockers.length === 0;
@@ -568,10 +588,16 @@ export function WalletActionPanel({
             <div>
               <strong>Convert</strong>
               <span>
-                {selectedPayAsset?.symbol === "USDC"
-                  ? "ETH to USDC via explicit router"
-                  : "No conversion"}
+                {paySwapRoutePlan?.executionLabel ?? "No conversion"}
               </span>
+            </div>
+            <div>
+              <strong>Quote</strong>
+              <span>{paySwapRoutePlan?.quoteLabel ?? "pending"}</span>
+            </div>
+            <div>
+              <strong>Router</strong>
+              <span>{paySwapRoutePlan?.routerLabel ?? "pending"}</span>
             </div>
             <div>
               <strong>Send</strong>
@@ -586,6 +612,7 @@ export function WalletActionPanel({
                 <span>{selectedPayAsset.address}</span>
               </div>
             ) : null}
+            <ProofProgressPanel progress={payProofProgress} />
             <div className="route-blockers">
               <AlertTriangle size={17} aria-hidden="true" />
               <span>{payRouteReady ? "Ready" : "Blocked"}</span>

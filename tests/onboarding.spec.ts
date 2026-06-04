@@ -87,16 +87,24 @@ test.describe("passkey-first onboarding", () => {
     await page.getByRole("button", { name: "Review pay route" }).click();
 
     await expect(page.getByLabel("Review pay route")).toContainText(
-      "ETH to USDC via explicit router"
+      "ETH to USDC through Uniswap v4"
+    );
+    await expect(page.getByLabel("Review pay route")).toContainText(
+      "Onchain v4 Quoter through the visible Ethereum RPC"
     );
     await expect(page.getByLabel("Review pay route")).toContainText(
       "5 USDC to deanpierce.eth"
     );
     await expect(page.getByLabel("Review pay route")).toContainText("Blocked");
     await expect(page.getByLabel("Review pay route")).toContainText(
-      "Configure required endpoints: Broadcaster, Quotes."
+      "Configure required endpoint: Broadcaster."
     );
-    await expect(page.getByText("RAILGUN unshield proof generation")).toBeVisible();
+    await expect(
+      page.getByText("RAILGUN cross-contract unshield proof generation")
+    ).toBeVisible();
+    await expect(page.getByLabel("Proof generation progress")).toContainText(
+      "ETH to USDC through Uniswap v4 calldata is not wired yet"
+    );
     await expect(
       page.getByRole("button", { name: "Open Connections" })
     ).toBeVisible();
@@ -122,6 +130,9 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByLabel("RAILGUN sync indexer")).toHaveValue(
       "https://rail-squid.squids.live/squid-railgun-ethereum-v2/v/v1/graphql"
     );
+    await expect(page.getByLabel("Quote source")).toHaveValue(
+      "onchain:uniswap-v4"
+    );
     await expect(page.getByLabel("Auto-start toolkit")).toBeChecked();
     await expect(page.getByText("default").first()).toBeVisible();
 
@@ -131,6 +142,7 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByLabel("RAILGUN sync indexer")).toHaveValue("");
     await expect(page.getByLabel("ERC-4337 bundler")).toHaveValue("");
     await expect(page.getByLabel("ERC-4337 paymaster")).toHaveValue("");
+    await expect(page.getByLabel("Quote source")).toHaveValue("");
     await expect(page.getByLabel("Auto-start toolkit")).not.toBeChecked();
     await expect(page.getByLabel("Passkey attestation")).toHaveValue("");
     await expect(page.getByLabel("Wallet recovery")).toHaveValue("");
