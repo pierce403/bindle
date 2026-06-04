@@ -143,7 +143,10 @@ optional and only used when configured. Bindle can audit shield/unshield
 readiness and can prepare native ETH shield call data through Kohaku's low-level
 WASM binding. Shield review now builds native ETH shield calls and submits them
 from the passkey smart wallet through the visible RPC and ERC-4337 bundler.
-Shielded balance sync, unshielding, and private RAILGUN sends remain pending.
+For the visible Pimlico default bundler, Bindle requests User Operation gas
+prices from that same bundler endpoint before submission so the bundler does not
+reject underpriced priority fees. Shielded balance sync, unshielding, and
+private RAILGUN sends remain pending.
 
 ## RAILGUN Integration Notes
 
@@ -162,6 +165,8 @@ Current shield/unshield status:
   `ShieldBuilder.shieldNative`.
 - Shield submission is wired from the passkey smart wallet through visible
   RPC/bundler policy after an explicit review of amount and contacted endpoints.
+- Pimlico ERC-4337 submissions use the configured bundler's
+  `pimlico_getUserOperationGasPrice` response for User Operation fee fields.
 - Unshield is blocked until shielded balance sync, proof generation, unlock
   flow, and a visible broadcaster path are implemented.
 

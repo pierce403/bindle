@@ -7,6 +7,7 @@ import {
 } from "viem/account-abstraction";
 import type { ConnectionPolicy } from "../privacy/connectionPolicy";
 import { createVisibleMainnetClient } from "./mainnetClient";
+import { estimateVisibleUserOperationFees } from "./userOperationGas";
 import type { WalletState } from "./walletState";
 
 export type SmartAccountAdapterStatus = {
@@ -153,7 +154,14 @@ export const sendSmartWalletEthPayment = async ({
     account,
     client,
     paymaster: paymasterClient ?? undefined,
-    transport: http(policy.bundlerUrl.trim())
+    transport: http(policy.bundlerUrl.trim()),
+    userOperation: {
+      estimateFeesPerGas: () =>
+        estimateVisibleUserOperationFees({
+          bundlerUrl: policy.bundlerUrl,
+          fallbackEstimator: client
+        })
+    }
   });
   const to = await resolveRecipient(policy, recipient);
   const userOperationHash = await bundlerClient.sendUserOperation({
@@ -202,7 +210,14 @@ export const sendSmartWalletCalls = async ({
     account,
     client,
     paymaster: paymasterClient ?? undefined,
-    transport: http(policy.bundlerUrl.trim())
+    transport: http(policy.bundlerUrl.trim()),
+    userOperation: {
+      estimateFeesPerGas: () =>
+        estimateVisibleUserOperationFees({
+          bundlerUrl: policy.bundlerUrl,
+          fallbackEstimator: client
+        })
+    }
   });
   const userOperationHash = await bundlerClient.sendUserOperation({
     account,
