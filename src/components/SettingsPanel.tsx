@@ -2,9 +2,12 @@ import { Download, Palette, RotateCcw, Settings, Upload } from "lucide-react";
 import { useRef } from "react";
 import { ThemeControls } from "./ThemeControls";
 import type { ThemeSelection } from "../theme/theme";
+import { getCurrentPasskeyHostname } from "../wallet/passkeys";
+import type { WalletState } from "../wallet/walletState";
 
 type SettingsPanelProps = {
   theme: ThemeSelection;
+  walletState: WalletState;
   accountExportStatus: string;
   isExportingAccount: boolean;
   isImportingAccount: boolean;
@@ -16,6 +19,7 @@ type SettingsPanelProps = {
 
 export function SettingsPanel({
   theme,
+  walletState,
   accountExportStatus,
   isExportingAccount,
   isImportingAccount,
@@ -25,6 +29,12 @@ export function SettingsPanel({
   onResetWallet
 }: SettingsPanelProps) {
   const importInputRef = useRef<HTMLInputElement | null>(null);
+  const passkeyRpId = walletState.passkeyRpId ?? "not configured";
+  const currentHostname = getCurrentPasskeyHostname();
+  const migratedPasskeyExpected =
+    currentHostname !== null &&
+    walletState.passkeyRpId !== null &&
+    walletState.passkeyRpId !== currentHostname;
 
   return (
     <section className="panel settings-panel" aria-labelledby="settings-heading">
@@ -45,6 +55,23 @@ export function SettingsPanel({
       </div>
 
       <ThemeControls theme={theme} onChange={onThemeChange} />
+
+      <div className="settings-row">
+        <div>
+          <strong>Account access</strong>
+          <span>
+            Passkey RP ID: {passkeyRpId}
+            {currentHostname ? `; current host: ${currentHostname}` : ""}
+          </span>
+          {migratedPasskeyExpected ? (
+            <small>
+              Migrated account detected. This site must be allowed by the
+              original RP ID's WebAuthn related-origin file, and the matching
+              passkey must exist on this device.
+            </small>
+          ) : null}
+        </div>
+      </div>
 
       <div className="settings-row">
         <div>

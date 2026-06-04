@@ -7,6 +7,7 @@ import {
 } from "viem/account-abstraction";
 import type { ConnectionPolicy } from "../privacy/connectionPolicy";
 import { createVisibleMainnetClient } from "./mainnetClient";
+import { explainPasskeyLookupError } from "./passkeys";
 import { estimateVisibleUserOperationFees } from "./userOperationGas";
 import type { WalletState } from "./walletState";
 
@@ -141,47 +142,51 @@ export const sendSmartWalletEthPayment = async ({
   recipient: string;
   walletState: WalletState;
 }): Promise<SmartWalletPaymentResult> => {
-  if (!policy.bundlerUrl.trim()) {
-    throw new Error("Configure an ERC-4337 bundler before sending.");
-  }
-
-  const { account, client } = await createSmartAccount(policy, walletState);
-  const paymasterClient = policy.paymasterUrl.trim()
-    ? createPaymasterClient({
-        transport: http(policy.paymasterUrl.trim())
-      })
-    : null;
-  const bundlerClient = createBundlerClient({
-    account,
-    client,
-    paymaster: paymasterClient ?? undefined,
-    transport: http(policy.bundlerUrl.trim()),
-    userOperation: {
-      estimateFeesPerGas: () =>
-        estimateVisibleUserOperationFees({
-          bundlerUrl: policy.bundlerUrl,
-          fallbackEstimator: client
-        })
+  try {
+    if (!policy.bundlerUrl.trim()) {
+      throw new Error("Configure an ERC-4337 bundler before sending.");
     }
-  });
-  const to = await resolveRecipient(policy, recipient);
-  const userOperationHash = await bundlerClient.sendUserOperation({
-    account,
-    calls: [
-      {
-        to,
-        value: parseEther(amount.trim())
-      }
-    ]
-  });
-  const receipt = await bundlerClient.waitForUserOperationReceipt({
-    hash: userOperationHash
-  });
 
-  return {
-    userOperationHash,
-    transactionHash: receipt.receipt.transactionHash
-  };
+    const { account, client } = await createSmartAccount(policy, walletState);
+    const paymasterClient = policy.paymasterUrl.trim()
+      ? createPaymasterClient({
+          transport: http(policy.paymasterUrl.trim())
+        })
+      : null;
+    const bundlerClient = createBundlerClient({
+      account,
+      client,
+      paymaster: paymasterClient ?? undefined,
+      transport: http(policy.bundlerUrl.trim()),
+      userOperation: {
+        estimateFeesPerGas: () =>
+          estimateVisibleUserOperationFees({
+            bundlerUrl: policy.bundlerUrl,
+            fallbackEstimator: client
+          })
+      }
+    });
+    const to = await resolveRecipient(policy, recipient);
+    const userOperationHash = await bundlerClient.sendUserOperation({
+      account,
+      calls: [
+        {
+          to,
+          value: parseEther(amount.trim())
+        }
+      ]
+    });
+    const receipt = await bundlerClient.waitForUserOperationReceipt({
+      hash: userOperationHash
+    });
+
+    return {
+      userOperationHash,
+      transactionHash: receipt.receipt.transactionHash
+    };
+  } catch (error) {
+    throw explainPasskeyLookupError(error, walletState);
+  }
 };
 
 export const sendSmartWalletCalls = async ({
@@ -193,43 +198,47 @@ export const sendSmartWalletCalls = async ({
   policy: ConnectionPolicy;
   walletState: WalletState;
 }): Promise<SmartWalletPaymentResult> => {
-  if (!policy.bundlerUrl.trim()) {
-    throw new Error("Configure an ERC-4337 bundler before sending.");
-  }
-
-  if (calls.length === 0) {
-    throw new Error("No smart-wallet calls were prepared.");
-  }
-
-  const { account, client } = await createSmartAccount(policy, walletState);
-  const paymasterClient = policy.paymasterUrl.trim()
-    ? createPaymasterClient({
-        transport: http(policy.paymasterUrl.trim())
-      })
-    : null;
-  const bundlerClient = createBundlerClient({
-    account,
-    client,
-    paymaster: paymasterClient ?? undefined,
-    transport: http(policy.bundlerUrl.trim()),
-    userOperation: {
-      estimateFeesPerGas: () =>
-        estimateVisibleUserOperationFees({
-          bundlerUrl: policy.bundlerUrl,
-          fallbackEstimator: client
-        })
+  try {
+    if (!policy.bundlerUrl.trim()) {
+      throw new Error("Configure an ERC-4337 bundler before sending.");
     }
-  });
-  const userOperationHash = await bundlerClient.sendUserOperation({
-    account,
-    calls
-  });
-  const receipt = await bundlerClient.waitForUserOperationReceipt({
-    hash: userOperationHash
-  });
 
-  return {
-    userOperationHash,
-    transactionHash: receipt.receipt.transactionHash
-  };
+    if (calls.length === 0) {
+      throw new Error("No smart-wallet calls were prepared.");
+    }
+
+    const { account, client } = await createSmartAccount(policy, walletState);
+    const paymasterClient = policy.paymasterUrl.trim()
+      ? createPaymasterClient({
+          transport: http(policy.paymasterUrl.trim())
+        })
+      : null;
+    const bundlerClient = createBundlerClient({
+      account,
+      client,
+      paymaster: paymasterClient ?? undefined,
+      transport: http(policy.bundlerUrl.trim()),
+      userOperation: {
+        estimateFeesPerGas: () =>
+          estimateVisibleUserOperationFees({
+            bundlerUrl: policy.bundlerUrl,
+            fallbackEstimator: client
+          })
+      }
+    });
+    const userOperationHash = await bundlerClient.sendUserOperation({
+      account,
+      calls
+    });
+    const receipt = await bundlerClient.waitForUserOperationReceipt({
+      hash: userOperationHash
+    });
+
+    return {
+      userOperationHash,
+      transactionHash: receipt.receipt.transactionHash
+    };
+  } catch (error) {
+    throw explainPasskeyLookupError(error, walletState);
+  }
 };

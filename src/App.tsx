@@ -1492,9 +1492,10 @@ function WalletApp() {
         initialSmartAccountDeploymentStatus(nextState.smartWalletAddress)
       );
 
+      const passkeyRpId = nextState.passkeyRpId ?? "this site";
       const message = importedWallet
-        ? "Account export imported. Shielded 0zk keys were re-encrypted here; public smart-account spending still requires the same synced passkey."
-        : "Account metadata imported. No RAILGUN recovery phrase was present; public smart-account spending still requires the same synced passkey.";
+        ? `Account export imported. Shielded 0zk keys were re-encrypted here; public smart-account spending still requires the same synced passkey for RP ID ${passkeyRpId}.`
+        : `Account metadata imported. No RAILGUN recovery phrase was present; public smart-account spending still requires the same synced passkey for RP ID ${passkeyRpId}.`;
       setAccountExportStatus(message);
       setStatusMessage("Account export imported");
       recordDebugEvent({
@@ -1502,8 +1503,8 @@ function WalletApp() {
         source: "settings",
         message: "Account export imported",
         detail: importedWallet
-          ? `Railgun address: ${importedWallet.railgunAddress}`
-          : "No RAILGUN wallet secrets imported"
+          ? `Railgun address: ${importedWallet.railgunAddress}\nPasskey RP ID: ${passkeyRpId}`
+          : `No RAILGUN wallet secrets imported\nPasskey RP ID: ${passkeyRpId}`
       });
     } catch (error) {
       const message = messageFromError(
@@ -1716,6 +1717,7 @@ function WalletApp() {
         {activeTab === "settings" ? (
           <SettingsPanel
             theme={theme}
+            walletState={walletState}
             accountExportStatus={accountExportStatus}
             isExportingAccount={isExportingAccount}
             isImportingAccount={isImportingAccount}
