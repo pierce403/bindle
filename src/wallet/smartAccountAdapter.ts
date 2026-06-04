@@ -1,4 +1,4 @@
-import { http, isAddress, parseEther, type Address } from "viem";
+import { getAddress, http, isAddress, parseEther, type Address } from "viem";
 import {
   createBundlerClient,
   createPaymasterClient,
@@ -6,6 +6,10 @@ import {
   toWebAuthnAccount
 } from "viem/account-abstraction";
 import type { ConnectionPolicy } from "../privacy/connectionPolicy";
+import {
+  resolveCoinbaseSmartAccountOwnerIndex,
+  withCoinbaseSignatureOwnerIndex
+} from "./coinbaseSmartWalletOwners";
 import { createVisibleMainnetClient } from "./mainnetClient";
 import { explainPasskeyLookupError } from "./passkeys";
 import { estimateVisibleUserOperationFees } from "./userOperationGas";
@@ -70,17 +74,38 @@ const createSmartAccount = async (
   walletState: WalletState
 ) => {
   const client = await createVisibleMainnetClient(policy);
+  const accountAddress =
+    walletState.smartWalletAddress && isAddress(walletState.smartWalletAddress)
+      ? (getAddress(walletState.smartWalletAddress) as Address)
+      : undefined;
+  const ownerIndex = await resolveCoinbaseSmartAccountOwnerIndex(
+    client,
+    walletState
+  );
   const owner = toWebAuthnAccount({
     credential: getFundingCredential(walletState),
     rpId: walletState.passkeyRpId ?? undefined
   });
   const account = await toCoinbaseSmartAccount({
+    address: accountAddress,
     client,
+    ownerIndex,
     owners: [owner],
     version: "1.1"
   });
+  const indexedAccount =
+    ownerIndex === 0
+      ? account
+      : {
+          ...account,
+          getStubSignature: async () =>
+            withCoinbaseSignatureOwnerIndex({
+              ownerIndex,
+              signature: await account.getStubSignature()
+            })
+        };
 
-  return { account, client };
+  return { account: indexedAccount, client, ownerIndex };
 };
 
 export const deriveSmartWalletAddressFromPasskey = async (
