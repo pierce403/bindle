@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   formatShieldedEthBalance,
   formatUsdFromEth,
+  summarizeWrappedBaseTokenBalance,
   sumWrappedBaseTokenBalance
 } from "../src/railgun/shieldedBalance";
 
@@ -20,6 +21,22 @@ test("sums only wrapped base token notes as shielded ETH", () => {
       ]
     })
   ).toBe(5n);
+
+  expect(
+    summarizeWrappedBaseTokenBalance({
+      wrappedBaseToken: weth,
+      balances: [
+        [{ type: "Erc20", value: weth.toLowerCase() as `0x${string}` }, 2n],
+        [{ type: "Erc20", value: weth }, 3n],
+        [{ type: "Erc20", value: otherToken }, 5n],
+        [{ type: "Erc721" }, 7n]
+      ]
+    })
+  ).toEqual({
+    wei: 5n,
+    rawBalanceCount: 4,
+    matchedWrappedBaseTokenBalances: 2
+  });
 });
 
 test("formats shielded ETH and Chainlink USD values", () => {

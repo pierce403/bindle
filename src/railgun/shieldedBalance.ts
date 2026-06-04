@@ -25,12 +25,18 @@ export type ShieldedEthBalance = {
   usd: string | null;
   blockNumber: bigint;
   syncedAt: string;
+  rawBalanceCount: number;
+  matchedWrappedBaseTokenBalances: number;
   price: {
     answer: bigint;
     decimals: number;
     updatedAt: bigint;
     source: "chainlink-eth-usd-via-rpc";
   } | null;
+};
+
+type ShieldedBalanceSyncOptions = {
+  onStatus?: (message: string) => void;
 };
 
 const chainlinkEthUsdFeed = "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419";
@@ -122,6 +128,38 @@ export const sumWrappedBaseTokenBalance = ({
     return total + amount;
   }, 0n);
 
+export const summarizeWrappedBaseTokenBalance = ({
+  balances,
+  wrappedBaseToken
+}: {
+  balances: Array<[RailgunAssetId, bigint]>;
+  wrappedBaseToken: `0x${string}`;
+}): {
+  wei: bigint;
+  rawBalanceCount: number;
+  matchedWrappedBaseTokenBalances: number;
+} =>
+  balances.reduce(
+    (summary, [asset, amount]) => {
+      const matches =
+        asset.type === "Erc20" &&
+        Boolean(asset.value) &&
+        asset.value?.toLowerCase() === wrappedBaseToken.toLowerCase();
+
+      return {
+        rawBalanceCount: summary.rawBalanceCount + 1,
+        matchedWrappedBaseTokenBalances:
+          summary.matchedWrappedBaseTokenBalances + (matches ? 1 : 0),
+        wei: matches ? summary.wei + amount : summary.wei
+      };
+    },
+    {
+      wei: 0n,
+      rawBalanceCount: 0,
+      matchedWrappedBaseTokenBalances: 0
+    }
+  );
+
 const fetchEthUsdPrice = async (
   policy: ConnectionPolicy
 ): Promise<ShieldedEthBalance["price"]> => {
@@ -159,7 +197,8 @@ const fetchEthUsdPrice = async (
 };
 
 export const fetchShieldedEthBalance = async (
-  policy: ConnectionPolicy
+  policy: ConnectionPolicy,
+  options: ShieldedBalanceSyncOptions = {}
 ): Promise<ShieldedEthBalance> => {
   if (policy.providerMode === "helios") {
     throw new Error(
@@ -173,13 +212,17 @@ export const fetchShieldedEthBalance = async (
     throw new Error("Configure an Ethereum RPC endpoint before shielded balance sync.");
   }
 
+  options.onStatus?.("Unlocking local RAILGUN viewing keys");
   const unlockedWallet = await unlockEncryptedRailgunWallet();
+  options.onStatus?.("Loading Kohaku RAILGUN balance module");
   const kohaku = await withKohakuWasmTrapContext(
     "loading Kohaku RAILGUN shielded balance module",
     () => loadKohakuBalanceModule({ debugLogging: policy.debugLogging })
   );
   const provider = createExplicitRpcProvider(ethereumRpcUrl);
+  options.onStatus?.("Checking configured Ethereum RPC chain");
   const chainId = await provider.getChainId();
+  options.onStatus?.(`Loading RAILGUN chain config for chain ${chainId.toString()}`);
   const chain = await withKohakuWasmTrapContext(
     `loading the Kohaku RAILGUN chain config for chain ID ${chainId}`,
     () => kohaku.chainConfig(chainId)
@@ -196,10 +239,12 @@ export const fetchShieldedEthBalance = async (
   }
 
   const database = createKohakuIndexedDbDatabase(`railgun:${chain.id}`);
+  options.onStatus?.("Creating RAILGUN UTXO RPC syncer");
   const syncer = await withKohakuWasmTrapContext(
     "creating the Kohaku RAILGUN balance syncer",
     () => kohaku.UtxoSyncer.rpc(chain, provider, 10n)
   );
+  options.onStatus?.("Building RAILGUN balance provider");
   const railgunProvider = await withKohakuWasmTrapContext(
     "building the Kohaku RAILGUN balance provider",
     () =>
@@ -215,21 +260,28 @@ export const fetchShieldedEthBalance = async (
   );
 
   try {
+    options.onStatus?.("Registering local RAILGUN signer");
     await withKohakuWasmTrapContext(
       "registering the local RAILGUN signer for balance sync",
       () => railgunProvider.register(signer)
     );
+    options.onStatus?.("Syncing RAILGUN shielded note events");
     await withKohakuWasmTrapContext("syncing RAILGUN shielded notes", () =>
       railgunProvider.sync()
     );
+    options.onStatus?.("Reading synced RAILGUN balances");
     const balances = await withKohakuWasmTrapContext(
       "reading RAILGUN shielded balances",
       () => railgunProvider.balance(signer.address)
     );
-    const wei = sumWrappedBaseTokenBalance({
+    const summary = summarizeWrappedBaseTokenBalance({
       balances: balances as Array<[RailgunAssetId, bigint]>,
       wrappedBaseToken: chain.wrappedBaseToken
     });
+    options.onStatus?.(
+      `RAILGUN balance read returned ${summary.rawBalanceCount.toString()} asset entries`
+    );
+    options.onStatus?.("Reading ETH/USD price and latest block");
     const [blockNumber, price] = await Promise.all([
       provider.getBlockNumber(),
       fetchEthUsdPrice(policy).catch(() => null)
@@ -237,17 +289,19 @@ export const fetchShieldedEthBalance = async (
 
     return {
       railgunAddress: signer.address,
-      wei,
-      formattedEth: formatShieldedEthBalance(wei),
+      wei: summary.wei,
+      formattedEth: formatShieldedEthBalance(summary.wei),
       usd: price
         ? formatUsdFromEth({
-            ethWei: wei,
+            ethWei: summary.wei,
             priceAnswer: price.answer,
             priceDecimals: price.decimals
           })
         : null,
       blockNumber,
       syncedAt: new Date().toISOString(),
+      rawBalanceCount: summary.rawBalanceCount,
+      matchedWrappedBaseTokenBalances: summary.matchedWrappedBaseTokenBalances,
       price
     };
   } finally {

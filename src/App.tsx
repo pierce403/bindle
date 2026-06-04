@@ -332,6 +332,7 @@ function WalletApp() {
   const shieldedBalanceRequestRef = useRef(0);
   const smartAccountDeploymentRequestRef = useRef(0);
   const publicBalanceAutoSyncKeyRef = useRef<string | null>(null);
+  const shieldedBalanceAutoSyncKeyRef = useRef<string | null>(null);
   const hasRailgunWallet = walletState.railgunAddress !== null;
   const hasSmartWallet = walletState.smartWalletAddress !== null;
   const rpcReady = toolkitState === "ready" && policy.ethereumRpcUrl.length > 0;
@@ -540,16 +541,19 @@ function WalletApp() {
 
   useEffect(() => {
     if (!walletState.railgunAddress) {
+      shieldedBalanceAutoSyncKeyRef.current = null;
       setShieldedBalance({ status: "missing-wallet" });
       return;
     }
 
     if (!policy.ethereumRpcUrl.trim()) {
+      shieldedBalanceAutoSyncKeyRef.current = null;
       setShieldedBalance({ status: "missing-rpc" });
       return;
     }
 
     if (!hasRecoverableRailgunKeyMaterial) {
+      shieldedBalanceAutoSyncKeyRef.current = null;
       setShieldedBalance({ status: "missing-secrets" });
       return;
     }
@@ -951,7 +955,21 @@ function WalletApp() {
     });
 
     try {
-      const balance = await fetchShieldedEthBalance(policy);
+      const balance = await fetchShieldedEthBalance(policy, {
+        onStatus: (message) => {
+          if (shieldedBalanceRequestRef.current !== requestId) {
+            return;
+          }
+
+          setStatusMessage(message);
+          recordDebugEvent({
+            level: "info",
+            source: "shielded-balance",
+            message,
+            detail: `Railgun address: ${walletState.railgunAddress}\nRPC: ${policy.ethereumRpcUrl.trim()}`
+          });
+        }
+      });
 
       if (shieldedBalanceRequestRef.current === requestId) {
         setShieldedBalance({ status: "ready", balance });
@@ -964,7 +982,12 @@ function WalletApp() {
           level: "info",
           source: "shielded-balance",
           message: `Shielded balance synced: ${balance.formattedEth}`,
-          detail: `Block: ${balance.blockNumber.toString()}\nUSD: ${balance.usd ?? "unavailable"}`
+          detail: [
+            `Block: ${balance.blockNumber.toString()}`,
+            `USD: ${balance.usd ?? "unavailable"}`,
+            `Raw balance entries: ${balance.rawBalanceCount.toString()}`,
+            `Wrapped ETH entries: ${balance.matchedWrappedBaseTokenBalances.toString()}`
+          ].join("\n")
         });
       }
     } catch (error) {
@@ -988,6 +1011,44 @@ function WalletApp() {
       }
     }
   };
+
+  useEffect(() => {
+    const railgunAddress = walletState.railgunAddress;
+    const ethereumRpcUrl = policy.ethereumRpcUrl.trim();
+
+    if (!railgunAddress || !ethereumRpcUrl || !hasRecoverableRailgunKeyMaterial) {
+      shieldedBalanceAutoSyncKeyRef.current = null;
+      return;
+    }
+
+    if (toolkitState === "starting" || shieldedBalance.status === "syncing") {
+      return;
+    }
+
+    const syncKey = [
+      railgunAddress,
+      ethereumRpcUrl,
+      policy.providerMode,
+      policy.privacyToolkit,
+      railgunStorageMode
+    ].join(":");
+
+    if (shieldedBalanceAutoSyncKeyRef.current === syncKey) {
+      return;
+    }
+
+    shieldedBalanceAutoSyncKeyRef.current = syncKey;
+    void syncShieldedBalance();
+  }, [
+    walletState.railgunAddress,
+    policy.ethereumRpcUrl,
+    policy.providerMode,
+    policy.privacyToolkit,
+    hasRecoverableRailgunKeyMaterial,
+    railgunStorageMode,
+    toolkitState,
+    shieldedBalance.status
+  ]);
 
   useEffect(() => {
     const smartWalletAddress = walletState.smartWalletAddress;
