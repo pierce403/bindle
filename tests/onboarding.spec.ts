@@ -93,7 +93,13 @@ test.describe("passkey-first onboarding", () => {
       "5 USDC to deanpierce.eth"
     );
     await expect(page.getByLabel("Review pay route")).toContainText("Blocked");
+    await expect(page.getByLabel("Review pay route")).toContainText(
+      "Configure required endpoints: Broadcaster, Quotes."
+    );
     await expect(page.getByText("RAILGUN unshield proof generation")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Open Connections" })
+    ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Pay submission pending" })
     ).toBeDisabled();

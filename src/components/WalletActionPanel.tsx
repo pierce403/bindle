@@ -113,6 +113,9 @@ export function WalletActionPanel({
   const requiredEndpointsReady = endpointDisclosures.every(
     (endpoint) => !endpoint.required || endpoint.configured
   );
+  const missingRequiredEndpoints = endpointDisclosures.filter(
+    (endpoint) => endpoint.required && !endpoint.configured
+  );
   const hasRecoverableRailgunKeyMaterial =
     walletState.railgunAddress !== null &&
     walletState.railgunKeyStore === "encrypted-local";
@@ -146,7 +149,11 @@ export function WalletActionPanel({
       ? "Repair local RAILGUN key storage before spending shielded funds."
       : null,
     !rpcReady ? "Start the toolkit with a visible Ethereum RPC." : null,
-    !requiredEndpointsReady ? "Configure every required endpoint first." : null,
+    missingRequiredEndpoints.length > 0
+      ? `Configure required endpoint${missingRequiredEndpoints.length === 1 ? "" : "s"}: ${missingRequiredEndpoints
+          .map((endpoint) => endpoint.label)
+          .join(", ")}.`
+      : null,
     "RAILGUN unshield proof generation is not wired for Pay yet.",
     selectedPayAsset?.symbol === "USDC"
       ? "ETH-to-USDC swap routing is not wired yet."
@@ -586,6 +593,16 @@ export function WalletActionPanel({
                 <small key={blocker}>{blocker}</small>
               ))}
             </div>
+            {missingRequiredEndpoints.length > 0 ? (
+              <button
+                className="secondary-action wide"
+                type="button"
+                onClick={onOpenConnections}
+              >
+                <LockKeyhole size={18} aria-hidden="true" />
+                Open Connections
+              </button>
+            ) : null}
             <button className="secondary-action wide" type="button" disabled>
               <Send size={18} aria-hidden="true" />
               Pay submission pending
