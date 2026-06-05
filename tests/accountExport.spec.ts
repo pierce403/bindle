@@ -11,6 +11,7 @@ const wallet: WalletState = {
   smartWalletAddress: "0x000000000000000000000000000000000000dEaD",
   railgunAddress: "0zk1testaccountaddress123456789",
   railgunKeyStore: "encrypted-local",
+  railgunDerivationProvider: "railgun-wallet-sdk",
   passkeyPresent: true,
   mnemonicPresent: true,
   createdAt: "2026-06-03T00:00:00.000Z",
@@ -30,6 +31,7 @@ test("creates an account export with explicit recovery warnings", () => {
     wallet,
     railgunWallet: {
       railgunAddress: wallet.railgunAddress ?? "",
+      derivationProvider: "railgun-wallet-sdk",
       recoveryPhrase:
         "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
       keyIndex: 0,
@@ -45,6 +47,7 @@ test("creates an account export with explicit recovery warnings", () => {
   expect(parsed.wallet.passkeyAuthenticatorAttachment).toBe("cross-platform");
   expect(parsed.wallet.passkeyUserVerification).toBe("preferred");
   expect(parsed.railgunWallet?.recoveryPhrase).toContain("abandon");
+  expect(parsed.railgunWallet?.derivationProvider).toBe("railgun-wallet-sdk");
   expect(parsed.reclaimPlan.publicSmartAccount.status).toBe(
     "requires-synced-passkey"
   );

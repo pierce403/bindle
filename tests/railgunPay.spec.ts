@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { defaultConnectionPolicy } from "../src/privacy/connectionPolicy";
 import {
   ensureKohakuRailgunArtifactPolicyReady,
@@ -44,4 +46,25 @@ test("Pay resolves the default RAILGUN broadcaster fee token to mainnet WETH", (
   expect(resolveRailgunBroadcasterFeeTokenAddress(defaultConnectionPolicy)).toBe(
     "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
   );
+});
+
+test("Private Pay compatibility and private-change gates run before quote and broadcaster discovery", () => {
+  const source = readFileSync(resolve("src/railgun/pay.ts"), "utf8");
+  const prepareIndex = source.indexOf("export const prepareRailgunUsdcPayForRecipient");
+  const prepareSource = source.slice(prepareIndex);
+  const compatibilityIndex = prepareSource.indexOf(
+    "ensureRailgunWalletSdkWalletForLocalWallet"
+  );
+  const changeGateIndex = prepareSource.indexOf("assertPrivatePayChangeDisposition");
+  const quoteIndex = prepareSource.indexOf("Quoting Uniswap v4 ETH to USDC route");
+  const broadcasterIndex = prepareSource.indexOf("Finding RAILGUN broadcaster");
+
+  expect(prepareIndex).toBeGreaterThan(-1);
+  expect(compatibilityIndex).toBeGreaterThan(-1);
+  expect(changeGateIndex).toBeGreaterThan(-1);
+  expect(quoteIndex).toBeGreaterThan(-1);
+  expect(broadcasterIndex).toBeGreaterThan(-1);
+  expect(compatibilityIndex).toBeLessThan(quoteIndex);
+  expect(changeGateIndex).toBeLessThan(quoteIndex);
+  expect(quoteIndex).toBeLessThan(broadcasterIndex);
 });

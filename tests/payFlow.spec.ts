@@ -1,7 +1,9 @@
 import { expect, test } from "@playwright/test";
 import {
   classifyPayTransactionOrigin,
+  assertPrivatePayChangeDisposition,
   getRailgunBroadcasterReadiness,
+  privatePayChangeRequiredMessage,
   privatePayBroadcasterRequiredMessage,
   privateUsdcPayLegs
 } from "../src/intents/payFlow";
@@ -11,6 +13,21 @@ test("Private Pay classifies as railgun-private", () => {
   expect(classifyPayTransactionOrigin(privateUsdcPayLegs)).toBe(
     "railgun-private"
   );
+});
+
+test("Private Pay blocks unsafe change dispositions", () => {
+  expect(() => assertPrivatePayChangeDisposition("unknown")).toThrow(
+    privatePayChangeRequiredMessage
+  );
+  expect(() => assertPrivatePayChangeDisposition("public-recipient")).toThrow(
+    privatePayChangeRequiredMessage
+  );
+  expect(() => assertPrivatePayChangeDisposition("provider-retained")).toThrow(
+    privatePayChangeRequiredMessage
+  );
+  expect(() =>
+    assertPrivatePayChangeDisposition("private-change-to-0zk")
+  ).not.toThrow();
 });
 
 test("Pay is disabled when broadcaster mode is off", () => {

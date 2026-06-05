@@ -125,6 +125,11 @@ infrastructure.
       broadcaster/Waku status, fee token/fee, Uniswap v4 route provider, target
       token, recipient, and chain, and fail closed instead of submitting the
       private leg through ERC-4337.
+- [x] Record local RAILGUN wallet derivation metadata and require
+      Wallet-SDK-created/imported 0zk records before using the Wallet SDK +
+      Waku Broadcaster Private Pay path.
+- [x] Block Private Pay when Uniswap leftover/change cannot be returned
+      privately to the 0zk account.
 
 ## Now
 
@@ -262,16 +267,16 @@ infrastructure.
 - [x] Implement RAILGUN Broadcaster discovery, fee quote, and submission only
       through explicit broadcaster policy.
 - [ ] Implement provider payment routing for decloaked outbound messages.
-- [x] Implement one-shot USDC Private Pay execution for shielded ETH unshield,
+- [ ] Implement one-shot USDC Private Pay execution for shielded ETH unshield,
       explicit ETH-to-USDC routing through Uniswap v4, final ERC-20 delivery,
       RAILGUN proof generation, v4 quote/router calldata, RAILGUN Broadcaster
-      submission, and slippage controls.
+      submission, private change returned to 0zk, and slippage controls.
 - [x] Add Pay proof-path UX with honest stage status and RAILGUN proof progress
       normalization for the SDK callback once proof generation is invoked.
 - [x] Default quote source to explicit `onchain:uniswap-v4` under Bindle
       default, while keeping Privacy max empty/off.
-- [x] Default Pay swap review to 1% max slippage and sweep leftover ETH to the
-      public settlement recipient instead of the user's public smart wallet.
+- [x] Default Pay swap review to 1% max slippage and block if leftover ETH
+      cannot be returned privately to 0zk.
 - [ ] Add Pay support for non-USDC output assets.
 - [ ] Explore LayerZero-style Pay routing for any-network settlement.
 - [ ] Add Uniswap-based Swap flow.

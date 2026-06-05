@@ -259,6 +259,16 @@ avoids requiring GitHub workflow scope.
   WebCrypto key. Do not reintroduce user-entered wallet passwords in onboarding;
   passkey-backed key wrapping belongs at a later layer. Keep localStorage
   limited to public metadata.
+- Local RAILGUN wallet records carry explicit `derivationProvider` metadata.
+  Existing version-2 records without that field are treated as
+  `kohaku-railgun-alpha`, not Wallet-SDK-compatible. New default create/import
+  flows derive the 0zk address through the RAILGUN Wallet SDK and persist
+  `railgun-wallet-sdk`. Do not remove the guard that compares the saved local
+  0zk to the Wallet SDK-derived 0zk before Private Pay.
+- Kohaku-derived 0zk records may be shown as real 0zk accounts, but Private Pay
+  through the Wallet SDK + Waku Broadcaster must refuse them unless they were
+  created/imported and verified through the Wallet SDK path. Do not silently
+  replace an older 0zk or imply funds migrated when creating a fresh SDK 0zk.
 - If saved `0zk` metadata points at a missing key-store marker, missing
   IndexedDB secrets, or a legacy password-era record,
   `RailgunKeyRecoveryPrompt` lets the user wipe only the incompatible RAILGUN
@@ -289,9 +299,10 @@ avoids requiring GitHub workflow scope.
   `sendSmartWalletCalls()`, the passkey smart wallet, Pimlico bundler,
   paymaster, or an EOA. Keep the smart-account adapter guard in
   `src/wallet/transactionOrigin.ts` and the final broadcaster safety gate in
-  `src/railgun/broadcaster.ts` intact. Until broadcaster discovery, fee quote,
-  and submission are real, Private Pay must remain disabled with the explicit
-  privacy warning.
+  `src/railgun/broadcaster.ts` intact. Private Pay must also keep
+  `changeDisposition === "private-change-to-0zk"` before live submission; do
+  not send Uniswap leftover/slippage to the recipient, provider, public smart
+  wallet, or any other public change address by default.
 - First-run setup is surfaced through `src/components/OnboardingWizard.tsx`.
   Keep new wallet prerequisites in that state-driven flow so users are not
   forced to discover setup steps by opening Receive or Connections manually.

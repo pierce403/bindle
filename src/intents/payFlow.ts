@@ -20,6 +20,12 @@ export type PayLeg =
     };
 
 export type PayPrivacyLabel = "Private Pay" | "Public Pay";
+export type PrivatePayChangeDisposition =
+  | "private-change-to-0zk"
+  | "unknown"
+  | "public-recipient"
+  | "public-smart-wallet"
+  | "provider-retained";
 
 export type RailgunBroadcasterReadiness = {
   ready: boolean;
@@ -32,6 +38,12 @@ export type RailgunBroadcasterReadiness = {
 
 export const privatePayBroadcasterRequiredMessage =
   "Pay requires a RAILGUN Broadcaster for the private source leg. Public smart-wallet submission would link this payment to your funding wallet.";
+
+export const privatePayChangeRequiredMessage =
+  "Private Pay requires leftover swap/change funds to return privately to your 0zk. Private change routing is not wired yet, so Pay is blocked rather than leaking or giving away change.";
+
+export const defaultPrivatePayChangeDisposition: PrivatePayChangeDisposition =
+  "unknown";
 
 export const privateUsdcPayLegs: PayLeg[] = [
   {
@@ -150,6 +162,14 @@ export const assertBroadcasterReady = (policy: ConnectionPolicy): void => {
 
   if (!readiness.ready) {
     throw new Error(readiness.message);
+  }
+};
+
+export const assertPrivatePayChangeDisposition = (
+  disposition: PrivatePayChangeDisposition
+): void => {
+  if (disposition !== "private-change-to-0zk") {
+    throw new Error(privatePayChangeRequiredMessage);
   }
 };
 

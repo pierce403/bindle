@@ -20,7 +20,8 @@ test("USDC pay routes default to Uniswap v4 with 1 percent max slippage", () => 
       quoteSource: "onchain:uniswap-v4",
       slippageBps: DEFAULT_PAY_MAX_SLIPPAGE_BPS,
       slippageLabel: "Max 1%",
-      remainderLabel: "Leftover ETH is swept to the recipient, not your public wallet",
+      remainderLabel: "Private change to 0zk required; not wired yet",
+      changeDisposition: "unknown",
       requiresSwap: true
     })
   );

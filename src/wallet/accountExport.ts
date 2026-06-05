@@ -2,6 +2,7 @@ import type { ExportedRailgunWallet } from "../railgun/railgunWallet";
 import {
   emptyWalletState,
   type CustodyModel,
+  type RailgunDerivationProvider,
   type PasskeyAuthenticatorAttachment,
   type PasskeyUserVerification,
   type RailgunKeyStore,
@@ -63,6 +64,13 @@ const isCustodyModel = (value: unknown): value is CustodyModel =>
 const isRailgunKeyStore = (value: unknown): value is RailgunKeyStore =>
   value === "encrypted-local" || value === null;
 
+const isRailgunDerivationProvider = (
+  value: unknown
+): value is RailgunDerivationProvider =>
+  value === "kohaku-railgun-alpha" ||
+  value === "railgun-wallet-sdk" ||
+  value === "unknown";
+
 const stringOrNull = (value: unknown): string | null =>
   typeof value === "string" && value.length > 0 ? value : null;
 
@@ -97,6 +105,13 @@ const normalizeWallet = (value: unknown): WalletState => {
     railgunKeyStore: isRailgunKeyStore(parsed.railgunKeyStore)
       ? parsed.railgunKeyStore
       : emptyWalletState.railgunKeyStore,
+    railgunDerivationProvider: isRailgunDerivationProvider(
+      parsed.railgunDerivationProvider
+    )
+      ? parsed.railgunDerivationProvider
+      : parsed.railgunAddress
+        ? "unknown"
+        : emptyWalletState.railgunDerivationProvider,
     passkeyPresent: booleanValue(parsed.passkeyPresent),
     mnemonicPresent: booleanValue(parsed.mnemonicPresent),
     createdAt: stringOrNull(parsed.createdAt),
@@ -143,6 +158,11 @@ const normalizeRailgunWallet = (
 
   return {
     railgunAddress: parsed.railgunAddress,
+    derivationProvider: isRailgunDerivationProvider(parsed.derivationProvider)
+      ? parsed.derivationProvider === "unknown"
+        ? "kohaku-railgun-alpha"
+        : parsed.derivationProvider
+      : "kohaku-railgun-alpha",
     recoveryPhrase: parsed.recoveryPhrase,
     keyIndex: parsed.keyIndex,
     chainId: parsed.chainId,

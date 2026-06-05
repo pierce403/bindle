@@ -215,6 +215,16 @@ export const fetchShieldedEthBalance = async (
 
   options.onStatus?.("Unlocking local RAILGUN viewing keys");
   const unlockedWallet = await unlockEncryptedRailgunWallet();
+
+  if (
+    unlockedWallet.derivationProvider !== "kohaku-railgun-alpha" ||
+    unlockedWallet.kohakuRailgunAddress !== unlockedWallet.railgunAddress
+  ) {
+    throw new Error(
+      "Shielded balance sync is currently wired through the Kohaku RAILGUN signer path, but this 0zk was derived by the RAILGUN Wallet SDK. Bindle will not sync a different Kohaku-derived address as if it were this wallet."
+    );
+  }
+
   options.onStatus?.("Loading Kohaku RAILGUN balance module");
   const kohaku = await withKohakuWasmTrapContext(
     "loading Kohaku RAILGUN shielded balance module",

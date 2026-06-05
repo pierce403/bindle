@@ -1362,6 +1362,12 @@ button:disabled {
   background: color-mix(in srgb, var(--surface) 82%, transparent);
 }
 
+.pay-review-card > div:not(.proof-progress-card):not(.route-blockers) > span {
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
 .pay-flow-backdrop {
   z-index: 80;
   align-items: center;

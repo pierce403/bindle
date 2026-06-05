@@ -18,6 +18,7 @@ import { createPortal } from "react-dom";
 import { getPayAsset, searchPayAssets } from "../intents/assets";
 import {
   describePaySettlement,
+  privatePayChangeRequiredMessage,
   payPrivacyLabel,
   privateUsdcPayLegs,
   type RailgunBroadcasterReadiness
@@ -31,6 +32,7 @@ import {
 import { isValidDecimalAmount, isValidRecipientShape } from "../intents/validation";
 import type { EndpointDisclosure } from "../privacy/preflightDisclosure";
 import { buildPayProofProgress } from "../railgun/proofProgress";
+import type { RailgunWalletSdkCompatibility } from "../railgun/railgunWalletSdk";
 import type { WalletState } from "../wallet/walletState";
 import type { WalletAction } from "./BalancePanel";
 import { ProofProgressPanel } from "./ProofProgressPanel";
@@ -84,8 +86,11 @@ type WalletActionPanelProps = {
   payProofPercent: number;
   payProofStatus: string;
   privatePayReadiness: RailgunBroadcasterReadiness;
+  railgunWalletSdkCompatibility: RailgunWalletSdkCompatibility | null;
+  isCheckingRailgunWalletSdkCompatibility: boolean;
   endpointDisclosures: EndpointDisclosure[];
   onDeriveSmartWallet: () => void;
+  onCheckRailgunWalletCompatibility: () => void;
   onOpenConnections: () => void;
   onCloseAction: () => void;
   onSubmitSmartPayment: () => void;
@@ -111,8 +116,11 @@ export function WalletActionPanel({
   payProofPercent,
   payProofStatus,
   privatePayReadiness,
+  railgunWalletSdkCompatibility,
+  isCheckingRailgunWalletSdkCompatibility,
   endpointDisclosures,
   onDeriveSmartWallet,
+  onCheckRailgunWalletCompatibility,
   onOpenConnections,
   onCloseAction,
   onSubmitSmartPayment,
@@ -201,6 +209,14 @@ export function WalletActionPanel({
     hasRailgunWallet && !hasRecoverableRailgunKeyMaterial
       ? "Repair local RAILGUN key storage before spending shielded funds."
       : null,
+    hasRecoverableRailgunKeyMaterial &&
+    walletState.railgunDerivationProvider !== "railgun-wallet-sdk"
+      ? "Private Pay requires a 0zk created or imported through the RAILGUN Wallet SDK path."
+      : null,
+    railgunWalletSdkCompatibility &&
+    !railgunWalletSdkCompatibility.compatible
+      ? "Private Pay blocked: the Wallet SDK derives a different 0zk than the saved local wallet."
+      : null,
     !rpcConfigured ? "Configure a visible Ethereum RPC." : null,
     missingRequiredEndpoints.length > 0
       ? `Configure required endpoint${missingRequiredEndpoints.length === 1 ? "" : "s"}: ${missingRequiredEndpoints
@@ -208,6 +224,10 @@ export function WalletActionPanel({
           .join(", ")}.`
       : null,
     !privatePayReadiness.ready ? privatePayReadiness.message : null,
+    paySwapRoutePlan?.changeDisposition &&
+    paySwapRoutePlan.changeDisposition !== "private-change-to-0zk"
+      ? privatePayChangeRequiredMessage
+      : null,
     selectedPayAsset?.symbol !== "USDC"
       ? `${UNISWAP_V4_PROTOCOL_LABEL} Pay is wired for USDC first.`
       : null
@@ -662,6 +682,22 @@ export function WalletActionPanel({
                   <span>RAILGUN 0zk</span>
                 </div>
                 <div>
+                  <strong>0zk derivation</strong>
+                  <span>{walletState.railgunDerivationProvider ?? "none"}</span>
+                </div>
+                {railgunWalletSdkCompatibility ? (
+                  <>
+                    <div>
+                      <strong>Saved 0zk</strong>
+                      <span>{railgunWalletSdkCompatibility.localAddress}</span>
+                    </div>
+                    <div>
+                      <strong>Wallet SDK 0zk</strong>
+                      <span>{railgunWalletSdkCompatibility.walletSdkAddress}</span>
+                    </div>
+                  </>
+                ) : null}
+                <div>
                   <strong>Private submission</strong>
                   <span>RAILGUN Broadcaster only</span>
                 </div>
@@ -728,6 +764,29 @@ export function WalletActionPanel({
                 ) : null}
               </div>
 
+              {railgunWalletSdkCompatibility &&
+              !railgunWalletSdkCompatibility.compatible ? (
+                <div className="route-blockers warning">
+                  <AlertTriangle size={17} aria-hidden="true" />
+                  <span>0zk mismatch</span>
+                  <small>
+                    Your saved 0zk was created with an older/Kohaku-local
+                    derivation path. The RAILGUN Wallet SDK derives a different
+                    0zk from the same recovery phrase. Private Pay is blocked to
+                    avoid spending from the wrong shielded account.
+                  </small>
+                  <small>
+                    Keep the existing 0zk read-only/Kohaku-only for now, create
+                    a new Wallet-SDK-compatible 0zk for Private Pay, or import a
+                    Wallet-SDK-compatible RAILGUN phrase.
+                  </small>
+                  <small>
+                    Creating a fresh 0zk does not recover or move funds already
+                    shielded to the old address.
+                  </small>
+                </div>
+              ) : null}
+
               <ProofProgressPanel progress={payProofProgress} />
               <div className="route-blockers">
                 <AlertTriangle size={17} aria-hidden="true" />
@@ -749,6 +808,20 @@ export function WalletActionPanel({
                   Open Connections
                 </button>
               ) : null}
+              <button
+                className="secondary-action wide"
+                type="button"
+                disabled={
+                  !hasRecoverableRailgunKeyMaterial ||
+                  isCheckingRailgunWalletSdkCompatibility
+                }
+                onClick={onCheckRailgunWalletCompatibility}
+              >
+                <LockKeyhole size={18} aria-hidden="true" />
+                {isCheckingRailgunWalletSdkCompatibility
+                  ? "Checking 0zk compatibility"
+                  : "Check 0zk Pay compatibility"}
+              </button>
               <button
                 className="primary-action wide"
                 type="button"

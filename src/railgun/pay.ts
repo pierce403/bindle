@@ -18,6 +18,12 @@ import {
 } from "@railgun-community/shared-models";
 import type { PayAsset } from "../intents/assets";
 import {
+  assertPrivatePayChangeDisposition,
+  defaultPrivatePayChangeDisposition,
+  type PrivatePayChangeDisposition
+} from "../intents/payFlow";
+import { getPaySwapRoutePlan } from "../intents/swapRouting";
+import {
   prepareUniswapV4EthToUsdcExactOutputRoute,
   UNISWAP_V4_WETH_ADDRESS,
   type CrossContractCall,
@@ -68,6 +74,7 @@ export type PreparedRailgunPay = {
   useRelayAdapt: true;
   unshieldAmountWei: bigint;
   publicWethInputWei: bigint;
+  changeDisposition: PrivatePayChangeDisposition;
 };
 
 const bindleArtifactProxyVersion = "railgun-artifacts-v1";
@@ -342,6 +349,20 @@ export const prepareRailgunUsdcPayForRecipient = async ({
   const networkConfig = NETWORK_CONFIG[networkName];
   const relayAdaptAddress = getAddress(networkConfig.relayAdaptContract) as Address;
 
+  const railgunWallet = await ensureRailgunWalletSdkWalletForLocalWallet({
+    policy,
+    onStatus
+  });
+
+  if (railgunWallet.railgunAddress !== walletState.railgunAddress) {
+    throw new Error("Prepared RAILGUN Pay wallet does not match the saved 0zk address.");
+  }
+
+  const routePlan = getPaySwapRoutePlan(asset);
+  const changeDisposition =
+    routePlan?.changeDisposition ?? defaultPrivatePayChangeDisposition;
+  assertPrivatePayChangeDisposition(changeDisposition);
+
   onStatus("Quoting Uniswap v4 ETH to USDC route");
   onProgress({ percent: 0, status: "Quoting Uniswap v4 route" });
   const route = await prepareUniswapV4EthToUsdcExactOutputRoute({
@@ -352,15 +373,6 @@ export const prepareRailgunUsdcPayForRecipient = async ({
     recipient,
     refundRecipient: recipient
   });
-
-  const railgunWallet = await ensureRailgunWalletSdkWalletForLocalWallet({
-    policy,
-    onStatus
-  });
-
-  if (railgunWallet.railgunAddress !== walletState.railgunAddress) {
-    throw new Error("Prepared RAILGUN Pay wallet does not match the saved 0zk address.");
-  }
 
   const publicWethInputWei = route.maxInputAmount;
   const unshieldAmountWei = grossUpUnshieldAmount({
@@ -487,6 +499,7 @@ export const prepareRailgunUsdcPayForRecipient = async ({
     overallBatchMinGasPrice,
     useRelayAdapt: true,
     unshieldAmountWei,
-    publicWethInputWei
+    publicWethInputWei,
+    changeDisposition
   };
 };

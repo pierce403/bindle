@@ -1,4 +1,4 @@
-import { Eye, MoreHorizontal } from "lucide-react";
+import { Copy, Eye, MoreHorizontal } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { parseEther } from "viem";
 import { ActivityFeed, type ActivityItem } from "./components/ActivityFeed";
@@ -59,11 +59,17 @@ import {
 } from "./railgun/shieldedBalanceCache";
 import {
   clearEncryptedRailgunWallet,
-  createEncryptedRailgunWallet,
   exportEncryptedRailgunWallet,
   getEncryptedRailgunWalletStorageMode,
   importEncryptedRailgunWallet
 } from "./railgun/railgunWallet";
+import {
+  checkRailgunWalletSdkCompatibility,
+  createEncryptedRailgunWalletWithSdk,
+  importEncryptedRailgunWalletWithSdk,
+  RailgunSdkAddressMismatchError,
+  type RailgunWalletSdkCompatibility
+} from "./railgun/railgunWalletSdk";
 import {
   startPrivacyToolkit,
   type PrivacyToolkitHandle,
@@ -378,6 +384,12 @@ function WalletApp() {
     percent: 0,
     status: ""
   });
+  const [railgunWalletSdkCompatibility, setRailgunWalletSdkCompatibility] =
+    useState<RailgunWalletSdkCompatibility | null>(null);
+  const [
+    isCheckingRailgunWalletSdkCompatibility,
+    setIsCheckingRailgunWalletSdkCompatibility
+  ] = useState(false);
   const [isSubmittingShield, setIsSubmittingShield] = useState(false);
   const [shieldStatus, setShieldStatus] = useState("");
   const [isExportingAccount, setIsExportingAccount] = useState(false);
@@ -395,6 +407,10 @@ function WalletApp() {
     useState<string | null>(null);
   const [railgunReplacementRecoveryPhrase, setRailgunReplacementRecoveryPhrase] =
     useState<string | null>(null);
+  const [createdRailgunRecoveryPhrase, setCreatedRailgunRecoveryPhrase] =
+    useState<string | null>(null);
+  const [copiedCreatedRailgunRecoveryPhrase, setCopiedCreatedRailgunRecoveryPhrase] =
+    useState(false);
   const [railgunStorageMode, setRailgunStorageMode] =
     useState<RailgunStorageMode>("missing");
   const [railgunStorageChecked, setRailgunStorageChecked] = useState(false);
@@ -599,6 +615,15 @@ function WalletApp() {
     setDebugLog([]);
   }, []);
 
+  const copyCreatedRailgunRecoveryPhrase = useCallback(async () => {
+    if (!createdRailgunRecoveryPhrase) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(createdRailgunRecoveryPhrase);
+    setCopiedCreatedRailgunRecoveryPhrase(true);
+  }, [createdRailgunRecoveryPhrase]);
+
   const messageFromError = useCallback(
     (error: unknown, fallback: string, source: string, detail?: string) => {
       const message = error instanceof Error ? error.message : fallback;
@@ -617,7 +642,12 @@ function WalletApp() {
   useEffect(() => {
     setPayStatus("");
     setPayProofProgress({ percent: 0, status: "" });
+    setRailgunWalletSdkCompatibility(null);
   }, [draft.amount, draft.asset, draft.recipient]);
+
+  useEffect(() => {
+    setRailgunWalletSdkCompatibility(null);
+  }, [walletState.railgunAddress, walletState.railgunDerivationProvider]);
 
   useEffect(() => {
     const handleWindowError = (event: ErrorEvent) => {
@@ -1295,6 +1325,10 @@ function WalletApp() {
       setStatusMessage(smartWalletAddress.reason);
       return state;
     } catch (error) {
+      if (error instanceof RailgunSdkAddressMismatchError) {
+        setRailgunWalletSdkCompatibility(error.compatibility);
+      }
+
       const message = messageFromError(
         error,
         "Unable to derive smart-wallet funding address",
@@ -1356,15 +1390,21 @@ function WalletApp() {
     setRailgunReplacementRecoveryPhrase(null);
 
     try {
-      const wallet = await createEncryptedRailgunWallet();
+      const wallet = await createEncryptedRailgunWalletWithSdk({
+        policy,
+        onStatus: setStatusMessage
+      });
       const nextState = markRailgunWalletReady(
         walletState,
         wallet.railgunAddress,
-        "created"
+        "created",
+        wallet.derivationProvider
       );
       setWalletState(nextState);
       setRailgunStorageMode("browser-local");
       setRailgunStorageChecked(true);
+      setCreatedRailgunRecoveryPhrase(wallet.recoveryPhrase);
+      setCopiedCreatedRailgunRecoveryPhrase(false);
       setStatusMessage("Shielded RAILGUN wallet created");
       return wallet.recoveryPhrase;
     } catch (error) {
@@ -1393,17 +1433,21 @@ function WalletApp() {
     setAppNotice(null);
 
     try {
-      const wallet = await importEncryptedRailgunWallet({
-        recoveryPhrase
+      const wallet = await importEncryptedRailgunWalletWithSdk({
+        policy,
+        recoveryPhrase,
+        onStatus: setStatusMessage
       });
       const nextState = markRailgunWalletReady(
         walletState,
         wallet.railgunAddress,
-        "imported"
+        "imported",
+        wallet.derivationProvider
       );
       setWalletState(nextState);
       setRailgunStorageMode("browser-local");
       setRailgunStorageChecked(true);
+      setCreatedRailgunRecoveryPhrase(null);
       setRailgunRepairPreviousAddress(null);
       setRailgunReplacementRecoveryPhrase(null);
       setStatusMessage("Shielded RAILGUN wallet imported");
@@ -1429,6 +1473,7 @@ function WalletApp() {
     const previousRailgunAddress = walletState.railgunAddress;
     setRailgunRepairPreviousAddress(previousRailgunAddress);
     setRailgunReplacementRecoveryPhrase(null);
+    setCreatedRailgunRecoveryPhrase(null);
     setRailgunRepairStatus("Wiping incompatible local RAILGUN key record");
     setStatusMessage("Replacing shielded RAILGUN wallet");
     setAppNotice(null);
@@ -1443,11 +1488,15 @@ function WalletApp() {
       setRailgunStorageChecked(true);
       setRailgunRepairStatus("Generating fresh browser-local 0zk wallet");
 
-      const wallet = await createEncryptedRailgunWallet();
+      const wallet = await createEncryptedRailgunWalletWithSdk({
+        policy,
+        onStatus: setRailgunRepairStatus
+      });
       const nextState = markRailgunWalletReady(
         clearedState,
         wallet.railgunAddress,
-        "created"
+        "created",
+        wallet.derivationProvider
       );
       setWalletState(nextState);
       setRailgunStorageMode("browser-local");
@@ -1516,6 +1565,58 @@ function WalletApp() {
       );
     } finally {
       setIsSubmittingSmartPayment(false);
+    }
+  };
+
+  const checkRailgunPayCompatibility = async () => {
+    if (isCheckingRailgunWalletSdkCompatibility) {
+      return;
+    }
+
+    setIsCheckingRailgunWalletSdkCompatibility(true);
+    setPayStatus("Checking Private Pay 0zk compatibility");
+    setAppNotice(null);
+
+    try {
+      const compatibility = await checkRailgunWalletSdkCompatibility({
+        policy,
+        onStatus: setPayStatus
+      });
+      setRailgunWalletSdkCompatibility(compatibility);
+      recordDebugEvent({
+        level: compatibility.compatible ? "info" : "warning",
+        source: "pay",
+        message: compatibility.compatible
+          ? "RAILGUN Wallet SDK 0zk compatibility verified"
+          : "RAILGUN Wallet SDK 0zk compatibility mismatch",
+        detail: [
+          `Local saved 0zk: ${compatibility.localAddress}`,
+          `Kohaku-derived 0zk: ${compatibility.kohakuRailgunAddress}`,
+          `Wallet SDK 0zk: ${compatibility.walletSdkAddress}`,
+          `Derivation provider: ${compatibility.derivationProvider}`,
+          `Reason: ${compatibility.reason}`
+        ].join("\n")
+      });
+      setPayStatus(
+        compatibility.compatible
+          ? "Private Pay 0zk compatibility verified"
+          : "Private Pay blocked: saved 0zk is not Wallet-SDK-compatible"
+      );
+    } catch (error) {
+      const message = messageFromError(
+        error,
+        "Unable to check Private Pay 0zk compatibility",
+        "pay",
+        `Railgun address: ${walletState.railgunAddress ?? "missing"}`
+      );
+      setPayStatus(message);
+      setAppNotice({
+        kind: "error",
+        title: "Compatibility check failed",
+        message: `${message} Open Debug for the full stack trace.`
+      });
+    } finally {
+      setIsCheckingRailgunWalletSdkCompatibility(false);
     }
   };
 
@@ -1829,11 +1930,19 @@ function WalletApp() {
     try {
       const accountExport = parseBindleAccountExport(await file.text());
       const importedWallet = accountExport.railgunWallet
-        ? await importEncryptedRailgunWallet({
-            recoveryPhrase: accountExport.railgunWallet.recoveryPhrase,
-            keyIndex: accountExport.railgunWallet.keyIndex,
-            chainId: BigInt(accountExport.railgunWallet.chainId)
-          })
+        ? accountExport.railgunWallet.derivationProvider === "railgun-wallet-sdk"
+          ? await importEncryptedRailgunWalletWithSdk({
+              policy,
+              recoveryPhrase: accountExport.railgunWallet.recoveryPhrase,
+              keyIndex: accountExport.railgunWallet.keyIndex,
+              chainId: BigInt(accountExport.railgunWallet.chainId),
+              onStatus: setAccountExportStatus
+            })
+          : await importEncryptedRailgunWallet({
+              recoveryPhrase: accountExport.railgunWallet.recoveryPhrase,
+              keyIndex: accountExport.railgunWallet.keyIndex,
+              chainId: BigInt(accountExport.railgunWallet.chainId)
+            })
         : null;
 
       if (
@@ -1865,7 +1974,8 @@ function WalletApp() {
         ? markRailgunWalletReady(
             baseState,
             importedWallet.railgunAddress,
-            "imported"
+            "imported",
+            importedWallet.derivationProvider
           )
         : saveWalletState(baseState);
 
@@ -1879,6 +1989,7 @@ function WalletApp() {
       setRailgunRepairPreviousAddress(null);
       setRailgunRepairStatus("");
       setRailgunReplacementRecoveryPhrase(null);
+      setCreatedRailgunRecoveryPhrase(null);
       setPublicBalance(
         nextState.smartWalletAddress ? { status: "idle" } : { status: "missing-wallet" }
       );
@@ -2236,6 +2347,33 @@ function WalletApp() {
               />
             ) : null}
 
+            {onboardingComplete && createdRailgunRecoveryPhrase ? (
+              <section
+                className="recovery-card"
+                aria-label="Shielded wallet recovery phrase"
+              >
+                <span>Recovery phrase - save before funding</span>
+                <strong>{createdRailgunRecoveryPhrase}</strong>
+                <button
+                  className="secondary-action wide"
+                  type="button"
+                  onClick={() => void copyCreatedRailgunRecoveryPhrase()}
+                >
+                  <Copy size={18} aria-hidden="true" />
+                  {copiedCreatedRailgunRecoveryPhrase
+                    ? "Copied"
+                    : "Copy recovery phrase"}
+                </button>
+                <button
+                  className="secondary-action wide"
+                  type="button"
+                  onClick={() => setCreatedRailgunRecoveryPhrase(null)}
+                >
+                  I saved it
+                </button>
+              </section>
+            ) : null}
+
             <BalancePanel
               totalBalance={shieldedBalanceUsd}
               balanceLabel={balanceLabel}
@@ -2296,8 +2434,15 @@ function WalletApp() {
                 payProofPercent={payProofProgress.percent}
                 payProofStatus={payProofProgress.status}
                 privatePayReadiness={privatePayReadiness}
+                railgunWalletSdkCompatibility={railgunWalletSdkCompatibility}
+                isCheckingRailgunWalletSdkCompatibility={
+                  isCheckingRailgunWalletSdkCompatibility
+                }
                 endpointDisclosures={actionEndpointDisclosure}
                 onDeriveSmartWallet={() => void deriveSmartWallet()}
+                onCheckRailgunWalletCompatibility={() =>
+                  void checkRailgunPayCompatibility()
+                }
                 onOpenConnections={() => setActiveTab("nodes")}
                 onCloseAction={() => setActiveAction(null)}
                 onSubmitSmartPayment={() => void submitSmartPayment()}

@@ -12,6 +12,10 @@ export type CustodyModel =
   | null;
 
 export type RailgunKeyStore = "encrypted-local" | null;
+export type RailgunDerivationProvider =
+  | "kohaku-railgun-alpha"
+  | "railgun-wallet-sdk"
+  | "unknown";
 
 export type PasskeyAuthenticatorAttachment = AuthenticatorAttachment | null;
 export type PasskeyUserVerification = UserVerificationRequirement | null;
@@ -21,6 +25,7 @@ export type WalletState = {
   smartWalletAddress: string | null;
   railgunAddress: string | null;
   railgunKeyStore: RailgunKeyStore;
+  railgunDerivationProvider: RailgunDerivationProvider | null;
   passkeyPresent: boolean;
   mnemonicPresent: boolean;
   createdAt: string | null;
@@ -42,6 +47,7 @@ export const emptyWalletState: WalletState = {
   smartWalletAddress: null,
   railgunAddress: null,
   railgunKeyStore: null,
+  railgunDerivationProvider: null,
   passkeyPresent: false,
   mnemonicPresent: false,
   createdAt: null,
@@ -71,6 +77,13 @@ const isCustodyModel = (value: unknown): value is CustodyModel =>
 
 const isRailgunKeyStore = (value: unknown): value is RailgunKeyStore =>
   value === "encrypted-local" || value === null;
+
+const isRailgunDerivationProvider = (
+  value: unknown
+): value is RailgunDerivationProvider =>
+  value === "kohaku-railgun-alpha" ||
+  value === "railgun-wallet-sdk" ||
+  value === "unknown";
 
 const stringOrNull = (value: unknown): string | null =>
   typeof value === "string" && value.length > 0 ? value : null;
@@ -113,6 +126,13 @@ const normalizeWalletState = (value: unknown): WalletState => {
     railgunKeyStore: isRailgunKeyStore(parsed.railgunKeyStore)
       ? parsed.railgunKeyStore
       : emptyWalletState.railgunKeyStore,
+    railgunDerivationProvider: isRailgunDerivationProvider(
+      parsed.railgunDerivationProvider
+    )
+      ? parsed.railgunDerivationProvider
+      : parsed.railgunAddress
+        ? "unknown"
+        : emptyWalletState.railgunDerivationProvider,
     passkeyPresent: booleanValue(parsed.passkeyPresent),
     mnemonicPresent: booleanValue(parsed.mnemonicPresent),
     createdAt: stringOrNull(parsed.createdAt),
@@ -164,6 +184,9 @@ export const saveWalletState = (state: WalletState): WalletState => {
     // WebAuthn private material, or provider secrets in this localStorage record.
     // The railgunKeyStore value is only a marker that encrypted local key
     // material exists in IndexedDB; it is not key material itself.
+    // railgunDerivationProvider is public compatibility metadata so Private
+    // Pay can refuse older local derivation paths before touching quote or
+    // broadcaster endpoints.
     // WebAuthn credential IDs, RP IDs, and public P-256 keys are public account
     // metadata used to reconstruct the smart-account owner; they are not
     // signing secrets.
@@ -195,6 +218,7 @@ export const clearRailgunWalletState = (currentState: WalletState): WalletState 
     status,
     railgunAddress: null,
     railgunKeyStore: null,
+    railgunDerivationProvider: null,
     mnemonicPresent: false,
     railgunWalletCreatedAt: null,
     railgunWalletImportedAt: null,
@@ -251,7 +275,9 @@ export const markSmartWalletReady = (
 export const markRailgunWalletReady = (
   currentState: WalletState,
   railgunAddress: string,
-  source: "created" | "imported"
+  source: "created" | "imported",
+  derivationProvider: Exclude<RailgunDerivationProvider, "unknown"> =
+    "kohaku-railgun-alpha"
 ): WalletState => {
   const now = new Date().toISOString();
 
@@ -260,6 +286,7 @@ export const markRailgunWalletReady = (
     status: "railgun-ready",
     railgunAddress,
     railgunKeyStore: "encrypted-local",
+    railgunDerivationProvider: derivationProvider,
     mnemonicPresent: true,
     custodyModel: currentState.custodyModel ?? "mnemonic-railgun",
     createdAt: currentState.createdAt ?? now,

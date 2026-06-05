@@ -173,11 +173,12 @@ prices from that same bundler endpoint before submission so the bundler does not
 reject underpriced priority fees. Pimlico is only for public smart-wallet
 operations such as account deployment, public ETH payments, and public shield
 deposits. Private Pay-to-USDC now prepares the private source leg with the
-RAILGUN Wallet SDK, discovers and quotes a visible Waku RAILGUN Broadcaster,
-and submits the encrypted RelayAdapt transaction through that broadcaster
-instead of the public smart wallet. The default broadcaster fee token is WETH so
-the first Pay path can spend from shielded ETH/WETH without requiring shielded
-USDC just to pay the broadcaster. Standalone unshielding, private RAILGUN sends,
+RAILGUN Wallet SDK path only for Wallet-SDK-derived local 0zk records and must
+submit through a visible Waku RAILGUN Broadcaster instead of the public smart
+wallet. The default broadcaster fee token is WETH so the first Pay path can
+spend from shielded ETH/WETH without requiring shielded USDC just to pay the
+broadcaster. Live USDC Pay remains blocked until leftover swap/change funds can
+return privately to 0zk. Standalone unshielding, private RAILGUN sends,
 non-USDC Pay assets, and any-network provider routing remain pending.
 
 Kohaku's current alpha RAILGUN prover has
@@ -220,9 +221,12 @@ Current shield/unshield status:
   public settlement leg. Review discloses the RAILGUN 0zk source, broadcaster
   and Waku status, broadcaster fee token/fee, Uniswap v4 route provider, target
   token, amount, recipient, and chain. Submission uses the RAILGUN Wallet SDK
-  cross-contract proof path and the configured Waku RAILGUN Broadcaster; it is
-  still blocked when no recoverable local 0zk wallet, synced private balance,
-  proving artifacts, supported fee token, or broadcaster quote is available.
+  cross-contract proof path only for local 0zk wallets created or imported
+  through the Wallet SDK derivation path. Older Kohaku-local 0zk records remain
+  visible but are blocked for Wallet SDK Private Pay if the SDK derives a
+  different address. Pay is also blocked until leftover swap/change funds can
+  be returned privately to 0zk rather than sent to the recipient, provider, or
+  public smart wallet.
 - Standalone unshield and private send flows remain blocked until their review,
   proof, unlock, and visible submission policies are implemented.
 

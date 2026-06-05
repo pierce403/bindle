@@ -11,6 +11,7 @@ type BrowserLocalRailgunWalletRecord = {
   id: "primary";
   version: 2;
   railgunAddress: string;
+  derivationProvider?: RailgunWalletDerivationProvider;
   keyIndex: number;
   chainId: string;
   createdAt: string;
@@ -51,8 +52,13 @@ type RailgunSecretPayload = {
   chainId: string;
 };
 
+export type RailgunWalletDerivationProvider =
+  | "kohaku-railgun-alpha"
+  | "railgun-wallet-sdk";
+
 export type RailgunWalletResult = {
   railgunAddress: string;
+  derivationProvider: RailgunWalletDerivationProvider;
   keyIndex: number;
   chainId: bigint;
   storedAt: string;
@@ -66,10 +72,12 @@ export type UnlockedRailgunWallet = RailgunWalletResult & {
   recoveryPhrase: string;
   spendingKey: `0x${string}`;
   viewingKey: `0x${string}`;
+  kohakuRailgunAddress: string;
 };
 
 export type ExportedRailgunWallet = {
   railgunAddress: string;
+  derivationProvider: RailgunWalletDerivationProvider;
   recoveryPhrase: string;
   keyIndex: number;
   chainId: string;
@@ -160,10 +168,10 @@ const bytesToArrayBuffer = (bytes: Uint8Array): ArrayBuffer => {
   return copy.buffer;
 };
 
-const normalizeRecoveryPhrase = (phrase: string): string =>
+export const normalizeRecoveryPhrase = (phrase: string): string =>
   phrase.trim().replace(/\s+/g, " ").toLowerCase();
 
-const assertRecoveryPhrase = (phrase: string): void => {
+export const assertRecoveryPhrase = (phrase: string): void => {
   if (!Mnemonic.isValidMnemonic(phrase)) {
     throw new Error("Recovery phrase is not a valid BIP-39 mnemonic.");
   }
@@ -264,6 +272,16 @@ const loadEncryptedWalletRecord =
     return record ?? null;
   };
 
+const derivationProviderForRecord = (
+  record: EncryptedRailgunWalletRecord
+): RailgunWalletDerivationProvider => {
+  if (record.version !== 2) {
+    return "kohaku-railgun-alpha";
+  }
+
+  return record.derivationProvider ?? "kohaku-railgun-alpha";
+};
+
 const deriveRailgunWallet = async ({
   recoveryPhrase,
   keyIndex,
@@ -311,12 +329,16 @@ const persistRailgunWallet = async ({
   recoveryPhrase,
   source,
   keyIndex,
-  chainId
+  chainId,
+  railgunAddressOverride,
+  derivationProvider = "kohaku-railgun-alpha"
 }: {
   recoveryPhrase: string;
   source: "created" | "imported";
   keyIndex: number;
   chainId: bigint;
+  railgunAddressOverride?: string;
+  derivationProvider?: RailgunWalletDerivationProvider;
 }): Promise<RailgunWalletResult> => {
   assertRecoveryPhrase(recoveryPhrase);
 
@@ -325,6 +347,15 @@ const persistRailgunWallet = async ({
     keyIndex,
     chainId
   });
+  const railgunAddress = railgunAddressOverride ?? derived.railgunAddress;
+
+  if (
+    derivationProvider === "kohaku-railgun-alpha" &&
+    railgunAddress !== derived.railgunAddress
+  ) {
+    throw new Error("Kohaku RAILGUN derivation address override is invalid.");
+  }
+
   const now = new Date().toISOString();
   const encrypted = await encryptSecretPayload({
     version: 1,
@@ -336,7 +367,8 @@ const persistRailgunWallet = async ({
   await storeEncryptedWallet({
     id: primaryRecordId,
     version: 2,
-    railgunAddress: derived.railgunAddress,
+    railgunAddress,
+    derivationProvider,
     keyIndex,
     chainId: chainId.toString(),
     createdAt: now,
@@ -348,7 +380,8 @@ const persistRailgunWallet = async ({
   });
 
   return {
-    railgunAddress: derived.railgunAddress,
+    railgunAddress,
+    derivationProvider,
     keyIndex,
     chainId,
     storedAt: now
@@ -398,6 +431,28 @@ export const importEncryptedRailgunWallet = async ({
     chainId
   });
 
+export const persistRailgunWalletFromSdkDerivation = async ({
+  recoveryPhrase,
+  railgunAddress,
+  source,
+  keyIndex = 0,
+  chainId = 1n
+}: {
+  recoveryPhrase: string;
+  railgunAddress: string;
+  source: "created" | "imported";
+  keyIndex?: number;
+  chainId?: bigint;
+}): Promise<RailgunWalletResult> =>
+  persistRailgunWallet({
+    recoveryPhrase: normalizeRecoveryPhrase(recoveryPhrase),
+    railgunAddressOverride: railgunAddress,
+    derivationProvider: "railgun-wallet-sdk",
+    source,
+    keyIndex,
+    chainId
+  });
+
 export const hasEncryptedRailgunWallet = async (): Promise<boolean> =>
   (await loadEncryptedWalletRecord()) !== null;
 
@@ -423,21 +478,27 @@ export const unlockEncryptedRailgunWallet =
 
     const payload = await decryptSecretPayload(record);
     const chainId = BigInt(payload.chainId);
+    const derivationProvider = derivationProviderForRecord(record);
     const derived = await deriveRailgunWallet({
       recoveryPhrase: payload.recoveryPhrase,
       keyIndex: payload.keyIndex,
       chainId
     });
 
-    if (derived.railgunAddress !== record.railgunAddress) {
+    if (
+      derivationProvider === "kohaku-railgun-alpha" &&
+      derived.railgunAddress !== record.railgunAddress
+    ) {
       throw new Error("Stored RAILGUN wallet address does not match the secret.");
     }
 
     return {
-      railgunAddress: derived.railgunAddress,
+      railgunAddress: record.railgunAddress,
+      derivationProvider,
       recoveryPhrase: payload.recoveryPhrase,
       spendingKey: derived.spendingKey,
       viewingKey: derived.viewingKey,
+      kohakuRailgunAddress: derived.railgunAddress,
       keyIndex: payload.keyIndex,
       chainId,
       storedAt: record.updatedAt
@@ -456,6 +517,7 @@ export const exportEncryptedRailgunWallet =
 
     return {
       railgunAddress: unlocked.railgunAddress,
+      derivationProvider: unlocked.derivationProvider,
       recoveryPhrase: unlocked.recoveryPhrase,
       keyIndex: unlocked.keyIndex,
       chainId: unlocked.chainId.toString(),

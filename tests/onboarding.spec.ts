@@ -94,7 +94,10 @@ test.describe("passkey-first onboarding", () => {
     );
     await expect(page.getByLabel("Review pay route")).toContainText("Max 1%");
     await expect(page.getByLabel("Review pay route")).toContainText(
-      "Leftover ETH is swept to the recipient, not your public wallet"
+      "Private change to 0zk required; not wired yet"
+    );
+    await expect(page.getByLabel("Review pay route")).toContainText(
+      "Private Pay requires leftover swap/change funds to return privately to your 0zk"
     );
     await expect(page.getByLabel("Review pay route")).toContainText(
       "5 USDC to deanpierce.eth"
@@ -416,7 +419,7 @@ test.describe("passkey-first onboarding", () => {
                 : request.method === "eth_getLogs"
                   ? []
                   : request.method === "eth_call"
-                    ? "0x"
+                    ? "0x0000000000000000000000000000000000000000000000000000000000000000"
                     : request.method === "eth_estimateGas"
                       ? "0x5208"
                       : request.method === "eth_gasPrice"
@@ -675,7 +678,7 @@ test.describe("passkey-first onboarding", () => {
                 : request.method === "eth_getLogs"
                   ? []
                   : request.method === "eth_call"
-                    ? "0x"
+                    ? "0x0000000000000000000000000000000000000000000000000000000000000000"
                     : request.method === "eth_estimateGas"
                       ? "0x5208"
                       : request.method === "eth_gasPrice"

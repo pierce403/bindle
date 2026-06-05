@@ -1,4 +1,5 @@
 import type { PayAsset } from "./assets";
+import type { PrivatePayChangeDisposition } from "./payFlow";
 
 export const UNISWAP_V4_PROTOCOL_LABEL = "Uniswap v4";
 export const UNISWAP_V4_QUOTE_SOURCE = "onchain:uniswap-v4";
@@ -20,6 +21,7 @@ export type PaySwapRoutePlan = {
   slippageBps: number;
   slippageLabel: string;
   remainderLabel: string;
+  changeDisposition: PrivatePayChangeDisposition;
   requiresSwap: boolean;
 };
 
@@ -48,6 +50,7 @@ export const getPaySwapRoutePlan = (
       slippageBps: 0,
       slippageLabel: "No swap slippage",
       remainderLabel: "No swap remainder expected",
+      changeDisposition: "private-change-to-0zk",
       requiresSwap: false
     };
   }
@@ -60,7 +63,8 @@ export const getPaySwapRoutePlan = (
     executionLabel: `ETH to ${outputAsset.symbol} through Uniswap v4`,
     slippageBps: DEFAULT_PAY_MAX_SLIPPAGE_BPS,
     slippageLabel: `Max ${formatSlippageBps(DEFAULT_PAY_MAX_SLIPPAGE_BPS)}`,
-    remainderLabel: "Leftover ETH is swept to the recipient, not your public wallet",
+    remainderLabel: "Private change to 0zk required; not wired yet",
+    changeDisposition: "unknown",
     requiresSwap: true
   };
 };
