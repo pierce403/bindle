@@ -296,12 +296,20 @@ export function PrivacySwitchboard({
       <label className="field">
         <span>RAILGUN broadcaster</span>
         <input
+          list="railgun-broadcaster-options"
           value={policy.broadcasterUrl}
-          placeholder="optional"
+          placeholder="optional Waku network or endpoint"
           onChange={(event) =>
             updateCustom({ ...policy, broadcasterUrl: event.currentTarget.value })
           }
         />
+        <datalist id="railgun-broadcaster-options">
+          {endpointChoices.broadcasterUrl.map((choice) => (
+            <option key={choice.value} value={choice.value}>
+              {choice.label}
+            </option>
+          ))}
+        </datalist>
       </label>
 
       <label className="field">

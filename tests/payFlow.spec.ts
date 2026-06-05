@@ -43,14 +43,8 @@ test("Pay is disabled when no broadcaster is selected", () => {
   expect(readiness.message).toBe(privatePayBroadcasterRequiredMessage);
 });
 
-test("Pay stays disabled until broadcaster submission is wired", () => {
-  const readiness = getRailgunBroadcasterReadiness({
-    ...defaultConnectionPolicy,
-    railgunBroadcasterMode: "waku-public-network",
-    railgunBroadcasterEnabled: true,
-    broadcasterUrl: "waku:broadcaster",
-    wakuEnabled: true
-  });
+test("default public Waku broadcaster stays disabled until submission is wired", () => {
+  const readiness = getRailgunBroadcasterReadiness(defaultConnectionPolicy);
 
   expect(readiness.ready).toBe(false);
   expect(readiness.status).toBe("adapter-unwired");

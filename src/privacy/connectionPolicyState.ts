@@ -98,6 +98,10 @@ const normalizeConnectionPolicy = (value: unknown): ConnectionPolicy => {
     endpointPreset === "bindle-default" && !stringValue(parsed.priceQuoteUrl)
       ? presetPolicy.priceQuoteUrl
       : stringValue(parsed.priceQuoteUrl);
+  const broadcasterUrl =
+    endpointPreset === "bindle-default" && !stringValue(parsed.broadcasterUrl)
+      ? presetPolicy.broadcasterUrl
+      : stringValue(parsed.broadcasterUrl);
   const parsedRailgunArtifactUrl = stringValue(parsed.railgunArtifactUrl);
   const railgunArtifactUrl =
     endpointPreset === "bindle-default" &&
@@ -118,11 +122,15 @@ const normalizeConnectionPolicy = (value: unknown): ConnectionPolicy => {
     railgunSyncUrl,
     railgunArtifactUrl,
     poiAggregatorUrls: stringArrayValue(parsed.poiAggregatorUrls),
-    broadcasterUrl: stringValue(parsed.broadcasterUrl),
-    railgunBroadcasterMode: railgunBroadcasterModeValue(
-      parsed.railgunBroadcasterMode
-    ),
-    railgunBroadcasterEnabled: booleanValue(parsed.railgunBroadcasterEnabled),
+    broadcasterUrl,
+    railgunBroadcasterMode:
+      endpointPreset === "bindle-default"
+        ? presetPolicy.railgunBroadcasterMode
+        : railgunBroadcasterModeValue(parsed.railgunBroadcasterMode),
+    railgunBroadcasterEnabled:
+      endpointPreset === "bindle-default"
+        ? presetPolicy.railgunBroadcasterEnabled
+        : booleanValue(parsed.railgunBroadcasterEnabled),
     railgunBroadcasterFeeToken: railgunBroadcasterFeeTokenValue(
       parsed.railgunBroadcasterFeeToken
     ),
@@ -139,7 +147,10 @@ const normalizeConnectionPolicy = (value: unknown): ConnectionPolicy => {
       typeof parsed.autoStartToolkit === "boolean"
         ? parsed.autoStartToolkit
         : presetPolicy.autoStartToolkit,
-    wakuEnabled: booleanValue(parsed.wakuEnabled),
+    wakuEnabled:
+      endpointPreset === "bindle-default"
+        ? presetPolicy.wakuEnabled
+        : booleanValue(parsed.wakuEnabled),
     debugLogging: booleanValue(parsed.debugLogging)
   };
 };

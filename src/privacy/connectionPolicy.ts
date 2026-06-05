@@ -92,6 +92,8 @@ export type EndpointChoice = {
 export const KOHAKU_RAILGUN_ARTIFACT_BASE_URL =
   "https://github.com/Robert-MacWha/privacy-protocol-artifacts/raw/refs/heads/main/artifacts/";
 export const BINDLE_RAILGUN_ARTIFACT_BASE_PATH = "/railgun-artifacts/";
+export const RAILGUN_PUBLIC_WAKU_BROADCASTER_NETWORK =
+  "waku://railgun-public-broadcasters";
 
 export const endpointChoices = {
   ethereumRpcUrl: [
@@ -130,6 +132,12 @@ export const endpointChoices = {
     {
       label: "Bindle default Uniswap v4 onchain quote",
       value: UNISWAP_V4_QUOTE_SOURCE
+    }
+  ],
+  broadcasterUrl: [
+    {
+      label: "RAILGUN public Waku broadcaster network",
+      value: RAILGUN_PUBLIC_WAKU_BROADCASTER_NETWORK
     }
   ]
 } as const;
@@ -171,8 +179,12 @@ export const endpointPresets: Record<EndpointPresetId, EndpointPreset> = {
       railgunSyncUrl:
         "https://rail-squid.squids.live/squid-railgun-ethereum-v2/v/v1/graphql",
       railgunArtifactUrl: BINDLE_RAILGUN_ARTIFACT_BASE_PATH,
+      broadcasterUrl: RAILGUN_PUBLIC_WAKU_BROADCASTER_NETWORK,
+      railgunBroadcasterMode: "waku-public-network",
+      railgunBroadcasterEnabled: true,
       bundlerUrl: "https://public.pimlico.io/v2/1/rpc",
-      priceQuoteUrl: UNISWAP_V4_QUOTE_SOURCE
+      priceQuoteUrl: UNISWAP_V4_QUOTE_SOURCE,
+      wakuEnabled: true
     }
   },
   "privacy-max": {
@@ -462,7 +474,14 @@ export const summarizeOutbound = (
       id: "waku",
       label: "Waku",
       mode: policy.wakuEnabled ? "optional" : "off",
-      source: policy.wakuEnabled ? "custom" : "off",
+      source:
+        policy.wakuEnabled &&
+        bindleDefault.wakuEnabled &&
+        policy.endpointPreset === "bindle-default"
+          ? "default"
+          : policy.wakuEnabled
+            ? "custom"
+            : "off",
       value: policy.wakuEnabled ? "enabled" : "off"
     }
   ];

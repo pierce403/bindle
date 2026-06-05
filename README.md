@@ -69,10 +69,11 @@ not the default first-run experience.
   private source leg through a legitimate RAILGUN Broadcaster. It must not fall
   back to the passkey smart account, Pimlico bundler, paymaster, or EOA.
 - Endpoint presets are visible in Connections. Bindle default currently uses a
-  labelled public Ethereum RPC, RAILGUN sync indexer, and public ERC-4337
-  bundler, plus same-origin static RAILGUN proving artifacts at
-  `/railgun-artifacts/` and `onchain:uniswap-v4` quote source; Privacy max
-  starts with hosted endpoints empty/off.
+  labelled public Ethereum RPC, RAILGUN sync indexer, public Waku RAILGUN
+  broadcaster network, and public ERC-4337 bundler, plus same-origin static
+  RAILGUN proving artifacts at `/railgun-artifacts/` and
+  `onchain:uniswap-v4` quote source; Privacy max starts with hosted endpoints
+  empty/off.
 - Endpoint settings are persisted locally in the browser after the user changes
   them, so reloads do not silently remove configured RPC/bundler fields.
 - Default dark black/red paisley theme, with black/white and black/blue variants plus light and dark modes.
@@ -172,9 +173,10 @@ prices from that same bundler endpoint before submission so the bundler does not
 reject underpriced priority fees. Pimlico is only for public smart-wallet
 operations such as account deployment, public ETH payments, and public shield
 deposits. Private Pay, standalone unshielding, private RAILGUN sends,
-non-USDC Pay assets, and any-network provider routing remain pending until a
-RAILGUN Broadcaster adapter can discover a broadcaster, quote fees, and submit
-the private source leg without using the public smart wallet.
+non-USDC Pay assets, and any-network provider routing remain pending until the
+configured public Waku RAILGUN Broadcaster adapter can discover a broadcaster,
+quote fees, and submit the private source leg without using the public smart
+wallet.
 
 Kohaku's current alpha RAILGUN prover has
 `https://github.com/Robert-MacWha/privacy-protocol-artifacts/raw/refs/heads/main/artifacts/`

@@ -3,6 +3,7 @@ import {
   applyEndpointPreset,
   defaultConnectionPolicy,
   endpointPresets,
+  RAILGUN_PUBLIC_WAKU_BROADCASTER_NETWORK,
   summarizeOutbound
 } from "../src/privacy/connectionPolicy";
 import { buildEndpointDisclosure } from "../src/privacy/preflightDisclosure";
@@ -33,10 +34,16 @@ test("default user mode has a visible sane preset selected", () => {
   expect(defaultConnectionPolicy.railgunArtifactUrl).toBe("/railgun-artifacts/");
   expect(defaultConnectionPolicy.priceQuoteUrl).toBe("onchain:uniswap-v4");
   expect(defaultConnectionPolicy.paymasterUrl).toBe("");
-  expect(defaultConnectionPolicy.railgunBroadcasterMode).toBe("off");
-  expect(defaultConnectionPolicy.railgunBroadcasterEnabled).toBe(false);
+  expect(defaultConnectionPolicy.broadcasterUrl).toBe(
+    RAILGUN_PUBLIC_WAKU_BROADCASTER_NETWORK
+  );
+  expect(defaultConnectionPolicy.railgunBroadcasterMode).toBe(
+    "waku-public-network"
+  );
+  expect(defaultConnectionPolicy.railgunBroadcasterEnabled).toBe(true);
   expect(defaultConnectionPolicy.railgunBroadcasterFeeToken).toBe("USDC");
   expect(defaultConnectionPolicy.autoStartToolkit).toBe(true);
+  expect(defaultConnectionPolicy.wakuEnabled).toBe(true);
 });
 
 test("privacy max preset clears hosted endpoints", () => {
@@ -115,8 +122,13 @@ test("outbound summary exposes every endpoint class", () => {
       }),
       expect.objectContaining({
         id: "railgun-broadcaster",
-        source: "off",
-        value: "off"
+        source: "default",
+        value: RAILGUN_PUBLIC_WAKU_BROADCASTER_NETWORK
+      }),
+      expect.objectContaining({
+        id: "waku",
+        source: "default",
+        value: "enabled"
       })
     ])
   );
@@ -239,9 +251,10 @@ test("unshield review preflight requires a visible broadcaster", () => {
       }),
       expect.objectContaining({
         id: "railgun-broadcaster",
-        configured: false,
+        configured: true,
         required: true,
-        source: "off"
+        source: "default",
+        value: RAILGUN_PUBLIC_WAKU_BROADCASTER_NETWORK
       }),
       expect.objectContaining({
         id: "railgun-poi",
@@ -270,10 +283,10 @@ test("pay review preflight discloses private-source route endpoints", () => {
       }),
       expect.objectContaining({
         id: "railgun-broadcaster",
-        configured: false,
+        configured: true,
         required: true,
-        source: "off",
-        value: "off"
+        source: "default",
+        value: RAILGUN_PUBLIC_WAKU_BROADCASTER_NETWORK
       }),
       expect.objectContaining({
         id: "provider-resolution",
@@ -295,9 +308,10 @@ test("pay review preflight discloses private-source route endpoints", () => {
       }),
       expect.objectContaining({
         id: "waku",
-        configured: false,
+        configured: true,
         required: false,
-        source: "off"
+        source: "default",
+        value: "enabled"
       })
     ])
   );

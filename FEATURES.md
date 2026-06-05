@@ -225,8 +225,9 @@ infrastructure.
       the default mobile PWA onboarding path.
 - [ ] Do not auto-resolve ENS, providers, contacts, avatars, prices, or metadata
       before the user takes an action that requires it.
-- [ ] Do not auto-start broadcasters, Waku, provider resolvers, or hidden
-      network services on page load or PWA launch.
+- [ ] Do not start hidden broadcasters, provider resolvers, or network
+      services on page load or PWA launch. Public Waku broadcaster defaults are
+      allowed only when visible, inspectable, replaceable, and disclosed.
 - [ ] Do not auto-start the privacy toolkit unless the selected policy exposes
       that behavior and a real local `0zk` wallet already exists.
 - [ ] Do not preload remote images, fonts, scripts, maps, avatars, token lists,

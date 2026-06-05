@@ -133,10 +133,7 @@ test.describe("passkey-first onboarding", () => {
     );
     await expect(page.getByLabel("Review pay route")).toContainText("Blocked");
     await expect(page.getByLabel("Review pay route")).toContainText(
-      "Configure required endpoint: Broadcaster."
-    );
-    await expect(page.getByLabel("Review pay route")).toContainText(
-      "Pay requires a RAILGUN Broadcaster for the private source leg"
+      "RAILGUN Broadcaster discovery, fee quoting, and submission are not wired yet"
     );
     await expect(page.getByLabel("Review pay route")).toContainText(
       "Create or import a shielded 0zk wallet."
