@@ -13,6 +13,7 @@
     "build": "node scripts/build.mjs",
     "build:app": "tsc -b && vite build",
     "icons": "node scripts/generate-pwa-icons.mjs",
+    "logo": "node scripts/generate-logo-source.mjs && node scripts/generate-pwa-icons.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "test:e2e": "playwright test",
     "typecheck": "tsc -b"

@@ -82,6 +82,8 @@ Important directories:
   `public/icons/`: PWA installability assets.
 - `docs/`: committed production build served by GitHub Pages.
 - `dist/`: local build output; ignored by git.
+- `scripts/generate-logo-source.mjs`: dependency-free raster compositor for the
+  rose paisley bandana logo source.
 - `scripts/generate-pwa-icons.mjs`: dependency-free PWA icon generator.
 
 ## Product And Privacy Rules
@@ -161,6 +163,12 @@ Regenerate PWA icons:
 
 ```bash
 pnpm icons
+```
+
+Regenerate the rose paisley logo source and all PWA icons:
+
+```bash
+pnpm logo
 ```
 
 Update GitHub Pages output after source changes:
@@ -318,9 +326,11 @@ avoids requiring GitHub workflow scope.
 - `git` commands that write `.git` metadata may require sandbox escalation here.
 - PWA installability depends on `manifest.webmanifest`, 192x192 and 512x512 PNG
   icons, and a service worker with a fetch handler.
-- Bindle's logo is generated raster art based on a black/red paisley yin-yang
-  mark. The canonical source is `assets/bindle-logo-source.png`; `pnpm icons`
-  regenerates the public logo, favicon PNGs, and PWA icons.
+- Bindle's logo is generated raster art based on a black/red rose paisley
+  bandana cloth bundle. The canonical source is
+  `assets/bindle-logo-source.png`; `pnpm logo` regenerates that source from the
+  rose paisley texture, and `pnpm icons` regenerates the public logo, favicon
+  PNGs, and PWA icons.
 - Playwright is configured in `playwright.config.ts` and starts Vite on
   `localhost:5178`. WebAuthn rejects `127.0.0.1` as an invalid RP domain in the
   virtual-passkey test, so keep the e2e origin on `localhost`. It prefers
