@@ -163,8 +163,8 @@ infrastructure.
       route.
 - [x] Add explicit artifact download origin policy before downloading RAILGUN
       proving artifacts.
-- [ ] Add explicit provider resolver and broadcaster policy for outgoing
-      decloaked routes.
+- [x] Add explicit RAILGUN Waku Broadcaster policy for private-source Pay.
+- [ ] Add explicit provider resolver policy for outgoing decloaked routes.
 - [ ] Add Kohaku custom POI endpoint wiring only when endpoints are visible in
       the selected preset or user/operator configured.
 - [ ] Add Helios provider adapter behind `ConnectionPolicy`.
@@ -259,10 +259,10 @@ infrastructure.
 - [ ] Sync shielded ETH balances from actual wallet state.
 - [ ] Implement private RAILGUN transfer review and proof generation.
 - [ ] Implement unshield-to-public-address review and proof generation.
-- [ ] Implement RAILGUN Broadcaster discovery, fee quote, and submission only
+- [x] Implement RAILGUN Broadcaster discovery, fee quote, and submission only
       through explicit broadcaster policy.
 - [ ] Implement provider payment routing for decloaked outbound messages.
-- [ ] Implement one-shot USDC Private Pay execution for shielded ETH unshield,
+- [x] Implement one-shot USDC Private Pay execution for shielded ETH unshield,
       explicit ETH-to-USDC routing through Uniswap v4, final ERC-20 delivery,
       RAILGUN proof generation, v4 quote/router calldata, RAILGUN Broadcaster
       submission, and slippage controls.
@@ -270,8 +270,8 @@ infrastructure.
       normalization for the SDK callback once proof generation is invoked.
 - [x] Default quote source to explicit `onchain:uniswap-v4` under Bindle
       default, while keeping Privacy max empty/off.
-- [x] Default Pay swap review to 1% max slippage and allow leftover ETH to
-      remain unshielded for a later sweep.
+- [x] Default Pay swap review to 1% max slippage and sweep leftover ETH to the
+      public settlement recipient instead of the user's public smart wallet.
 - [ ] Add Pay support for non-USDC output assets.
 - [ ] Explore LayerZero-style Pay routing for any-network settlement.
 - [ ] Add Uniswap-based Swap flow.

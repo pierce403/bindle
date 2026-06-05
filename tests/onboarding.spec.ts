@@ -94,7 +94,7 @@ test.describe("passkey-first onboarding", () => {
     );
     await expect(page.getByLabel("Review pay route")).toContainText("Max 1%");
     await expect(page.getByLabel("Review pay route")).toContainText(
-      "Leftover ETH may remain unshielded for a later sweep"
+      "Leftover ETH is swept to the recipient, not your public wallet"
     );
     await expect(page.getByLabel("Review pay route")).toContainText(
       "5 USDC to deanpierce.eth"
@@ -133,7 +133,7 @@ test.describe("passkey-first onboarding", () => {
     );
     await expect(page.getByLabel("Review pay route")).toContainText("Blocked");
     await expect(page.getByLabel("Review pay route")).toContainText(
-      "RAILGUN Broadcaster discovery, fee quoting, and submission are not wired yet"
+      "configured; Waku enabled"
     );
     await expect(page.getByLabel("Review pay route")).toContainText(
       "Create or import a shielded 0zk wallet."
@@ -144,9 +144,6 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByLabel("Proof generation progress")).toContainText(
       "RAILGUN unshield proof"
     );
-    await expect(
-      page.getByRole("button", { name: "Open Connections" })
-    ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Generate proof and pay" })
     ).toBeDisabled();

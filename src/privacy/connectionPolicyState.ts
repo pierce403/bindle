@@ -61,6 +61,8 @@ const hasLegacyCustomEndpoint = (parsed: Record<string, unknown>): boolean =>
   stringValue(parsed.bundlerUrl).length > 0 ||
   stringValue(parsed.paymasterUrl).length > 0 ||
   stringValue(parsed.broadcasterUrl).length > 0 ||
+  stringValue(parsed.railgunBroadcasterTrustedFeeSigner).length > 0 ||
+  stringValue(parsed.railgunBroadcasterPubSubTopic).length > 0 ||
   stringValue(parsed.providerResolverUrl).length > 0 ||
   stringValue(parsed.priceQuoteUrl).length > 0 ||
   stringValue(parsed.railgunSyncUrl).length > 0 ||
@@ -70,6 +72,8 @@ const hasLegacyCustomEndpoint = (parsed: Record<string, unknown>): boolean =>
   stringValue(parsed.passkeyAttestationUrl).length > 0 ||
   stringValue(parsed.recoveryServiceUrl).length > 0 ||
   stringArrayValue(parsed.poiAggregatorUrls).length > 0 ||
+  stringArrayValue(parsed.railgunBroadcasterDnsDiscoveryUrls).length > 0 ||
+  stringArrayValue(parsed.railgunBroadcasterDirectPeers).length > 0 ||
   booleanValue(parsed.wakuEnabled);
 
 const normalizeConnectionPolicy = (value: unknown): ConnectionPolicy => {
@@ -102,6 +106,21 @@ const normalizeConnectionPolicy = (value: unknown): ConnectionPolicy => {
     endpointPreset === "bindle-default" && !stringValue(parsed.broadcasterUrl)
       ? presetPolicy.broadcasterUrl
       : stringValue(parsed.broadcasterUrl);
+  const railgunBroadcasterPubSubTopic =
+    endpointPreset === "bindle-default" &&
+    !stringValue(parsed.railgunBroadcasterPubSubTopic)
+      ? presetPolicy.railgunBroadcasterPubSubTopic
+      : stringValue(parsed.railgunBroadcasterPubSubTopic);
+  const railgunBroadcasterDnsDiscoveryUrls =
+    endpointPreset === "bindle-default" &&
+    stringArrayValue(parsed.railgunBroadcasterDnsDiscoveryUrls).length === 0
+      ? presetPolicy.railgunBroadcasterDnsDiscoveryUrls
+      : stringArrayValue(parsed.railgunBroadcasterDnsDiscoveryUrls);
+  const railgunBroadcasterDirectPeers =
+    endpointPreset === "bindle-default" &&
+    stringArrayValue(parsed.railgunBroadcasterDirectPeers).length === 0
+      ? presetPolicy.railgunBroadcasterDirectPeers
+      : stringArrayValue(parsed.railgunBroadcasterDirectPeers);
   const parsedRailgunArtifactUrl = stringValue(parsed.railgunArtifactUrl);
   const railgunArtifactUrl =
     endpointPreset === "bindle-default" &&
@@ -137,6 +156,12 @@ const normalizeConnectionPolicy = (value: unknown): ConnectionPolicy => {
     railgunBroadcasterCustomFeeTokenAddress: stringValue(
       parsed.railgunBroadcasterCustomFeeTokenAddress
     ),
+    railgunBroadcasterTrustedFeeSigner: stringValue(
+      parsed.railgunBroadcasterTrustedFeeSigner
+    ),
+    railgunBroadcasterPubSubTopic,
+    railgunBroadcasterDnsDiscoveryUrls,
+    railgunBroadcasterDirectPeers,
     providerResolverUrl: stringValue(parsed.providerResolverUrl),
     priceQuoteUrl,
     bundlerUrl: stringValue(parsed.bundlerUrl),

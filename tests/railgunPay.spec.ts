@@ -5,6 +5,7 @@ import {
   grossUpUnshieldAmount,
   validateKohakuRailgunArtifactPolicy
 } from "../src/railgun/pay";
+import { resolveRailgunBroadcasterFeeTokenAddress } from "../src/railgun/wakuBroadcaster";
 
 test("Pay grosses up RAILGUN unshield amount so public WETH covers the swap input", () => {
   expect(
@@ -37,4 +38,10 @@ test("Pay accepts the Bindle-hosted RAILGUN artifact path in non-browser checks"
   await expect(
     ensureKohakuRailgunArtifactPolicyReady(defaultConnectionPolicy)
   ).resolves.toBeUndefined();
+});
+
+test("Pay resolves the default RAILGUN broadcaster fee token to mainnet WETH", () => {
+  expect(resolveRailgunBroadcasterFeeTokenAddress(defaultConnectionPolicy)).toBe(
+    "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+  );
 });

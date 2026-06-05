@@ -39,6 +39,12 @@ export function PrivacySwitchboard({
   const updateCustom = (nextPolicy: ConnectionPolicy) => {
     onChange(markConnectionPolicyCustom(nextPolicy));
   };
+  const listToText = (values: string[]) => values.join("\n");
+  const textToList = (value: string) =>
+    value
+      .split(/\n|,/)
+      .map((item) => item.trim())
+      .filter(Boolean);
 
   return (
     <section className="panel privacy-panel" aria-labelledby="privacy-heading">
@@ -310,6 +316,78 @@ export function PrivacySwitchboard({
             </option>
           ))}
         </datalist>
+      </label>
+
+      <label className="field">
+        <span>Broadcaster trusted fee signer</span>
+        <input
+          value={policy.railgunBroadcasterTrustedFeeSigner}
+          placeholder="optional 0zk fee signer"
+          onChange={(event) =>
+            updateCustom({
+              ...policy,
+              railgunBroadcasterTrustedFeeSigner: event.currentTarget.value
+            })
+          }
+        />
+        <small>
+          Off accepts signed fee messages from discovered broadcasters. Configure a
+          trusted signer only when you have one from the broadcaster operator.
+        </small>
+      </label>
+
+      <label className="field">
+        <span>Broadcaster Waku pubsub topic</span>
+        <input
+          list="railgun-broadcaster-pubsub-options"
+          value={policy.railgunBroadcasterPubSubTopic}
+          placeholder="/waku/2/rs/5/1"
+          onChange={(event) =>
+            updateCustom({
+              ...policy,
+              railgunBroadcasterPubSubTopic: event.currentTarget.value
+            })
+          }
+        />
+        <datalist id="railgun-broadcaster-pubsub-options">
+          {endpointChoices.railgunBroadcasterPubSubTopic.map((choice) => (
+            <option key={choice.value} value={choice.value}>
+              {choice.label}
+            </option>
+          ))}
+        </datalist>
+      </label>
+
+      <label className="field">
+        <span>Broadcaster DNS discovery URLs</span>
+        <textarea
+          value={listToText(policy.railgunBroadcasterDnsDiscoveryUrls)}
+          placeholder="one ENR tree URL per line"
+          onChange={(event) =>
+            updateCustom({
+              ...policy,
+              railgunBroadcasterDnsDiscoveryUrls: textToList(
+                event.currentTarget.value
+              )
+            })
+          }
+        />
+      </label>
+
+      <label className="field">
+        <span>Broadcaster direct peers</span>
+        <textarea
+          value={listToText(policy.railgunBroadcasterDirectPeers)}
+          placeholder="one Waku multiaddr per line"
+          onChange={(event) =>
+            updateCustom({
+              ...policy,
+              railgunBroadcasterDirectPeers: textToList(
+                event.currentTarget.value
+              )
+            })
+          }
+        />
       </label>
 
       <label className="field">

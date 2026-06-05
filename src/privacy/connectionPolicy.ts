@@ -58,6 +58,10 @@ export type ConnectionPolicy = {
   railgunBroadcasterEnabled: boolean;
   railgunBroadcasterFeeToken: RailgunBroadcasterFeeToken;
   railgunBroadcasterCustomFeeTokenAddress: string;
+  railgunBroadcasterTrustedFeeSigner: string;
+  railgunBroadcasterPubSubTopic: string;
+  railgunBroadcasterDnsDiscoveryUrls: string[];
+  railgunBroadcasterDirectPeers: string[];
   providerResolverUrl: string;
   priceQuoteUrl: string;
   bundlerUrl: string;
@@ -94,6 +98,15 @@ export const KOHAKU_RAILGUN_ARTIFACT_BASE_URL =
 export const BINDLE_RAILGUN_ARTIFACT_BASE_PATH = "/railgun-artifacts/";
 export const RAILGUN_PUBLIC_WAKU_BROADCASTER_NETWORK =
   "waku://railgun-public-broadcasters";
+export const RAILGUN_PUBLIC_WAKU_BROADCASTER_PUBSUB_TOPIC = "/waku/2/rs/5/1";
+export const RAILGUN_PUBLIC_WAKU_BROADCASTER_DNS_DISCOVERY_URLS = [
+  "enrtree://APMYHUVNQWHJNPI5L2KQ765EMCKUAMRWPUH3U2QIKPK6XEV3OW442@discovery.rootedinprivacy.com"
+];
+export const RAILGUN_PUBLIC_WAKU_BROADCASTER_DIRECT_PEERS = [
+  "/dns4/relay-a.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmFbD2ZvAFi2j9jjDo6g4HFbQAhfjDfnTTrbyRGQRmtG7x",
+  "/dns4/relay-b.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmPtEAoPPok7VLrpNNC6t92ZQFqLndHvkdx6Fk3CxA4MaG",
+  "/dns4/client-edge.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmQdCGG5qREQCq96kucmpUVupmvLwrTRjMazPAaMTNP97A"
+];
 
 export const endpointChoices = {
   ethereumRpcUrl: [
@@ -139,6 +152,12 @@ export const endpointChoices = {
       label: "RAILGUN public Waku broadcaster network",
       value: RAILGUN_PUBLIC_WAKU_BROADCASTER_NETWORK
     }
+  ],
+  railgunBroadcasterPubSubTopic: [
+    {
+      label: "RAILGUN public Waku pubsub shard",
+      value: RAILGUN_PUBLIC_WAKU_BROADCASTER_PUBSUB_TOPIC
+    }
   ]
 } as const;
 
@@ -153,8 +172,12 @@ const policyBase = {
   broadcasterUrl: "",
   railgunBroadcasterMode: "off" as RailgunBroadcasterMode,
   railgunBroadcasterEnabled: false,
-  railgunBroadcasterFeeToken: "USDC" as RailgunBroadcasterFeeToken,
+  railgunBroadcasterFeeToken: "WETH" as RailgunBroadcasterFeeToken,
   railgunBroadcasterCustomFeeTokenAddress: "",
+  railgunBroadcasterTrustedFeeSigner: "",
+  railgunBroadcasterPubSubTopic: "",
+  railgunBroadcasterDnsDiscoveryUrls: [],
+  railgunBroadcasterDirectPeers: [],
   providerResolverUrl: "",
   priceQuoteUrl: "",
   paymasterUrl: "",
@@ -182,6 +205,13 @@ export const endpointPresets: Record<EndpointPresetId, EndpointPreset> = {
       broadcasterUrl: RAILGUN_PUBLIC_WAKU_BROADCASTER_NETWORK,
       railgunBroadcasterMode: "waku-public-network",
       railgunBroadcasterEnabled: true,
+      railgunBroadcasterFeeToken: "WETH",
+      railgunBroadcasterPubSubTopic:
+        RAILGUN_PUBLIC_WAKU_BROADCASTER_PUBSUB_TOPIC,
+      railgunBroadcasterDnsDiscoveryUrls:
+        RAILGUN_PUBLIC_WAKU_BROADCASTER_DNS_DISCOVERY_URLS,
+      railgunBroadcasterDirectPeers:
+        RAILGUN_PUBLIC_WAKU_BROADCASTER_DIRECT_PEERS,
       bundlerUrl: "https://public.pimlico.io/v2/1/rpc",
       priceQuoteUrl: UNISWAP_V4_QUOTE_SOURCE,
       wakuEnabled: true
@@ -406,7 +436,21 @@ export const summarizeOutbound = (
         policy.railgunBroadcasterMode === "off" ||
         !policy.railgunBroadcasterEnabled
           ? "off"
-          : policy.broadcasterUrl || "not selected"
+          : [
+              policy.broadcasterUrl || "not selected",
+              policy.railgunBroadcasterPubSubTopic
+                ? `pubsub ${policy.railgunBroadcasterPubSubTopic}`
+                : "pubsub off",
+              policy.railgunBroadcasterTrustedFeeSigner
+                ? `trusted fee signer ${policy.railgunBroadcasterTrustedFeeSigner}`
+                : "trusted fee signer off",
+              policy.railgunBroadcasterDnsDiscoveryUrls.length > 0
+                ? `${policy.railgunBroadcasterDnsDiscoveryUrls.length} DNS discovery URL(s)`
+                : "DNS discovery off",
+              policy.railgunBroadcasterDirectPeers.length > 0
+                ? `${policy.railgunBroadcasterDirectPeers.length} direct peer(s)`
+                : "direct peers off"
+            ].join("; ")
     },
     {
       id: "provider-resolution",

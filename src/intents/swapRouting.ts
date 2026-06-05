@@ -60,7 +60,7 @@ export const getPaySwapRoutePlan = (
     executionLabel: `ETH to ${outputAsset.symbol} through Uniswap v4`,
     slippageBps: DEFAULT_PAY_MAX_SLIPPAGE_BPS,
     slippageLabel: `Max ${formatSlippageBps(DEFAULT_PAY_MAX_SLIPPAGE_BPS)}`,
-    remainderLabel: "Leftover ETH may remain unshielded for a later sweep",
+    remainderLabel: "Leftover ETH is swept to the recipient, not your public wallet",
     requiresSwap: true
   };
 };

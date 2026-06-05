@@ -23,7 +23,7 @@ export type PayPrivacyLabel = "Private Pay" | "Public Pay";
 
 export type RailgunBroadcasterReadiness = {
   ready: boolean;
-  status: "off" | "not-selected" | "not-connected" | "adapter-unwired";
+  status: "off" | "not-selected" | "not-connected" | "configured";
   message: string;
   feeToken: string;
   fee: string;
@@ -104,11 +104,41 @@ export const getRailgunBroadcasterReadiness = (
     };
   }
 
+  if (
+    policy.railgunBroadcasterMode !== "waku-public-network" &&
+    policy.railgunBroadcasterMode !== "custom-waku"
+  ) {
+    return {
+      ready: false,
+      status: "not-selected",
+      message: privatePayBroadcasterRequiredMessage,
+      feeToken,
+      fee: "unquoted",
+      wakuStatus: "enabled"
+    };
+  }
+
+  if (
+    !policy.railgunBroadcasterPubSubTopic.trim() ||
+    (policy.railgunBroadcasterDnsDiscoveryUrls.length === 0 &&
+      policy.railgunBroadcasterDirectPeers.length === 0)
+  ) {
+    return {
+      ready: false,
+      status: "not-selected",
+      message:
+        "Configure a visible RAILGUN Waku pubsub topic plus DNS discovery URL or direct peer before Private Pay.",
+      feeToken,
+      fee: "unquoted",
+      wakuStatus: "enabled"
+    };
+  }
+
   return {
-    ready: false,
-    status: "adapter-unwired",
+    ready: true,
+    status: "configured",
     message:
-      "RAILGUN Broadcaster discovery, fee quoting, and submission are not wired yet, so Private Pay stays disabled.",
+      "RAILGUN Broadcaster configured. Waku discovery, fee quote, and encrypted submission will run during Private Pay.",
     feeToken,
     fee: "unquoted",
     wakuStatus: "enabled"

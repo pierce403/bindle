@@ -65,7 +65,7 @@ test("unshield path remains blocked until keys, balance sync, and broadcaster ex
       }),
       expect.objectContaining({
         id: "railgun-broadcaster",
-        ready: false
+        ready: true
       })
     ])
   );

@@ -1587,11 +1587,14 @@ function WalletApp() {
         detail: [
           preparedPay.route.debugLabel,
           `RAILGUN adapter: ${preparedPay.railgunAdapter}`,
+          `Submission: ${preparedPay.submissionMode}`,
           `RAILGUN 0zk: ${preparedPay.railgunAddress}`,
+          `Broadcaster 0zk: ${preparedPay.broadcaster.railgunAddress}`,
+          `Broadcaster fee token: ${preparedPay.broadcasterFeeTokenAddress}`,
+          `Broadcaster fee amount: ${preparedPay.broadcasterFee.amount.toString()}`,
           `Quoted input wei: ${preparedPay.route.quotedInputAmount.toString()}`,
           `Max input wei: ${preparedPay.route.maxInputAmount.toString()}`,
-          `Unshield target: ${preparedPay.railgunUnshieldTransaction.to}`,
-          `Unshield tx value wei: ${preparedPay.railgunUnshieldTransaction.value.toString()}`,
+          `RelayAdapt target: ${preparedPay.transaction.to}`,
           `Gross unshield WETH wei: ${preparedPay.unshieldAmountWei.toString()}`,
           `Public swap WETH wei: ${preparedPay.publicWethInputWei.toString()}`
         ].join("\n")

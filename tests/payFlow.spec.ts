@@ -25,7 +25,7 @@ test("Pay is disabled when broadcaster mode is off", () => {
   expect(readiness.ready).toBe(false);
   expect(readiness.status).toBe("off");
   expect(readiness.message).toBe(privatePayBroadcasterRequiredMessage);
-  expect(readiness.feeToken).toBe("USDC");
+  expect(readiness.feeToken).toBe("WETH");
   expect(readiness.fee).toBe("unquoted");
 });
 
@@ -43,10 +43,10 @@ test("Pay is disabled when no broadcaster is selected", () => {
   expect(readiness.message).toBe(privatePayBroadcasterRequiredMessage);
 });
 
-test("default public Waku broadcaster stays disabled until submission is wired", () => {
+test("default public Waku broadcaster is configured for Private Pay", () => {
   const readiness = getRailgunBroadcasterReadiness(defaultConnectionPolicy);
 
-  expect(readiness.ready).toBe(false);
-  expect(readiness.status).toBe("adapter-unwired");
-  expect(readiness.message).toMatch(/not wired yet/i);
+  expect(readiness.ready).toBe(true);
+  expect(readiness.status).toBe("configured");
+  expect(readiness.message).toMatch(/discovery, fee quote, and encrypted submission/i);
 });

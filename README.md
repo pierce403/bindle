@@ -172,11 +172,13 @@ For the visible Pimlico default bundler, Bindle requests User Operation gas
 prices from that same bundler endpoint before submission so the bundler does not
 reject underpriced priority fees. Pimlico is only for public smart-wallet
 operations such as account deployment, public ETH payments, and public shield
-deposits. Private Pay, standalone unshielding, private RAILGUN sends,
-non-USDC Pay assets, and any-network provider routing remain pending until the
-configured public Waku RAILGUN Broadcaster adapter can discover a broadcaster,
-quote fees, and submit the private source leg without using the public smart
-wallet.
+deposits. Private Pay-to-USDC now prepares the private source leg with the
+RAILGUN Wallet SDK, discovers and quotes a visible Waku RAILGUN Broadcaster,
+and submits the encrypted RelayAdapt transaction through that broadcaster
+instead of the public smart wallet. The default broadcaster fee token is WETH so
+the first Pay path can spend from shielded ETH/WETH without requiring shielded
+USDC just to pay the broadcaster. Standalone unshielding, private RAILGUN sends,
+non-USDC Pay assets, and any-network provider routing remain pending.
 
 Kohaku's current alpha RAILGUN prover has
 `https://github.com/Robert-MacWha/privacy-protocol-artifacts/raw/refs/heads/main/artifacts/`
@@ -217,8 +219,10 @@ Current shield/unshield status:
 - Private Pay-to-USDC is classified as a `railgun-private` source leg plus a
   public settlement leg. Review discloses the RAILGUN 0zk source, broadcaster
   and Waku status, broadcaster fee token/fee, Uniswap v4 route provider, target
-  token, amount, recipient, and chain. Submission stays disabled until the
-  private leg can be sent through a legitimate RAILGUN Broadcaster.
+  token, amount, recipient, and chain. Submission uses the RAILGUN Wallet SDK
+  cross-contract proof path and the configured Waku RAILGUN Broadcaster; it is
+  still blocked when no recoverable local 0zk wallet, synced private balance,
+  proving artifacts, supported fee token, or broadcaster quote is available.
 - Standalone unshield and private send flows remain blocked until their review,
   proof, unlock, and visible submission policies are implemented.
 
