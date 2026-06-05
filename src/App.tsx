@@ -15,6 +15,10 @@ import { SettingsPanel } from "./components/SettingsPanel";
 import { UnshieldedBalanceBanner } from "./components/UnshieldedBalanceBanner";
 import { WalletActionPanel } from "./components/WalletActionPanel";
 import { getPayAsset } from "./intents/assets";
+import {
+  getRailgunBroadcasterReadiness,
+  privateUsdcPayLegs
+} from "./intents/payFlow";
 import { routeIntent, type IntentDraft, type RoutedIntent } from "./intents/router";
 import {
   clearDebugLog,
@@ -43,6 +47,7 @@ import {
   prepareRailgunUsdcPayForRecipient,
   type RailgunPayProgress
 } from "./railgun/pay";
+import { submitPayIntent } from "./railgun/broadcaster";
 import {
   fetchShieldedEthBalance,
   type ShieldedEthBalance
@@ -450,6 +455,7 @@ function WalletApp() {
     activeAction === "pay"
       ? buildEndpointDisclosure(policy, "pay-review")
       : sendEndpointDisclosure;
+  const privatePayReadiness = getRailgunBroadcasterReadiness(policy);
   const publicBalanceDisclosure = buildEndpointDisclosure(
     policy,
     "public-balance-sync"
@@ -1526,11 +1532,6 @@ function WalletApp() {
       return;
     }
 
-    if (!walletState.smartWalletAddress) {
-      setPayStatus("Create the public passkey smart account before Pay.");
-      return;
-    }
-
     if (!walletState.railgunAddress) {
       setPayStatus("Create or import a shielded 0zk wallet before Pay.");
       return;
@@ -1543,17 +1544,22 @@ function WalletApp() {
     recordDebugEvent({
       level: "info",
       source: "pay",
-      message: "Preparing shielded Pay route",
+      message: "Preparing Private Pay route",
       detail: [
         `Recipient: ${draft.recipient.trim()}`,
         `Amount: ${draft.amount.trim()} ${asset.symbol}`,
         `RPC: ${policy.ethereumRpcUrl.trim() || "off"}`,
-        `Bundler: ${policy.bundlerUrl.trim() || "off"}`,
+        `Broadcaster: ${policy.broadcasterUrl.trim() || "off"}`,
+        `Waku: ${policy.wakuEnabled ? "enabled" : "off"}`,
         `Quote source: ${policy.priceQuoteUrl.trim() || "off"}`
       ].join("\n")
     });
 
     try {
+      if (!privatePayReadiness.ready) {
+        throw new Error(privatePayReadiness.message);
+      }
+
       const recipient = await resolvePublicRecipient(policy, draft.recipient);
       setPayStatus("Preparing RAILGUN proof and Uniswap v4 route");
       const preparedPay = await prepareRailgunUsdcPayForRecipient({
@@ -1577,7 +1583,7 @@ function WalletApp() {
       recordDebugEvent({
         level: "info",
         source: "pay",
-        message: "Submitting Pay user operation",
+        message: "Submitting Private Pay through RAILGUN Broadcaster",
         detail: [
           preparedPay.route.debugLabel,
           `RAILGUN adapter: ${preparedPay.railgunAdapter}`,
@@ -1590,15 +1596,21 @@ function WalletApp() {
           `Public swap WETH wei: ${preparedPay.publicWethInputWei.toString()}`
         ].join("\n")
       });
-      setPayStatus("Submitting Pay user operation");
-      const result = await sendSmartWalletCalls({
-        calls: preparedPay.calls,
-        policy,
-        walletState
+      setPayStatus("Submitting through RAILGUN Broadcaster");
+      const result = await submitPayIntent({
+        intent: {
+          kind: "pay",
+          source: "railgun-private",
+          legs: privateUsdcPayLegs,
+          recipient,
+          amount: draft.amount.trim(),
+          preparedPay
+        },
+        policy
       });
       const submittedMessage = result.transactionHash
         ? `Pay submitted: ${result.transactionHash}`
-        : `Pay user operation submitted: ${result.userOperationHash}`;
+        : "Private Pay broadcaster submission accepted";
 
       setPayStatus(submittedMessage);
       recordDebugEvent({
@@ -1617,7 +1629,9 @@ function WalletApp() {
           `Recipient: ${draft.recipient.trim()}`,
           `Amount: ${draft.amount.trim()} ${asset.symbol}`,
           `Railgun address: ${walletState.railgunAddress ?? "missing"}`,
-          `Smart account: ${walletState.smartWalletAddress ?? "missing"}`
+          `Smart account: ${walletState.smartWalletAddress ?? "missing"}`,
+          `Broadcaster: ${policy.broadcasterUrl.trim() || "off"}`,
+          `Waku: ${policy.wakuEnabled ? "enabled" : "off"}`
         ].join("\n")
       );
       setPayStatus(message);
@@ -1686,6 +1700,7 @@ function WalletApp() {
       });
       const result = await sendSmartWalletCalls({
         calls: shieldCalls,
+        origin: "public-smart-wallet",
         policy,
         walletState
       });
@@ -2277,9 +2292,11 @@ function WalletApp() {
                 payStatus={payStatus}
                 payProofPercent={payProofProgress.percent}
                 payProofStatus={payProofProgress.status}
+                privatePayReadiness={privatePayReadiness}
                 endpointDisclosures={actionEndpointDisclosure}
                 onDeriveSmartWallet={() => void deriveSmartWallet()}
                 onOpenConnections={() => setActiveTab("nodes")}
+                onCloseAction={() => setActiveAction(null)}
                 onSubmitSmartPayment={() => void submitSmartPayment()}
                 onSubmitPay={() => void submitPay()}
                 onDraftChange={setDraft}

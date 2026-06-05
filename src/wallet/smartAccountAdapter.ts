@@ -13,6 +13,10 @@ import {
 import { createVisibleMainnetClient } from "./mainnetClient";
 import { createPasskeyRequestFn, explainPasskeyLookupError } from "./passkeys";
 import { estimateVisibleUserOperationFees } from "./userOperationGas";
+import {
+  assertPublicSmartWalletOrigin,
+  type TxOrigin
+} from "./transactionOrigin";
 import type { WalletState } from "./walletState";
 
 export type SmartAccountAdapterStatus = {
@@ -40,6 +44,7 @@ export type SmartWalletCall = {
   to: Address;
   data?: `0x${string}`;
   value?: bigint;
+  origin?: TxOrigin;
 };
 
 export const kohakuSmartAccountSupport: SmartAccountAdapterStatus = {
@@ -220,14 +225,22 @@ export const sendSmartWalletEthPayment = async ({
 
 export const sendSmartWalletCalls = async ({
   calls,
+  origin,
   policy,
   walletState
 }: {
   calls: SmartWalletCall[];
+  origin: TxOrigin;
   policy: ConnectionPolicy;
   walletState: WalletState;
 }): Promise<SmartWalletPaymentResult> => {
   try {
+    assertPublicSmartWalletOrigin(origin);
+
+    if (calls.some((call) => call.origin === "railgun-private")) {
+      throw new Error("Private RAILGUN calls cannot be submitted by 4337.");
+    }
+
     if (!policy.bundlerUrl.trim()) {
       throw new Error("Configure an ERC-4337 bundler before sending.");
     }

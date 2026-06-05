@@ -120,11 +120,11 @@ infrastructure.
       disclosure.
 - [x] Present Pay route review, proof progress, blockers, and submit state in a
       modal sheet instead of inserting the review below the form.
-- [x] Wire USDC Pay for Ethereum mainnet with a Kohaku RAILGUN WETH unshield
-      proof for the actual local `0zk` wallet, RAILGUN unshield-fee gross-up,
-      WETH unwrap, Uniswap v4 exact-output ETH-to-USDC calldata, 1% default max
-      slippage, leftover public funds allowed for a later sweep, and ERC-4337
-      submission through visible RPC/bundler policy.
+- [x] Add explicit Private Pay route handling for USDC on Ethereum mainnet:
+      classify the source as `railgun-private`, disclose RAILGUN 0zk source,
+      broadcaster/Waku status, fee token/fee, Uniswap v4 route provider, target
+      token, recipient, and chain, and fail closed instead of submitting the
+      private leg through ERC-4337.
 
 ## Now
 
@@ -258,12 +258,13 @@ infrastructure.
 - [ ] Sync shielded ETH balances from actual wallet state.
 - [ ] Implement private RAILGUN transfer review and proof generation.
 - [ ] Implement unshield-to-public-address review and proof generation.
-- [ ] Implement broadcaster submission only through explicit broadcaster policy.
+- [ ] Implement RAILGUN Broadcaster discovery, fee quote, and submission only
+      through explicit broadcaster policy.
 - [ ] Implement provider payment routing for decloaked outbound messages.
-- [x] Implement one-shot USDC Pay execution for shielded ETH unshield, explicit
-      ETH-to-USDC routing through Uniswap v4, final ERC-20 delivery, RAILGUN
-      proof generation, v4 quote/router calldata, ERC-4337 submission, and
-      slippage controls.
+- [ ] Implement one-shot USDC Private Pay execution for shielded ETH unshield,
+      explicit ETH-to-USDC routing through Uniswap v4, final ERC-20 delivery,
+      RAILGUN proof generation, v4 quote/router calldata, RAILGUN Broadcaster
+      submission, and slippage controls.
 - [x] Add Pay proof-path UX with honest stage status and RAILGUN proof progress
       normalization for the SDK callback once proof generation is invoked.
 - [x] Default quote source to explicit `onchain:uniswap-v4` under Bindle

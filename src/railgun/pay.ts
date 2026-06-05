@@ -230,7 +230,8 @@ const txDataToSmartWalletCall = (transaction: TxData): SmartWalletCall => {
   return {
     to: getAddress(transaction.to) as Address,
     data: transaction.data as Hex,
-    value: BigInt(transaction.value)
+    value: BigInt(transaction.value),
+    origin: "railgun-private"
   };
 };
 
@@ -445,10 +446,6 @@ export const prepareRailgunUsdcPayForRecipient = async ({
 
   if (!policy.ethereumRpcUrl.trim()) {
     throw new Error("Configure an Ethereum RPC before Pay.");
-  }
-
-  if (!policy.bundlerUrl.trim()) {
-    throw new Error("Configure an ERC-4337 bundler before Pay.");
   }
 
   await ensureKohakuRailgunArtifactPolicyReady(policy);

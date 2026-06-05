@@ -77,10 +77,10 @@ const actionEndpointRequirements: Record<
     "railgun-sync": "possible",
     "railgun-artifacts": "required",
     "railgun-poi": "possible",
+    "railgun-broadcaster": "required",
     "provider-resolution": "possible",
     "price-quotes": "required",
-    "erc4337-bundler": "required",
-    "erc4337-paymaster": "possible"
+    "waku": "possible"
   },
   "public-smart-payment": {
     "ethereum-rpc": "required",

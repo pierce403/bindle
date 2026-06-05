@@ -33,6 +33,9 @@ test("default user mode has a visible sane preset selected", () => {
   expect(defaultConnectionPolicy.railgunArtifactUrl).toBe("/railgun-artifacts/");
   expect(defaultConnectionPolicy.priceQuoteUrl).toBe("onchain:uniswap-v4");
   expect(defaultConnectionPolicy.paymasterUrl).toBe("");
+  expect(defaultConnectionPolicy.railgunBroadcasterMode).toBe("off");
+  expect(defaultConnectionPolicy.railgunBroadcasterEnabled).toBe(false);
+  expect(defaultConnectionPolicy.railgunBroadcasterFeeToken).toBe("USDC");
   expect(defaultConnectionPolicy.autoStartToolkit).toBe(true);
 });
 
@@ -46,6 +49,8 @@ test("privacy max preset clears hosted endpoints", () => {
   expect(policy.railgunArtifactUrl).toBe("");
   expect(policy.poiAggregatorUrls).toEqual([]);
   expect(policy.broadcasterUrl).toBe("");
+  expect(policy.railgunBroadcasterMode).toBe("off");
+  expect(policy.railgunBroadcasterEnabled).toBe(false);
   expect(policy.providerResolverUrl).toBe("");
   expect(policy.priceQuoteUrl).toBe("");
   expect(policy.bundlerUrl).toBe("");
@@ -107,6 +112,11 @@ test("outbound summary exposes every endpoint class", () => {
         id: "erc4337-paymaster",
         source: "off",
         value: "not connected"
+      }),
+      expect.objectContaining({
+        id: "railgun-broadcaster",
+        source: "off",
+        value: "off"
       })
     ])
   );
@@ -247,7 +257,7 @@ test("unshield review preflight requires a visible broadcaster", () => {
   );
 });
 
-test("pay review preflight discloses self-broadcast route endpoints", () => {
+test("pay review preflight discloses private-source route endpoints", () => {
   const disclosure = buildEndpointDisclosure(defaultConnectionPolicy, "pay-review");
 
   expect(disclosure).toEqual(
@@ -259,10 +269,11 @@ test("pay review preflight discloses self-broadcast route endpoints", () => {
         source: "default"
       }),
       expect.objectContaining({
-        id: "erc4337-bundler",
-        configured: true,
+        id: "railgun-broadcaster",
+        configured: false,
         required: true,
-        source: "default"
+        source: "off",
+        value: "off"
       }),
       expect.objectContaining({
         id: "provider-resolution",
@@ -283,7 +294,7 @@ test("pay review preflight discloses self-broadcast route endpoints", () => {
         source: "default"
       }),
       expect.objectContaining({
-        id: "erc4337-paymaster",
+        id: "waku",
         configured: false,
         required: false,
         source: "off"
@@ -291,6 +302,9 @@ test("pay review preflight discloses self-broadcast route endpoints", () => {
     ])
   );
   expect(disclosure.map((endpoint) => endpoint.id)).not.toContain(
-    "railgun-broadcaster"
+    "erc4337-bundler"
+  );
+  expect(disclosure.map((endpoint) => endpoint.id)).not.toContain(
+    "erc4337-paymaster"
   );
 });

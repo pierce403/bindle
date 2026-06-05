@@ -6,7 +6,9 @@ import {
   type EndpointPresetId,
   type HeliosNetwork,
   type PrivacyToolkitId,
-  type ProviderMode
+  type ProviderMode,
+  type RailgunBroadcasterFeeToken,
+  type RailgunBroadcasterMode
 } from "./connectionPolicy";
 
 const storageKey = "bindle.connectionPolicy.v1";
@@ -38,6 +40,21 @@ const heliosNetworkValue = (value: unknown): HeliosNetwork =>
 
 const privacyToolkitValue = (value: unknown): PrivacyToolkitId =>
   value === "railgun-wallet-sdk" ? "railgun-wallet-sdk" : "kohaku-railgun";
+
+const railgunBroadcasterModeValue = (
+  value: unknown
+): RailgunBroadcasterMode =>
+  value === "waku-public-network" || value === "custom-waku" ? value : "off";
+
+const railgunBroadcasterFeeTokenValue = (
+  value: unknown
+): RailgunBroadcasterFeeToken =>
+  value === "ETH" ||
+  value === "WETH" ||
+  value === "RAIL" ||
+  value === "custom"
+    ? value
+    : "USDC";
 
 const hasLegacyCustomEndpoint = (parsed: Record<string, unknown>): boolean =>
   stringValue(parsed.ethereumRpcUrl).length > 0 ||
@@ -102,6 +119,16 @@ const normalizeConnectionPolicy = (value: unknown): ConnectionPolicy => {
     railgunArtifactUrl,
     poiAggregatorUrls: stringArrayValue(parsed.poiAggregatorUrls),
     broadcasterUrl: stringValue(parsed.broadcasterUrl),
+    railgunBroadcasterMode: railgunBroadcasterModeValue(
+      parsed.railgunBroadcasterMode
+    ),
+    railgunBroadcasterEnabled: booleanValue(parsed.railgunBroadcasterEnabled),
+    railgunBroadcasterFeeToken: railgunBroadcasterFeeTokenValue(
+      parsed.railgunBroadcasterFeeToken
+    ),
+    railgunBroadcasterCustomFeeTokenAddress: stringValue(
+      parsed.railgunBroadcasterCustomFeeTokenAddress
+    ),
     providerResolverUrl: stringValue(parsed.providerResolverUrl),
     priceQuoteUrl,
     bundlerUrl: stringValue(parsed.bundlerUrl),

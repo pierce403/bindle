@@ -275,6 +275,15 @@ avoids requiring GitHub workflow scope.
   `sendSmartWalletCalls()` after explicit amount and endpoint review. Do not
   bypass visible RPC/bundler policy, and keep shielded balance sync as the next
   major blocker before claiming a complete shield/unshield lifecycle.
+- Pay routes that spend from private RAILGUN balance are classified as
+  `railgun-private` in `src/intents/payFlow.ts`. They must be submitted through
+  a legitimate RAILGUN Broadcaster, never through
+  `sendSmartWalletCalls()`, the passkey smart wallet, Pimlico bundler,
+  paymaster, or an EOA. Keep the smart-account adapter guard in
+  `src/wallet/transactionOrigin.ts` and the final broadcaster safety gate in
+  `src/railgun/broadcaster.ts` intact. Until broadcaster discovery, fee quote,
+  and submission are real, Private Pay must remain disabled with the explicit
+  privacy warning.
 - First-run setup is surfaced through `src/components/OnboardingWizard.tsx`.
   Keep new wallet prerequisites in that state-driven flow so users are not
   forced to discover setup steps by opening Receive or Connections manually.

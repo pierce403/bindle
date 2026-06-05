@@ -80,11 +80,11 @@ test.describe("passkey-first onboarding", () => {
 
     await page.getByRole("button", { name: "Pay" }).click();
 
-    await expect(page.getByRole("heading", { name: "Pay" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Private Pay" })).toBeVisible();
     await page.getByRole("button", { name: /USDC/ }).click();
     await page.getByLabel("Pay amount").fill("5");
     await page.getByLabel("Pay recipient").fill("deanpierce.eth");
-    await page.getByRole("button", { name: "Review pay route" }).click();
+    await page.getByRole("button", { name: "Review Private Pay route" }).click();
 
     await expect(page.getByLabel("Review pay route")).toContainText(
       "ETH to USDC through Uniswap v4"
@@ -99,13 +99,48 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByLabel("Review pay route")).toContainText(
       "5 USDC to deanpierce.eth"
     );
+    await expect(page.getByLabel("Review pay route")).toContainText(
+      "Private source"
+    );
+    await expect(page.getByLabel("Review pay route")).toContainText(
+      "RAILGUN 0zk"
+    );
+    await expect(page.getByLabel("Review pay route")).toContainText(
+      "RAILGUN Broadcaster only"
+    );
+    await expect(page.getByLabel("Review pay route")).toContainText(
+      "Broadcaster fee token"
+    );
+    await expect(page.getByLabel("Review pay route")).toContainText("USDC");
+    await expect(page.getByLabel("Review pay route")).toContainText(
+      "Broadcaster fee"
+    );
+    await expect(page.getByLabel("Review pay route")).toContainText("unquoted");
+    await expect(page.getByLabel("Review pay route")).toContainText(
+      "Public settlement"
+    );
+    await expect(page.getByLabel("Review pay route")).toContainText(
+      "Target token"
+    );
+    await expect(page.getByLabel("Review pay route")).toContainText(
+      "USDC on Ethereum mainnet"
+    );
+    await expect(page.getByLabel("Review pay route")).toContainText(
+      "Route provider"
+    );
+    await expect(page.getByLabel("Review pay route")).toContainText(
+      "Uniswap v4"
+    );
     await expect(page.getByLabel("Review pay route")).toContainText("Blocked");
+    await expect(page.getByLabel("Review pay route")).toContainText(
+      "Configure required endpoint: Broadcaster."
+    );
+    await expect(page.getByLabel("Review pay route")).toContainText(
+      "Pay requires a RAILGUN Broadcaster for the private source leg"
+    );
     await expect(page.getByLabel("Review pay route")).toContainText(
       "Create or import a shielded 0zk wallet."
     );
-    await expect(
-      page.getByLabel("Review pay route")
-    ).toContainText("Create the public passkey smart account.");
     await expect(page.getByLabel("Proof generation progress")).toContainText(
       "ETH to USDC through Uniswap v4"
     );
@@ -114,10 +149,30 @@ test.describe("passkey-first onboarding", () => {
     );
     await expect(
       page.getByRole("button", { name: "Open Connections" })
-    ).toHaveCount(0);
+    ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Generate proof and pay" })
     ).toBeDisabled();
+
+    const payButtonBox = await page
+      .getByRole("button", { name: "Generate proof and pay" })
+      .boundingBox();
+    const navBox = await page
+      .getByRole("navigation", { name: "App sections" })
+      .boundingBox();
+
+    expect(payButtonBox).not.toBeNull();
+    expect(navBox).not.toBeNull();
+
+    if (payButtonBox && navBox) {
+      const overlapsNav =
+        payButtonBox.x < navBox.x + navBox.width &&
+        payButtonBox.x + payButtonBox.width > navBox.x &&
+        payButtonBox.y < navBox.y + navBox.height &&
+        payButtonBox.y + payButtonBox.height > navBox.y;
+
+      expect(overlapsNav).toBe(false);
+    }
   });
 
   test("shows visible defaults and privacy-max clears hosted endpoints", async ({

@@ -30,6 +30,18 @@ export type EndpointSource = "default" | "custom" | "off" | "local";
 
 export type PrivacyToolkitId = "kohaku-railgun" | "railgun-wallet-sdk";
 
+export type RailgunBroadcasterMode =
+  | "waku-public-network"
+  | "custom-waku"
+  | "off";
+
+export type RailgunBroadcasterFeeToken =
+  | "USDC"
+  | "ETH"
+  | "WETH"
+  | "RAIL"
+  | "custom";
+
 export type ConnectionPolicy = {
   endpointPreset: EndpointPresetId;
   providerMode: ProviderMode;
@@ -42,6 +54,10 @@ export type ConnectionPolicy = {
   railgunArtifactUrl: string;
   poiAggregatorUrls: string[];
   broadcasterUrl: string;
+  railgunBroadcasterMode: RailgunBroadcasterMode;
+  railgunBroadcasterEnabled: boolean;
+  railgunBroadcasterFeeToken: RailgunBroadcasterFeeToken;
+  railgunBroadcasterCustomFeeTokenAddress: string;
   providerResolverUrl: string;
   priceQuoteUrl: string;
   bundlerUrl: string;
@@ -127,6 +143,10 @@ const policyBase = {
   railgunArtifactUrl: "",
   poiAggregatorUrls: [],
   broadcasterUrl: "",
+  railgunBroadcasterMode: "off" as RailgunBroadcasterMode,
+  railgunBroadcasterEnabled: false,
+  railgunBroadcasterFeeToken: "USDC" as RailgunBroadcasterFeeToken,
+  railgunBroadcasterCustomFeeTokenAddress: "",
   providerResolverUrl: "",
   priceQuoteUrl: "",
   paymasterUrl: "",
@@ -359,13 +379,22 @@ export const summarizeOutbound = (
     {
       id: "railgun-broadcaster",
       label: "Broadcaster",
-      mode: policy.broadcasterUrl ? "optional" : "off",
+      mode:
+        policy.railgunBroadcasterMode !== "off" &&
+        policy.railgunBroadcasterEnabled &&
+        policy.broadcasterUrl
+          ? "optional"
+          : "off",
       source: sourceForValue(
         policy,
         policy.broadcasterUrl,
         bindleDefault.broadcasterUrl
       ),
-      value: policy.broadcasterUrl || "not connected"
+      value:
+        policy.railgunBroadcasterMode === "off" ||
+        !policy.railgunBroadcasterEnabled
+          ? "off"
+          : policy.broadcasterUrl || "not selected"
     },
     {
       id: "provider-resolution",

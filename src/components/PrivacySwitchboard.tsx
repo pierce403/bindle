@@ -9,7 +9,9 @@ import {
   type EndpointPresetId,
   type HeliosNetwork,
   type PrivacyToolkitId,
-  type ProviderMode
+  type ProviderMode,
+  type RailgunBroadcasterFeeToken,
+  type RailgunBroadcasterMode
 } from "../privacy/connectionPolicy";
 import { buildEndpointDisclosure } from "../privacy/preflightDisclosure";
 import { privacyToolkitOptions } from "../privacy/toolkit";
@@ -221,6 +223,75 @@ export function PrivacySwitchboard({
           }
         />
       </label>
+
+      <label className="field">
+        <span>RAILGUN broadcaster mode</span>
+        <select
+          value={policy.railgunBroadcasterMode}
+          onChange={(event) =>
+            updateCustom({
+              ...policy,
+              railgunBroadcasterMode: event.currentTarget
+                .value as RailgunBroadcasterMode
+            })
+          }
+        >
+          <option value="off">Off</option>
+          <option value="waku-public-network">Waku public network</option>
+          <option value="custom-waku">Custom Waku</option>
+        </select>
+      </label>
+
+      <label className="toggle-row">
+        <span>Enable RAILGUN broadcaster</span>
+        <input
+          type="checkbox"
+          checked={policy.railgunBroadcasterEnabled}
+          onChange={(event) =>
+            updateCustom({
+              ...policy,
+              railgunBroadcasterEnabled: event.currentTarget.checked
+            })
+          }
+        />
+      </label>
+
+      <label className="field">
+        <span>Broadcaster fee token</span>
+        <select
+          value={policy.railgunBroadcasterFeeToken}
+          onChange={(event) =>
+            updateCustom({
+              ...policy,
+              railgunBroadcasterFeeToken: event.currentTarget
+                .value as RailgunBroadcasterFeeToken
+            })
+          }
+        >
+          <option value="USDC">USDC</option>
+          <option value="ETH">ETH</option>
+          <option value="WETH">WETH</option>
+          <option value="RAIL">RAIL</option>
+          <option value="custom">Custom token</option>
+        </select>
+      </label>
+
+      {policy.railgunBroadcasterFeeToken === "custom" ? (
+        <label className="field">
+          <span>Custom broadcaster fee token</span>
+          <input
+            value={policy.railgunBroadcasterCustomFeeTokenAddress}
+            placeholder="0x token address"
+            onChange={(event) =>
+              updateCustom({
+                ...policy,
+                railgunBroadcasterCustomFeeTokenAddress:
+                  event.currentTarget.value
+              })
+            }
+          />
+        </label>
+      ) : null}
 
       <label className="field">
         <span>RAILGUN broadcaster</span>
