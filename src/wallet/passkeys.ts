@@ -42,7 +42,8 @@ const unavailableCapability: PasskeyCapability = {
   message: "Checking passkey support"
 };
 
-export const bindleCanonicalPasskeyRpId = "bindle.me";
+export const bindleLegacyPasskeyRpId = "bindle.me";
+export const bindleCanonicalPasskeyRpId = "bindle.cash";
 
 export const getDefaultPasskeyRpId = (): string => {
   if (typeof window === "undefined") {
@@ -50,10 +51,6 @@ export const getDefaultPasskeyRpId = (): string => {
   }
 
   const hostname = window.location.hostname;
-
-  if (hostname === "bindle.cash") {
-    return bindleCanonicalPasskeyRpId;
-  }
 
   return hostname;
 };
@@ -162,6 +159,15 @@ export const isPasskeyLookupError = (error: unknown): boolean => {
   );
 };
 
+const isMissingPasskeyCredentialError = (error: unknown): boolean => {
+  const text = errorSearchText(error);
+
+  return (
+    text.includes("no passkeys available") ||
+    text.includes("no credentials available")
+  );
+};
+
 export const passkeyLookupFailureMessage = ({
   currentHostname = getCurrentPasskeyHostname(),
   passkeyRpId
@@ -183,7 +189,7 @@ export const passkeyLookupFailureMessage = ({
 
   return [
     `Passkey signing failed: no usable passkey was found for RP ID ${rpId}.`,
-    "Make sure the account export was imported on this device and the platform passkey still exists in this browser or password manager."
+    "Make sure the account export was imported on this device, the platform passkey still exists in this browser or password manager, and Settings is using the right signing preference: Phone/computer for synced platform passkeys or YubiKey for a roaming security key."
   ].join(" ");
 };
 
@@ -399,14 +405,9 @@ export const createPasskeyRequestFn = (
   const transports =
     authenticatorAttachment === "cross-platform"
       ? (["usb", "nfc", "ble"] satisfies AuthenticatorTransport[])
-      : authenticatorAttachment === "platform"
-        ? (["internal"] satisfies AuthenticatorTransport[])
-        : null;
+      : null;
 
-  if (
-    (!userVerification || userVerification === "required") &&
-    transports === null
-  ) {
+  if (!userVerification && transports === null) {
     return undefined;
   }
 
@@ -427,7 +428,32 @@ export const createPasskeyRequestFn = (
       }
     }
 
-    return navigator.credentials.get(credentialOptions);
+    try {
+      return await navigator.credentials.get(credentialOptions);
+    } catch (error) {
+      if (
+        !isMissingPasskeyCredentialError(error) ||
+        !credentialOptions?.publicKey?.allowCredentials?.length
+      ) {
+        throw error;
+      }
+
+      const relaxedOptions: CredentialRequestOptions = {
+        ...credentialOptions,
+        publicKey: {
+          ...credentialOptions.publicKey,
+          allowCredentials: credentialOptions.publicKey.allowCredentials.map(
+            (credential) => {
+              const { transports: _transports, ...relaxedCredential } = credential;
+
+              return relaxedCredential;
+            }
+          )
+        }
+      };
+
+      return navigator.credentials.get(relaxedOptions);
+    }
   };
 };
 

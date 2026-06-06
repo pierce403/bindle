@@ -85,3 +85,105 @@ test("requests roaming authenticator transports for YubiKey signing preference",
     });
   }
 });
+
+test("does not force internal transports for phone or computer passkeys", async () => {
+  const originalNavigator = globalThis.navigator;
+  let requestedOptions: CredentialRequestOptions | undefined;
+
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: {
+      credentials: {
+        get: async (options?: CredentialRequestOptions) => {
+          requestedOptions = options;
+          return null;
+        }
+      }
+    }
+  });
+
+  try {
+    const requestCredential = createPasskeyRequestFn("platform", "required");
+    expect(requestCredential).toBeDefined();
+
+    await requestCredential?.({
+      publicKey: {
+        challenge: new Uint8Array([1]).buffer,
+        allowCredentials: [
+          {
+            id: new Uint8Array([2]).buffer,
+            type: "public-key"
+          }
+        ],
+        userVerification: "preferred"
+      }
+    });
+
+    expect(requestedOptions?.publicKey?.userVerification).toBe("required");
+    expect(
+      requestedOptions?.publicKey?.allowCredentials?.[0]?.transports
+    ).toBeUndefined();
+  } finally {
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      value: originalNavigator
+    });
+  }
+});
+
+test("retries passkey lookup without transport hints when no credential is found", async () => {
+  const originalNavigator = globalThis.navigator;
+  const requestedOptions: CredentialRequestOptions[] = [];
+
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: {
+      credentials: {
+        get: async (options?: CredentialRequestOptions) => {
+          if (options) {
+            requestedOptions.push(options);
+          }
+
+          if (requestedOptions.length === 1) {
+            throw new Error("No passkeys available");
+          }
+
+          return null;
+        }
+      }
+    }
+  });
+
+  try {
+    const requestCredential = createPasskeyRequestFn(
+      "cross-platform",
+      "preferred"
+    );
+
+    await requestCredential?.({
+      publicKey: {
+        challenge: new Uint8Array([1]).buffer,
+        allowCredentials: [
+          {
+            id: new Uint8Array([2]).buffer,
+            type: "public-key"
+          }
+        ],
+        userVerification: "required"
+      }
+    });
+
+    expect(requestedOptions).toHaveLength(2);
+    expect(
+      requestedOptions[0]?.publicKey?.allowCredentials?.[0]?.transports
+    ).toEqual(["usb", "nfc", "ble"]);
+    expect(
+      requestedOptions[1]?.publicKey?.allowCredentials?.[0]?.transports
+    ).toBeUndefined();
+  } finally {
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      value: originalNavigator
+    });
+  }
+});

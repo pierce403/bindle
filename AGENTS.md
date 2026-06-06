@@ -331,6 +331,11 @@ avoids requiring GitHub workflow scope.
   user operations through explicit RPC/bundler endpoints. Kohaku's upstream
   `pq-account` source is still not published as an npm package or wired as the
   default adapter.
+- Do not force `internal` WebAuthn transport hints for platform passkeys.
+  Synced phone/computer passkeys may otherwise show "no passkeys available"
+  during smart-wallet signing. Bindle only hints USB/NFC/BLE for explicit
+  YubiKey/security-key mode and retries without transport hints when the
+  browser reports no credential.
 - Public smart-wallet funding balance sync lives in `src/wallet/publicBalance.ts`
   and uses `src/wallet/mainnetClient.ts` so it can only call the visible
   Ethereum mainnet RPC from `ConnectionPolicy`. The app may refresh this on load
