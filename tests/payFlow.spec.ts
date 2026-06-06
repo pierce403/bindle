@@ -8,6 +8,10 @@ import {
   privateUsdcPayLegs
 } from "../src/intents/payFlow";
 import { defaultConnectionPolicy } from "../src/privacy/connectionPolicy";
+import {
+  assertRailgunPrivateSubmitter,
+  submitterForRailgunPrivateOrigin
+} from "../src/railgun/broadcaster";
 
 test("Private Pay classifies as railgun-private", () => {
   expect(classifyPayTransactionOrigin(privateUsdcPayLegs)).toBe(
@@ -66,4 +70,17 @@ test("default public Waku broadcaster is configured for Private Pay", () => {
   expect(readiness.ready).toBe(true);
   expect(readiness.status).toBe("configured");
   expect(readiness.message).toMatch(/discovery, fee quote, and encrypted submission/i);
+});
+
+test("railgun-private origin requires Waku RAILGUN broadcaster submitter", () => {
+  expect(submitterForRailgunPrivateOrigin()).toBe("waku-railgun-broadcaster");
+  expect(() =>
+    assertRailgunPrivateSubmitter("waku-railgun-broadcaster")
+  ).not.toThrow();
+  expect(() => assertRailgunPrivateSubmitter("public-smart-wallet")).toThrow(
+    /Waku RAILGUN broadcaster/
+  );
+  expect(() => assertRailgunPrivateSubmitter("pimlico-bundler")).toThrow(
+    /Waku RAILGUN broadcaster/
+  );
 });

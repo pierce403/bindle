@@ -372,6 +372,11 @@ export function PrivacySwitchboard({
             })
           }
         />
+        <small>
+          Visible for future support. The current Waku SDK build cannot use
+          custom DNS ENR trees without hidden defaults, so Bindle dials direct
+          peers instead.
+        </small>
       </label>
 
       <label className="field">

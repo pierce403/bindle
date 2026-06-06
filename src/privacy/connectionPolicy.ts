@@ -445,7 +445,7 @@ export const summarizeOutbound = (
                 ? `trusted fee signer ${policy.railgunBroadcasterTrustedFeeSigner}`
                 : "trusted fee signer off",
               policy.railgunBroadcasterDnsDiscoveryUrls.length > 0
-                ? `${policy.railgunBroadcasterDnsDiscoveryUrls.length} DNS discovery URL(s)`
+                ? `${policy.railgunBroadcasterDnsDiscoveryUrls.length} DNS discovery URL(s) visible; current SDK uses direct peers`
                 : "DNS discovery off",
               policy.railgunBroadcasterDirectPeers.length > 0
                 ? `${policy.railgunBroadcasterDirectPeers.length} direct peer(s)`

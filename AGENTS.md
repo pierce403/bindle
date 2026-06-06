@@ -219,6 +219,19 @@ avoids requiring GitHub workflow scope.
 - Kohaku RAILGUN is currently pinned to `@kohaku-eth/railgun@0.0.1-alpha.22`
   with `@kohaku-eth/provider@0.1.0-alpha.8` and
   `@kohaku-eth/plugins@0.0.1-alpha.8`.
+- The active `@kohaku-eth/railgun@0.0.1-alpha.22` plugin broadcast helper
+  builds a bundler/delegating-signer user operation. Do not use that path for
+  Bindle private-origin actions unless the delegating signer is proven to be a
+  neutral RAILGUN relay and not user-linkable.
+- Bindle aliases `@kohaku-eth/railgun@0.0.1-alpha.12` as
+  `@kohaku-eth/railgun-waku` only for the older Kohaku Waku broadcaster
+  transport (`JsBroadcasterManager`, `WakuAdapter`, fee quote, broadcast). This
+  is not the RAILGUN Wallet SDK and must not replace the Kohaku-canonical 0zk
+  derivation path.
+- The Waku relay path imports `@waku/sdk@0.0.36` directly. That SDK hardcodes
+  its DNS discovery trees, so `src/railgun/wakuBroadcaster.ts` keeps SDK DNS
+  discovery disabled and dials only the direct peers visible in
+  `ConnectionPolicy`, then uses peer exchange/cache after connecting.
 - Do not use Kohaku's higher-level `createRailgunPlugin()` helper in Bindle
   until indexer/POI endpoints are configurable. Its current implementation
   wires a default Subsquid syncer, which violates Bindle's no-hidden-endpoints
@@ -305,11 +318,11 @@ avoids requiring GitHub workflow scope.
   `sendSmartWalletCalls()`, the passkey smart wallet, Pimlico bundler,
   paymaster, or an EOA. Keep the smart-account adapter guard in
   `src/wallet/transactionOrigin.ts` and the final broadcaster safety gate in
-  `src/railgun/broadcaster.ts` intact. Private Pay is currently disabled before
-  recipient resolution, quotes, broadcaster discovery, proof generation, or
-  submission because Kohaku private broadcaster submission has not been verified
-  as privacy-safe. Do not re-enable it through a removed legacy dependency
-  path.
+  `src/railgun/broadcaster.ts` intact. `origin === "railgun-private"` must
+  imply `submitter === "waku-railgun-broadcaster"`. Private Pay is currently
+  disabled before recipient resolution, quotes, proof generation, or live
+  submission because Bindle still needs a Kohaku-derived proved private
+  operation whose change returns privately to `0zk`.
   Private Pay must also keep
   `changeDisposition === "private-change-to-0zk"` before live submission; do
   not send Uniswap leftover/slippage to the recipient, provider, public smart
@@ -326,14 +339,13 @@ avoids requiring GitHub workflow scope.
   convenience, and migration must not preserve hidden or unlabelled endpoints.
 - Full SDK purge removed `@railgun-community/wallet`,
   `@railgun-community/shared-models`,
-  `@railgun-community/waku-broadcaster-client-web`, `level-js`, `snarkjs`, and
-  their type packages. `pnpm-lock.yaml` may still name `snarkjs` only as an
-  optional peer in Kohaku provider metadata; `pnpm why snarkjs` should remain
-  empty.
-- `src/railgun/wakuBroadcaster.ts` is now a closed placeholder. Keep
-  broadcaster endpoint defaults visible in `ConnectionPolicy`, but live private
-  submission needs a standalone non-SDK Waku client or Kohaku-native
-  broadcaster API before Private Pay can submit.
+  `@railgun-community/waku-broadcaster-client-web`, `level-js`, and their type
+  packages. `snarkjs` is now present through the Waku-enabled Kohaku alpha.12
+  provider/prover dependency path, not the removed RAILGUN Wallet SDK.
+- `src/railgun/wakuBroadcaster.ts` starts a Waku LightNode from visible policy
+  direct peers, constructs the Kohaku `JsBroadcasterManager`, selects a
+  broadcaster by fee token, and submits prepared private operations. It does
+  not yet construct the proved Pay/private operation itself.
 - Bindle is pnpm-only. `packageManager` pins pnpm, `.npmrc` enables pnpm's
   package-manager strict mode, and `scripts/require-pnpm.mjs` blocks npm/yarn
   installs.

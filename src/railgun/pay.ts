@@ -5,6 +5,7 @@ import {
   type ConnectionPolicy
 } from "../privacy/connectionPolicy";
 import type { WalletState } from "../wallet/walletState";
+import type { PreparedBroadcasterSubmit } from "./wakuBroadcaster";
 
 export type RailgunPayProgress = {
   percent: number;
@@ -15,6 +16,7 @@ export type PreparedRailgunPay = {
   railgunAdapter: "kohaku-railgun";
   submissionMode: "disabled-pending-kohaku-broadcaster";
   railgunAddress: string;
+  privateOperation?: PreparedBroadcasterSubmit;
 };
 
 const bindleArtifactProxyVersion = "railgun-artifacts-v1";

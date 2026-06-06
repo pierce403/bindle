@@ -22,6 +22,8 @@
     "@kohaku-eth/plugins": "0.0.1-alpha.8",
     "@kohaku-eth/provider": "0.1.0-alpha.8",
     "@kohaku-eth/railgun": "0.0.1-alpha.22",
+    "@kohaku-eth/railgun-waku": "npm:@kohaku-eth/railgun@0.0.1-alpha.12",
+    "@waku/sdk": "0.0.36",
     "ethers": "6.14.3",
     "lucide-react": "1.17.0",
     "react": "19.2.7",

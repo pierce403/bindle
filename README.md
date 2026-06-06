@@ -66,13 +66,15 @@ concerns, not the default first-run experience.
   recipient/amount entry, QR or pasted payment request import, endpoint
   preflight disclosure, modal route review, RAILGUN proof-progress disclosure,
   and route disclosure. Because this Pay route spends from private RAILGUN
-  balance, proof generation and submission are deliberately disabled until
-  Kohaku has a verified private broadcaster path that does not use the user's
-  passkey smart account, Pimlico bundler, paymaster, or EOA.
+  balance, proof generation remains deliberately disabled until Bindle can
+  build the proved Kohaku private operation with private change returned to
+  `0zk`. Waku broadcaster discovery, fee quote, and prepared-operation
+  submission plumbing are wired, but Private Pay never uses the user's passkey
+  smart account, Pimlico bundler, paymaster, or EOA for the private leg.
 - Endpoint presets are visible in Connections. Bindle default currently uses a
   labelled public Ethereum RPC, RAILGUN sync indexer, visible public Waku
-  RAILGUN broadcaster policy, and public ERC-4337 bundler, plus same-origin
-  static RAILGUN proving artifacts at `/railgun-artifacts/` and
+  RAILGUN broadcaster policy with direct peers, and public ERC-4337 bundler,
+  plus same-origin static RAILGUN proving artifacts at `/railgun-artifacts/` and
   `onchain:uniswap-v4` quote source; Privacy max starts with hosted endpoints
   empty/off.
 - Endpoint settings are persisted locally in the browser after the user changes
@@ -177,13 +179,15 @@ For the visible Pimlico default bundler, Bindle requests User Operation gas
 prices from that same bundler endpoint before submission so the bundler does not
 reject underpriced priority fees. Pimlico is only for public smart-wallet
 operations such as account deployment, public ETH payments, and public shield
-deposits. Private Pay-to-USDC is disabled before recipient resolution, quote,
-broadcaster discovery, proof generation, or submission. Bindle will not rebuild
-Private Pay on a removed legacy dependency path and will not submit
-private-origin RAILGUN actions through the public smart wallet. Live USDC Pay
-remains blocked until Kohaku can provide a privacy-safe broadcaster submission
-path, or Bindle adds a standalone non-SDK Waku broadcaster transport, and
-leftover swap/change funds can return privately to `0zk`. Standalone
+deposits. The active Kohaku alpha.22 package has a bundler/delegating-signer
+private broadcast helper, but Bindle does not use that path for private-origin
+actions. Private Pay-to-USDC is disabled before recipient resolution, quote,
+proof generation, or live submission until Bindle can build a proved
+Kohaku-derived private operation whose leftover swap/change funds return
+privately to `0zk`. The standalone Waku RAILGUN broadcaster transport is wired
+for discovery, fee quote, and submission of prepared private operations, and
+the final private submitter guard requires `waku-railgun-broadcaster`.
+Standalone
 unshielding, private RAILGUN sends, non-USDC Pay assets, and any-network
 provider routing remain pending.
 
@@ -230,14 +234,11 @@ Current shield/unshield status:
 - Private Pay-to-USDC is classified as a `railgun-private` source leg plus a
   public settlement leg. Review discloses the RAILGUN 0zk source, broadcaster
   and Waku status, broadcaster fee token/fee, Uniswap v4 route provider, target
-  token, amount, recipient, and chain. Private Pay remains disabled because the
-  currently verified Kohaku path does not yet provide the required
-  privacy-safe broadcaster submission and private-change handling. The previous
-  bundled Waku broadcaster client was removed with the SDK dependency graph, so
-  Bindle needs either Kohaku-native broadcaster submission or a standalone
-  non-SDK Waku client before live Private Pay can submit. The app blocks before
-  ENS/RPC recipient resolution, Uniswap quote, broadcaster discovery, proof
-  generation, or submission.
+  token, amount, recipient, and chain. Bindle includes a standalone Waku
+  RAILGUN broadcaster transport using the Waku-enabled Kohaku package line, but
+  Private Pay remains disabled until a Kohaku-derived proved private operation
+  can be built with private change returned to `0zk`. The app blocks before
+  ENS/RPC recipient resolution, Uniswap quote, proof generation, or submission.
 - Standalone unshield and private send flows remain blocked until their review,
   proof, unlock, and visible submission policies are implemented.
 
@@ -260,10 +261,14 @@ Current presets:
 - Bindle default: visible public defaults for normal use. It currently sets
   Ethereum RPC to `https://ethereum-rpc.publicnode.com`, RAILGUN sync indexer
   to `https://rail-squid.squids.live/squid-railgun-ethereum-v2/v/v1/graphql`,
-  ERC-4337 bundler to `https://public.pimlico.io/v2/1/rpc`, and same-origin
-  static RAILGUN proving artifacts at `/railgun-artifacts/`. It also enables
-  toolkit auto-start after local `0zk` wallet creation. These services can see
-  network metadata and must not be presented as trustless or private.
+  RAILGUN Waku broadcaster mode to visible Rooted in Privacy direct peers on
+  `/waku/2/rs/5/1`, ERC-4337 bundler to
+  `https://public.pimlico.io/v2/1/rpc`, and same-origin static RAILGUN proving
+  artifacts at `/railgun-artifacts/`. It also enables toolkit auto-start after
+  local `0zk` wallet creation. These services can see network metadata and must
+  not be presented as trustless or private. The current Waku SDK version cannot
+  consume custom DNS ENR trees, so Bindle disables SDK DNS discovery and only
+  dials direct peers listed in `ConnectionPolicy`.
 - Privacy max: all hosted endpoints empty/off for users bringing local or
   self-hosted infrastructure. Toolkit auto-start is off.
 - Custom: preserves user-entered values while editing individual endpoints.

@@ -133,8 +133,10 @@ infrastructure.
       toward a second non-Kohaku `0zk`.
 - [x] Block Private Pay when Uniswap leftover/change cannot be returned
       privately to the 0zk account.
-- [x] Replace the SDK-backed Waku broadcaster runtime with a closed placeholder
-      after removing the Wallet SDK dependency graph.
+- [x] Add a standalone Kohaku/Waku broadcaster transport that starts a Waku
+      LightNode from visible `ConnectionPolicy` peers, selects a RAILGUN
+      broadcaster by fee token, and submits prepared private operations only as
+      `waku-railgun-broadcaster`.
 
 ## Now
 
@@ -157,11 +159,16 @@ infrastructure.
       equivalent passkey ERC-4337 address derivation is available.
 - [ ] Reproduce and report/fix the upstream Kohaku RAILGUN WASM initialization
       `unreachable` trap so the default adapter can start reliably.
-- [ ] Investigate Kohaku private broadcast support and keep private unshield,
-      transfer, swap, and Private Pay disabled until submission does not use the
-      user's public smart wallet, ERC-4337 bundler, Pimlico, paymaster, or EOA.
-- [ ] Add non-SDK Waku broadcaster transport or Kohaku-native broadcaster
-      submission before enabling live private unshield/Private Pay submission.
+- [x] Investigate Kohaku private broadcast support and keep private unshield,
+      transfer, swap, and Private Pay disabled when the active path would use
+      the user's public smart wallet, ERC-4337 bundler, Pimlico, paymaster, or
+      EOA.
+- [x] Add non-SDK RAILGUN Waku broadcaster discovery, fee quote, and prepared
+      private-operation submission plumbing without reintroducing the RAILGUN
+      Wallet SDK.
+- [ ] Build the Kohaku-derived proved private operation that can be handed to
+      the Waku broadcaster transport, with private change returned to 0zk,
+      before enabling live private unshield/Private Pay submission.
 
 ## Privacy And Connectivity
 
@@ -238,7 +245,7 @@ infrastructure.
       the default mobile PWA onboarding path.
 - [ ] Do not auto-resolve ENS, providers, contacts, avatars, prices, or metadata
       before the user takes an action that requires it.
-- [ ] Do not start hidden broadcasters, provider resolvers, or network
+- [x] Do not start hidden broadcasters, provider resolvers, or network
       services on page load or PWA launch. Public Waku broadcaster defaults are
       allowed only when visible, inspectable, replaceable, and disclosed.
 - [ ] Do not auto-start the privacy toolkit unless the selected policy exposes

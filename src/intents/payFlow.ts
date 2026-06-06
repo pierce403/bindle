@@ -135,14 +135,13 @@ export const getRailgunBroadcasterReadiness = (
 
   if (
     !policy.railgunBroadcasterPubSubTopic.trim() ||
-    (policy.railgunBroadcasterDnsDiscoveryUrls.length === 0 &&
-      policy.railgunBroadcasterDirectPeers.length === 0)
+    policy.railgunBroadcasterDirectPeers.length === 0
   ) {
     return {
       ready: false,
       status: "not-selected",
       message:
-        "Configure a visible RAILGUN Waku pubsub topic plus DNS discovery URL or direct peer before Private Pay.",
+        "Configure a visible RAILGUN Waku pubsub topic plus at least one direct peer before Private Pay.",
       feeToken,
       fee: "unquoted",
       wakuStatus: "enabled"

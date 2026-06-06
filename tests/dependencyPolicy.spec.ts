@@ -15,8 +15,7 @@ const removedRuntimePackages = [
   "@railgun-community/wallet",
   "@railgun-community/shared-models",
   "@railgun-community/waku-broadcaster-client-web",
-  "level-js",
-  "snarkjs"
+  "level-js"
 ];
 
 test("removed RAILGUN SDK packages are not direct dependencies", () => {
@@ -39,15 +38,21 @@ test("removed RAILGUN SDK packages are not direct dependencies", () => {
 test("removed RAILGUN SDK graph is absent from the lockfile", () => {
   const lockfile = readFileSync("pnpm-lock.yaml", "utf8");
 
-  for (const packageName of removedRuntimePackages.filter(
-    (packageName) => packageName !== "snarkjs"
-  )) {
+  for (const packageName of removedRuntimePackages) {
     expect(lockfile, packageName).not.toContain(packageName);
   }
+});
 
-  // Kohaku's provider metadata still names snarkjs as an optional peer, but the
-  // package itself must not be resolved or installed by Bindle.
-  expect(lockfile).not.toMatch(/^  snarkjs@/m);
+test("Kohaku Waku relay dependency is explicit and not the Wallet SDK", () => {
+  const packageJson = readJson<{
+    dependencies?: Record<string, string>;
+  }>("package.json");
+
+  expect(packageJson.dependencies).toHaveProperty("@kohaku-eth/railgun-waku");
+  expect(packageJson.dependencies?.["@kohaku-eth/railgun-waku"]).toBe(
+    "npm:@kohaku-eth/railgun@0.0.1-alpha.12"
+  );
+  expect(packageJson.dependencies).toHaveProperty("@waku/sdk", "0.0.36");
 });
 
 test("source does not import removed RAILGUN SDK packages", () => {
