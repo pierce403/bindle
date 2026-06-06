@@ -15,6 +15,7 @@
     "icons": "node scripts/generate-pwa-icons.mjs",
     "logo": "node scripts/generate-logo-source.mjs && node scripts/generate-pwa-icons.mjs",
     "preview": "vite preview --host 127.0.0.1",
+    "scan:waku": "node scripts/scan-kohaku-waku-relays.mjs",
     "test:e2e": "playwright test",
     "typecheck": "tsc -b"
   },

@@ -67,6 +67,12 @@ concerns, not the default first-run experience.
   ERC-4337 bundler, paymaster, and RAILGUN sync endpoints. Waku scanning does
   not run on app load and does not create proofs, submit transactions, or touch
   the public smart wallet.
+- `pnpm scan:waku` runs the same kind of no-spend Kohaku RAILGUN relay scan
+  from the terminal. Use `pnpm --silent scan:waku -- --json` for clean
+  machine-readable output. It starts a Waku light node with visible direct
+  peers, probes WETH/USDC broadcaster fee advertisements, then stops without
+  creating proofs, submitting transactions, calling Pimlico, or touching the
+  smart wallet.
 - Pay has a USDC route-review UX for Ethereum mainnet: asset search,
   recipient/amount entry, QR or pasted payment request import, endpoint
   preflight disclosure, modal route review, RAILGUN proof-progress disclosure,

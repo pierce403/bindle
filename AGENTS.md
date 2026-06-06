@@ -161,6 +161,13 @@ Run browser onboarding tests:
 pnpm test:e2e
 ```
 
+Run a no-spend Kohaku RAILGUN Waku relay scan from the terminal:
+
+```bash
+pnpm scan:waku
+pnpm scan:waku -- --timeout 120000 --json
+```
+
 Regenerate PWA icons:
 
 ```bash
@@ -355,6 +362,11 @@ avoids requiring GitHub workflow scope.
   the Waku transport afterward, never create proofs, never submit transactions,
   never touch the public smart wallet, and never call Pimlico. Keep RAILGUN
   broadcasters and ERC-4337 bundlers separate in Debug UI copy.
+- `scripts/scan-kohaku-waku-relays.mjs` is the terminal equivalent of the
+  no-spend Waku broadcaster map. It initializes Kohaku alpha.12 WASM from local
+  bytes because Node cannot `fetch()` the package's file URL, dials only
+  visible direct peers by default, polls broadcaster fee advertisements using
+  Unix seconds, and stops the Waku node before exit.
 - Bindle is pnpm-only. `packageManager` pins pnpm, `.npmrc` enables pnpm's
   package-manager strict mode, and `scripts/require-pnpm.mjs` blocks npm/yarn
   installs.
