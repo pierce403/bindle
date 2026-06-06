@@ -1,12 +1,13 @@
 import {
   Clipboard,
+  CheckCircle2,
   Filter,
   RadioTower,
   Search,
   Server,
   Waypoints
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { type Dispatch, type SetStateAction, useMemo, useState } from "react";
 import {
   formatDebugMapSnapshot,
   scanPublicEndpointMap,
@@ -15,9 +16,19 @@ import {
   type WakuBroadcasterMapSnapshot
 } from "../debug/relayMap";
 import type { ConnectionPolicy } from "../privacy/connectionPolicy";
+import {
+  clearRailgunRelayRegistry,
+  selectedRailgunRelay,
+  selectRailgunRelay,
+  upsertRelaysFromWakuSnapshot,
+  type RailgunRelayRegistry
+} from "../railgun/relayRegistry";
 
 type RelaysPanelProps = {
   policy: ConnectionPolicy;
+  relayRegistry: RailgunRelayRegistry;
+  relayWatchStatus: string;
+  onRelayRegistryChange: Dispatch<SetStateAction<RailgunRelayRegistry>>;
 };
 
 type RelaySourceFilter = "all" | "kohaku-manager" | "raw-fee-ad";
@@ -58,7 +69,12 @@ const relaySearchText = (
     .join(" ")
     .toLowerCase();
 
-export function RelaysPanel({ policy }: RelaysPanelProps) {
+export function RelaysPanel({
+  policy,
+  relayRegistry,
+  relayWatchStatus,
+  onRelayRegistryChange
+}: RelaysPanelProps) {
   const [wakuMap, setWakuMap] =
     useState<WakuBroadcasterMapSnapshot | null>(null);
   const [publicMap, setPublicMap] =
@@ -70,6 +86,12 @@ export function RelaysPanel({ policy }: RelaysPanelProps) {
   const [signatureFilter, setSignatureFilter] =
     useState<SignatureFilter>("all");
   const [availableOnly, setAvailableOnly] = useState(true);
+  const selectedRelay = selectedRailgunRelay(relayRegistry);
+  const autoWatchEnabled =
+    policy.wakuEnabled &&
+    policy.railgunBroadcasterEnabled &&
+    (policy.railgunBroadcasterMode === "waku-public-network" ||
+      policy.railgunBroadcasterMode === "custom-waku");
 
   const scanWakuMap = async () => {
     setMapStatus("Scanning Waku broadcasters");
@@ -77,6 +99,13 @@ export function RelaysPanel({ policy }: RelaysPanelProps) {
     try {
       const snapshot = await scanWakuBroadcasterMap(policy);
       setWakuMap(snapshot);
+      onRelayRegistryChange((current) =>
+        upsertRelaysFromWakuSnapshot({
+          preferredFeeToken: policy.railgunBroadcasterFeeToken,
+          registry: current,
+          snapshot
+        })
+      );
       setMapStatus(
         snapshot.status === "connected"
           ? "Waku broadcaster map connected"
@@ -116,6 +145,16 @@ export function RelaysPanel({ policy }: RelaysPanelProps) {
     setMapStatus("Copied relay map");
   };
 
+  const chooseRelay = (relayId: string | null) => {
+    onRelayRegistryChange((current) => selectRailgunRelay(current, relayId));
+    setMapStatus(relayId ? "Selected RAILGUN relay" : "Relay selection cleared");
+  };
+
+  const clearRelayHistory = () => {
+    onRelayRegistryChange(clearRailgunRelayRegistry());
+    setMapStatus("Cleared local relay observations");
+  };
+
   const tokenOptions = useMemo(() => {
     const tokens = new Set<string>();
 
@@ -125,13 +164,39 @@ export function RelaysPanel({ policy }: RelaysPanelProps) {
       }
     }
 
+    for (const relay of relayRegistry.relays) {
+      for (const token of relay.supportedFeeTokens) {
+        tokens.add(token);
+      }
+    }
+
     return Array.from(tokens).sort();
-  }, [wakuMap]);
+  }, [relayRegistry.relays, wakuMap]);
 
   const filteredRelays = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
+    const discoveredAddresses = new Set(
+      (wakuMap?.discoveredBroadcasters ?? []).map((relay) => relay.railgunAddress)
+    );
+    const relays = [
+      ...(wakuMap?.discoveredBroadcasters ?? []),
+      ...relayRegistry.relays
+        .filter((relay) => !discoveredAddresses.has(relay.railgunAddress))
+        .map((relay): WakuBroadcasterMapSnapshot["discoveredBroadcasters"][number] => ({
+          railgunAddress: relay.railgunAddress,
+          supportedFeeTokens: relay.supportedFeeTokens,
+          feeTokenQuotes: relay.feeTokenQuotes,
+          feesId: relay.feesId ?? undefined,
+          identifier: relay.identifier ?? undefined,
+          version: relay.version ?? undefined,
+          availableWallets: relay.availableWallets ?? undefined,
+          reliability: relay.advertisedReliability ?? undefined,
+          selectionSource: relay.selectionSource ?? undefined,
+          signatureStatus: relay.signatureStatus ?? undefined
+        }))
+    ];
 
-    return (wakuMap?.discoveredBroadcasters ?? []).filter((relay) => {
+    return relays.filter((relay) => {
       if (
         tokenFilter !== "all" &&
         !relay.supportedFeeTokens.includes(tokenFilter)
@@ -170,7 +235,15 @@ export function RelaysPanel({ policy }: RelaysPanelProps) {
 
       return true;
     });
-  }, [availableOnly, query, signatureFilter, sourceFilter, tokenFilter, wakuMap]);
+  }, [
+    availableOnly,
+    query,
+    relayRegistry.relays,
+    signatureFilter,
+    sourceFilter,
+    tokenFilter,
+    wakuMap
+  ]);
 
   return (
     <section className="panel relays-panel" aria-labelledby="relays-heading">
@@ -183,9 +256,11 @@ export function RelaysPanel({ policy }: RelaysPanelProps) {
       </div>
 
       <p className="status-message">
-        Scanning Waku may reveal that this browser is interested in RAILGUN
-        broadcaster discovery. It does not reveal a 0zk address, create a
-        proof, submit a transaction, or contact your public smart wallet.
+        Bindle watches Waku for RAILGUN broadcaster fee ads whenever the app is
+        open and Waku discovery is enabled. This may reveal that this browser is
+        interested in RAILGUN broadcaster discovery. It does not reveal a 0zk
+        address, create a proof, submit a transaction, or contact your public
+        smart wallet.
       </p>
       <p className="status-message">
         Public endpoint checks may reveal your IP/browser session to the
@@ -199,7 +274,7 @@ export function RelaysPanel({ policy }: RelaysPanelProps) {
           onClick={() => void scanWakuMap()}
         >
           <RadioTower size={17} aria-hidden="true" />
-          Scan Waku relays
+          Refresh Waku relays
         </button>
         <button
           className="secondary-action"
@@ -221,6 +296,84 @@ export function RelaysPanel({ policy }: RelaysPanelProps) {
       </div>
 
       <p className="status-message">Map status: {mapStatus}</p>
+
+      <section className="relay-card" aria-labelledby="selected-relay-heading">
+        <div className="debug-map-card-heading">
+          <strong id="selected-relay-heading">Selected broadcaster</strong>
+          <span className={`source-badge ${selectedRelay ? "info" : "off"}`}>
+            {selectedRelay ? "selected" : "watching"}
+          </span>
+        </div>
+        <p>
+          Bindle auto-selects the first compatible observed broadcaster for the
+          preferred fee token, then keeps local observation counts so you can
+          switch manually.
+        </p>
+        <p className="status-message">App watch: {relayWatchStatus}</p>
+        <label className="relay-select">
+          <span>Broadcaster</span>
+          <select
+            value={relayRegistry.selectedRelayId ?? ""}
+            onChange={(event) => chooseRelay(event.currentTarget.value || null)}
+          >
+            <option value="">Auto-select compatible relay</option>
+            {relayRegistry.relays.map((relay) => (
+              <option key={relay.id} value={relay.id}>
+                {relay.identifier ?? shortAddress(relay.railgunAddress)} ·{" "}
+                {relay.supportedFeeTokens.join("/")} · seen {relay.seenCount}
+              </option>
+            ))}
+          </select>
+        </label>
+        {selectedRelay ? (
+          <div className="debug-map-details">
+            <div className="preflight-row">
+              <strong>Railgun address</strong>
+              <span>{shortAddress(selectedRelay.railgunAddress)}</span>
+            </div>
+            <div className="preflight-row">
+              <strong>Fee tokens</strong>
+              <span>{selectedRelay.supportedFeeTokens.join(", ")}</span>
+            </div>
+            <div className="preflight-row">
+              <strong>Reliability</strong>
+              <span>
+                {selectedRelay.advertisedReliability !== null
+                  ? selectedRelay.advertisedReliability.toFixed(2)
+                  : "unknown"}{" "}
+                / seen {selectedRelay.seenCount}
+              </span>
+            </div>
+            <div className="preflight-row">
+              <strong>Last seen</strong>
+              <span>{new Date(selectedRelay.lastSeenAt).toLocaleString()}</span>
+            </div>
+          </div>
+        ) : (
+          <span className="status-message">
+            No compatible relay observed yet. Waku watch is{" "}
+            {autoWatchEnabled ? "running" : "off"}.
+          </span>
+        )}
+        <div className="relay-actions compact-actions">
+          <button
+            className="secondary-action"
+            type="button"
+            onClick={() => chooseRelay(null)}
+            disabled={!relayRegistry.selectedRelayId}
+          >
+            Auto select
+          </button>
+          <button
+            className="secondary-action"
+            type="button"
+            onClick={clearRelayHistory}
+            disabled={relayRegistry.relays.length === 0}
+          >
+            Clear history
+          </button>
+        </div>
+      </section>
 
       <section className="relay-card" aria-labelledby="waku-relays-heading">
         <div className="debug-map-card-heading">
@@ -357,17 +510,32 @@ export function RelaysPanel({ policy }: RelaysPanelProps) {
                         </strong>
                         <span>{shortAddress(relay.railgunAddress)}</span>
                       </div>
-                      <span
-                        className={`source-badge ${
-                          relay.signatureStatus === "kohaku-manager"
-                            ? "info"
-                            : "warning"
-                        }`}
-                      >
-                        {relay.signatureStatus === "kohaku-manager"
-                          ? "verified"
-                          : "unverified"}
-                      </span>
+                      <div className="relay-row-actions">
+                        <span
+                          className={`source-badge ${
+                            relay.signatureStatus === "kohaku-manager"
+                              ? "info"
+                              : "warning"
+                          }`}
+                        >
+                          {relay.signatureStatus === "kohaku-manager"
+                            ? "verified"
+                            : "unverified"}
+                        </span>
+                        <button
+                          className="secondary-action"
+                          type="button"
+                          onClick={() => chooseRelay(relay.railgunAddress)}
+                          disabled={
+                            relayRegistry.selectedRelayId === relay.railgunAddress
+                          }
+                        >
+                          <CheckCircle2 size={16} aria-hidden="true" />
+                          {relayRegistry.selectedRelayId === relay.railgunAddress
+                            ? "Selected"
+                            : "Use"}
+                        </button>
+                      </div>
                     </div>
 
                     <div className="relay-token-list">
@@ -445,7 +613,8 @@ export function RelaysPanel({ policy }: RelaysPanelProps) {
           </>
         ) : (
           <span className="status-message">
-            Idle. Use Scan Waku relays to start broadcaster discovery.
+            Waiting for the app-wide Waku watch. You can refresh manually if
+            needed.
           </span>
         )}
       </section>

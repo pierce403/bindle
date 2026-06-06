@@ -178,6 +178,9 @@ infrastructure.
 - [x] Add current-format RAILGUN Waku fee-ad parsing so Debug Map and
       `pnpm scan:waku` distinguish raw public broadcaster ads from Kohaku
       manager selections.
+- [x] Auto-watch Waku relay fee ads from the installed app when the visible
+      Waku broadcaster preset is enabled, keep a local non-secret broadcaster
+      registry, and auto-select the first compatible relay candidate.
 - [ ] Fix or replace the installed Kohaku alpha.12 `JsBroadcasterManager`
       selection gap: raw WETH/USDC fee ads are visible on Waku, but the manager
       currently returns no selectable `JsBroadcaster`.

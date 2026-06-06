@@ -40,7 +40,7 @@ export const privatePayBroadcasterRequiredMessage =
   "Pay requires a RAILGUN Broadcaster for the private source leg. Public smart-wallet submission would link this payment to your funding wallet.";
 
 export const kohakuPrivateActionsPendingMessage =
-  "Private actions are pending Kohaku Waku broadcaster compatibility. Public Waku fee ads are visible, but Bindle still needs a verified selectable Kohaku broadcaster and a proved private operation with private change before live Private Pay. Bindle will not submit private RAILGUN actions through your public smart wallet.";
+  "Private actions are pending Kohaku Waku broadcaster compatibility. Bindle now watches Waku fee ads and auto-selects compatible relay candidates, but live Private Pay still needs a verified Kohaku submitter plus a proved private operation with private change. Bindle will not submit private RAILGUN actions through your public smart wallet.";
 
 export const privatePayChangeRequiredMessage =
   "Private Pay requires leftover swap/change funds to return privately to your 0zk. Private change routing is not wired yet, so Pay is blocked rather than leaking or giving away change.";

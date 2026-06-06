@@ -1509,6 +1509,19 @@ button:disabled {
   font-weight: 820;
 }
 
+.shield-actions {
+  display: grid;
+  gap: 8px;
+  justify-items: stretch;
+}
+
+.shield-custom-button {
+  min-height: 38px;
+  border-radius: 14px;
+  padding: 0 12px;
+  font-size: 0.78rem;
+}
+
 .shield-review {
   display: grid;
   grid-column: 1 / -1;
@@ -1876,6 +1889,10 @@ button:disabled {
   align-items: stretch;
 }
 
+.compact-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .relay-card {
   display: grid;
   min-width: 0;
@@ -1891,6 +1908,25 @@ button:disabled {
   color: var(--muted);
   font-size: 0.84rem;
   line-height: 1.35;
+}
+
+.relay-select {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 760;
+}
+
+.relay-select select {
+  min-width: 0;
+  min-height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
 }
 
 .relay-summary-grid,
@@ -2012,10 +2048,23 @@ button:disabled {
   align-items: start;
 }
 
-.relay-row-heading div {
+.relay-row-heading > div:first-child {
   display: grid;
   min-width: 0;
   gap: 2px;
+}
+
+.relay-row-actions {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
+.relay-row-actions .secondary-action {
+  min-height: 34px;
+  border-radius: 999px;
+  padding: 0 10px;
+  font-size: 0.72rem;
 }
 
 .relay-row-heading strong,

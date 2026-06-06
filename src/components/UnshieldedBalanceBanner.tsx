@@ -47,8 +47,18 @@ export function UnshieldedBalanceBanner({
   const canSweepAll = canShield && balanceWei !== null && balanceWei > 0n;
   const showShieldAction =
     canShield || reviewingShield || isShielding || shieldStatus.length > 0;
+  const shieldEndpointSummary = shieldEndpointDisclosures
+    .filter((endpoint) => endpoint.configured || endpoint.required)
+    .map((endpoint) =>
+      endpoint.configured
+        ? `${endpoint.label} (${endpoint.source}: ${endpoint.value})`
+        : `${endpoint.label} (${endpoint.required ? "required, off" : "off"})`
+    )
+    .join(", ");
   const buttonLabel = showShieldAction
-    ? "Shield"
+    ? isShielding
+      ? "Shielding"
+      : "Shield"
     : canSync || isSyncing
       ? isSyncing
         ? "Syncing"
@@ -66,30 +76,52 @@ export function UnshieldedBalanceBanner({
             <small>Sync may contact {syncDisclosure}</small>
           ) : null}
           {shieldDisclosure ? <small>{shieldDisclosure}</small> : null}
+          {canSweepAll && railgunAddress ? (
+            <small>
+              Destination: RAILGUN 0zk {shortRailgunAddress(railgunAddress)}
+            </small>
+          ) : null}
+          {canSweepAll && shieldEndpointSummary ? (
+            <small>Shield may contact {shieldEndpointSummary}</small>
+          ) : null}
           {shieldStatus ? <small>{shieldStatus}</small> : null}
         </div>
       </div>
-      <button
-        className="shield-button"
-        type="button"
-        disabled={showShieldAction ? !canShield || isShielding : !canSync || isSyncing}
-        onClick={() => {
-          if (canShield) {
-            setReviewingShield((current) => !current);
-            return;
+      <div className="shield-actions">
+        <button
+          className="shield-button"
+          type="button"
+          disabled={
+            showShieldAction ? !canSweepAll || isShielding : !canSync || isSyncing
           }
+          onClick={() => {
+            if (canSweepAll) {
+              onShield({ kind: "sweep-all" });
+              return;
+            }
 
-          onSync();
-        }}
-      >
-        {buttonLabel}
-      </button>
+            onSync();
+          }}
+        >
+          {buttonLabel}
+        </button>
+        {canShield ? (
+          <button
+            className="secondary-action shield-custom-button"
+            type="button"
+            disabled={isShielding}
+            onClick={() => setReviewingShield((current) => !current)}
+          >
+            Custom
+          </button>
+        ) : null}
+      </div>
       {reviewingShield ? (
         <div className="shield-review" aria-label="Review shield">
           <div className="preflight-card" aria-label="Shield sweep summary">
-            <span>Public funding sweep</span>
+            <span>Custom shield review</span>
             <div className="preflight-row">
-              <strong>Amount</strong>
+              <strong>Available</strong>
               <span>{balance ?? "not synced"}</span>
             </div>
             <div className="preflight-row">
@@ -101,19 +133,10 @@ export function UnshieldedBalanceBanner({
               </span>
             </div>
           </div>
-          <button
-            className="primary-action wide"
-            type="button"
-            disabled={!canSweepAll || isShielding}
-            onClick={() => onShield({ kind: "sweep-all" })}
-          >
-            {isShielding ? "Shielding" : "Sweep public funding address"}
-          </button>
           <small className="shield-review-note">
-            Sweep uses the exact synced public ETH balance and does not reserve
-            ETH for EOA gas. ERC-4337 bundler and paymaster policy are shown
-            below; if sponsorship is unavailable, the sweep may fail instead of
-            leaving a gas reserve.
+            The main Shield button sweeps the exact synced public ETH balance.
+            Use a custom amount only when you intentionally want to leave public
+            ETH in the funding address.
           </small>
           <label className="field">
             <span>Custom amount to shield</span>

@@ -66,11 +66,14 @@ concerns, not the default first-run experience.
 - Send Review stays disabled until wallet, toolkit, RPC, recipient, amount, and
   required endpoint preflight checks pass.
 - Local intent routing for `0zk`, `0x`, `.eth`, and `@provider` style recipients.
-- Debug includes a user-triggered Map section for no-spend RAILGUN/Waku
-  broadcaster discovery and separate public-edge checks for configured RPC,
-  ERC-4337 bundler, paymaster, and RAILGUN sync endpoints. Waku scanning does
-  not run on app load and does not create proofs, submit transactions, or touch
-  the public smart wallet.
+- Bindle auto-watches Waku for no-spend RAILGUN broadcaster fee ads when the
+  installed app is open and the visible Waku broadcaster preset is enabled. It
+  keeps a local non-secret relay registry and auto-selects the first compatible
+  candidate; Relays is the inspect/filter/manual-choice screen. This does not
+  create proofs, submit transactions, touch the public smart wallet, or use the
+  user's `0zk`.
+- Relays also offers separate public-edge checks for configured RPC, ERC-4337
+  bundler, paymaster, and RAILGUN sync endpoints.
 - `pnpm scan:waku` runs the same kind of no-spend RAILGUN relay scan from the
   terminal. Use `pnpm --silent scan:waku -- --json` for machine-readable
   output. It starts a Waku light node with visible direct peers, reports raw

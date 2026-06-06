@@ -688,7 +688,7 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByText("Public funding wallet")).toBeVisible();
   });
 
-  test("opens shield review only after public balance and local 0zk secrets exist", async ({
+  test("one-click shield sweep appears after public balance and local 0zk secrets exist", async ({
     page
   }) => {
     await page.route("https://ethereum-rpc.publicnode.com/**", async (route) => {
@@ -763,6 +763,12 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByLabel("Unshielded ETH balance")).toContainText(
       "1 ETH"
     );
+    await expect(page.getByLabel("Unshielded ETH balance")).toContainText(
+      "Destination: RAILGUN 0zk"
+    );
+    await expect(page.getByLabel("Unshielded ETH balance")).toContainText(
+      "ERC-4337 bundler"
+    );
     await expect(
       page.getByLabel("Unshielded ETH balance").getByRole("button", {
         name: "Shield",
@@ -774,21 +780,6 @@ test.describe("passkey-first onboarding", () => {
       .getByLabel("Unshielded ETH balance")
       .getByRole("button", { name: "Shield", exact: true })
       .click();
-
-    await expect(page.getByLabel("Shield sweep summary")).toContainText(
-      "Public funding sweep"
-    );
-    await expect(page.getByLabel("Shield sweep summary")).toContainText(
-      "RAILGUN 0zk"
-    );
-    await expect(page.getByLabel("Shield preflight")).toContainText(
-      "ERC-4337 bundler"
-    );
-    await expect(
-      page.getByRole("button", { name: "Sweep public funding address" })
-    ).toBeEnabled();
-
-    await page.getByRole("button", { name: "Sweep public funding address" }).click();
     await page.getByRole("button", { name: "Debug" }).click();
 
     await expect(page.getByLabel("Debug log entries")).toContainText(

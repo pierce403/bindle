@@ -33,6 +33,7 @@ import {
   type CreateDebugLogEntryInput,
   type DebugLogEntry
 } from "./debug/debugLog";
+import { scanWakuBroadcasterMap } from "./debug/relayMap";
 import type { ConnectionPolicy } from "./privacy/connectionPolicy";
 import {
   loadConnectionPolicy,
@@ -44,6 +45,11 @@ import {
   prepareNativeEthShieldCalls,
   summarizeMissingRequirements
 } from "./railgun/shielding";
+import {
+  loadRailgunRelayRegistry,
+  selectedRailgunRelay,
+  upsertRelaysFromWakuSnapshot
+} from "./railgun/relayRegistry";
 import type { RailgunPayProgress } from "./railgun/pay";
 import {
   fetchShieldedEthBalance,
@@ -432,6 +438,11 @@ function WalletApp() {
     useState<ShieldedEthBalance | null>(() =>
       loadCachedShieldedBalanceForWallet(loadWalletState())
     );
+  const [relayRegistry, setRelayRegistry] = useState(() =>
+    loadRailgunRelayRegistry()
+  );
+  const [relayWatchStatus, setRelayWatchStatus] = useState("idle");
+  const relayRegistryRef = useRef(relayRegistry);
   const [smartAccountDeployment, setSmartAccountDeployment] =
     useState<SmartAccountDeploymentStatus>(() =>
       initialSmartAccountDeploymentStatus(loadWalletState().smartWalletAddress)
@@ -442,6 +453,8 @@ function WalletApp() {
   const smartAccountDeploymentRequestRef = useRef(0);
   const publicBalanceAutoSyncKeyRef = useRef<string | null>(null);
   const shieldedBalanceAutoSyncKeyRef = useRef<string | null>(null);
+  const relayAutoWatchInFlightRef = useRef(false);
+  const relayAutoWatchRunRef = useRef(0);
   const hasRailgunWallet = walletState.railgunAddress !== null;
   const hasSmartWallet = walletState.smartWalletAddress !== null;
   const rpcReady = toolkitState === "ready" && policy.ethereumRpcUrl.length > 0;
@@ -474,6 +487,19 @@ function WalletApp() {
       ? buildEndpointDisclosure(policy, "pay-review")
       : sendEndpointDisclosure;
   const privatePayReadiness = getRailgunBroadcasterReadiness(policy);
+  const relayAutoWatchEnabled =
+    policy.wakuEnabled &&
+    policy.railgunBroadcasterEnabled &&
+    (policy.railgunBroadcasterMode === "waku-public-network" ||
+      policy.railgunBroadcasterMode === "custom-waku");
+  const relayAutoWatchPolicyKey = JSON.stringify({
+    enabled: relayAutoWatchEnabled,
+    mode: policy.railgunBroadcasterMode,
+    feeToken: policy.railgunBroadcasterFeeToken,
+    customFeeToken: policy.railgunBroadcasterCustomFeeTokenAddress,
+    pubsubTopic: policy.railgunBroadcasterPubSubTopic,
+    directPeers: policy.railgunBroadcasterDirectPeers
+  });
   const publicBalanceDisclosure = buildEndpointDisclosure(
     policy,
     "public-balance-sync"
@@ -592,6 +618,129 @@ function WalletApp() {
       return nextEntries;
     });
   }, []);
+
+  useEffect(() => {
+    relayRegistryRef.current = relayRegistry;
+  }, [relayRegistry]);
+
+  useEffect(() => {
+    if (!relayAutoWatchEnabled) {
+      setRelayWatchStatus("Waku relay watch off in current policy");
+      return;
+    }
+
+    let cancelled = false;
+    let timeout: number | null = null;
+    const runId = relayAutoWatchRunRef.current + 1;
+    relayAutoWatchRunRef.current = runId;
+
+    const schedule = () => {
+      if (cancelled) {
+        return;
+      }
+
+      timeout = window.setTimeout(
+        () => void scan("periodic"),
+        activeAction === "pay" ? 30_000 : 90_000
+      );
+    };
+
+    const scan = async (reason: "startup" | "periodic" | "pay-open") => {
+      if (
+        cancelled ||
+        relayAutoWatchRunRef.current !== runId ||
+        relayAutoWatchInFlightRef.current
+      ) {
+        schedule();
+        return;
+      }
+
+      relayAutoWatchInFlightRef.current = true;
+      setRelayWatchStatus(
+        reason === "pay-open"
+          ? "Refreshing Waku relays for Pay"
+          : "Watching Waku relays"
+      );
+
+      try {
+        const snapshot = await scanWakuBroadcasterMap(policy);
+
+        if (cancelled || relayAutoWatchRunRef.current !== runId) {
+          return;
+        }
+
+        const nextRegistry = upsertRelaysFromWakuSnapshot({
+          preferredFeeToken: policy.railgunBroadcasterFeeToken,
+          registry: relayRegistryRef.current,
+          snapshot
+        });
+        const selected = selectedRailgunRelay(nextRegistry);
+
+        relayRegistryRef.current = nextRegistry;
+        setRelayRegistry(nextRegistry);
+        setRelayWatchStatus(
+          selected
+            ? `Selected ${selected.identifier ?? selected.railgunAddress.slice(0, 12)} for ${selected.supportedFeeTokens.join("/")}`
+            : `Waku relay watch ${snapshot.status}`
+        );
+        recordDebugEvent({
+          level:
+            snapshot.status === "connected" || selected !== null
+              ? "info"
+              : "warning",
+          source: "relays",
+          message:
+            selected !== null
+              ? "Auto-selected RAILGUN Waku broadcaster"
+              : `Waku relay watch ${snapshot.status}`,
+          detail: [
+            `Reason: ${reason}`,
+            `Peers: ${snapshot.wakuPeerCount ?? "unknown"}`,
+            `Parsed fee ads: ${snapshot.rawFeeAdsParsed.toString()}`,
+            `Candidates: ${snapshot.discoveredBroadcasters.length.toString()}`,
+            selected
+              ? `Selected: ${selected.railgunAddress} (${selected.supportedFeeTokens.join(", ")})`
+              : "Selected: none"
+          ].join("\n")
+        });
+      } catch (error) {
+        if (!cancelled && relayAutoWatchRunRef.current === runId) {
+          setRelayWatchStatus(
+            error instanceof Error ? error.message : "Waku relay auto-watch failed"
+          );
+          recordDebugEvent({
+            level: "warning",
+            source: "relays",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Waku relay auto-watch failed",
+            error
+          });
+        }
+      } finally {
+        relayAutoWatchInFlightRef.current = false;
+        schedule();
+      }
+    };
+
+    void scan(activeAction === "pay" ? "pay-open" : "startup");
+
+    return () => {
+      cancelled = true;
+
+      if (timeout !== null) {
+        window.clearTimeout(timeout);
+      }
+    };
+  }, [
+    activeAction,
+    policy,
+    policy.railgunBroadcasterFeeToken,
+    recordDebugEvent,
+    relayAutoWatchEnabled,
+    relayAutoWatchPolicyKey
+  ]);
 
   useEffect(() => {
     setCachedShieldedBalance(loadCachedShieldedBalanceForWallet(walletState));
@@ -2301,7 +2450,14 @@ function WalletApp() {
           />
         ) : null}
 
-        {activeTab === "relays" ? <RelaysPanel policy={policy} /> : null}
+        {activeTab === "relays" ? (
+          <RelaysPanel
+            policy={policy}
+            relayRegistry={relayRegistry}
+            relayWatchStatus={relayWatchStatus}
+            onRelayRegistryChange={setRelayRegistry}
+          />
+        ) : null}
 
         {activeTab === "settings" ? (
           <SettingsPanel

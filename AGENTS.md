@@ -391,11 +391,12 @@ avoids requiring GitHub workflow scope.
   direct peers, constructs the Kohaku `JsBroadcasterManager`, selects a
   broadcaster by fee token, and submits prepared private operations. It does
   not yet construct the proved Pay/private operation itself.
-- `src/debug/relayMap.ts` provides the user-triggered relay map scan. It may
-  start Waku only after the user clicks "Scan Waku relays" in the Relays tab;
-  it must stop the Waku transport afterward, never create proofs, never submit
-  transactions, never touch the public smart wallet, and never call Pimlico.
-  Keep RAILGUN broadcasters and ERC-4337 bundlers separate in Relays UI copy.
+- Bindle auto-watches Waku for RAILGUN broadcaster fee ads when the installed
+  PWA is open and the visible Waku broadcaster preset is enabled. This is a
+  convenience feature, not a private spend: it must never create proofs, submit
+  transactions, touch the public smart wallet, use the user's 0zk, or call
+  Pimlico. The Relays tab is the inspect/choose surface for this app-wide relay
+  registry. Keep RAILGUN broadcasters and ERC-4337 bundlers separate in UI copy.
 - `scripts/scan-kohaku-waku-relays.mjs` is the terminal equivalent of the
   no-spend Waku broadcaster map. It initializes Kohaku alpha.12 WASM from local
   bytes because Node cannot `fetch()` the package's file URL, dials only
