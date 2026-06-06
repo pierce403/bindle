@@ -6,7 +6,7 @@ export const startRailgunWalletSdkAdapter = async (
   policy: ConnectionPolicy,
   onStatus: (message: string) => void
 ): Promise<PrivacyToolkitHandle> => {
-  onStatus("Loading explicit RAILGUN Wallet SDK fallback");
+  onStatus("Loading legacy RAILGUN Wallet SDK quarantine path");
   const handle = await startRailgunBrowserEngine(policy, onStatus);
 
   return {

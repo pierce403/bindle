@@ -11,7 +11,10 @@ type BrowserLocalRailgunWalletRecord = {
   id: "primary";
   version: 2;
   railgunAddress: string;
-  derivationProvider?: RailgunWalletDerivationProvider;
+  derivationProvider?:
+    | RailgunWalletDerivationProvider
+    | "kohaku-railgun-alpha"
+    | "railgun-wallet-sdk";
   keyIndex: number;
   chainId: string;
   createdAt: string;
@@ -53,8 +56,8 @@ type RailgunSecretPayload = {
 };
 
 export type RailgunWalletDerivationProvider =
-  | "kohaku-railgun-alpha"
-  | "railgun-wallet-sdk";
+  | "kohaku-railgun"
+  | "railgun-wallet-sdk-legacy";
 
 export type RailgunWalletResult = {
   railgunAddress: string;
@@ -276,10 +279,24 @@ const derivationProviderForRecord = (
   record: EncryptedRailgunWalletRecord
 ): RailgunWalletDerivationProvider => {
   if (record.version !== 2) {
-    return "kohaku-railgun-alpha";
+    return "kohaku-railgun";
   }
 
-  return record.derivationProvider ?? "kohaku-railgun-alpha";
+  if (
+    record.derivationProvider === "kohaku-railgun" ||
+    record.derivationProvider === "kohaku-railgun-alpha"
+  ) {
+    return "kohaku-railgun";
+  }
+
+  if (
+    record.derivationProvider === "railgun-wallet-sdk" ||
+    record.derivationProvider === "railgun-wallet-sdk-legacy"
+  ) {
+    return "railgun-wallet-sdk-legacy";
+  }
+
+  return "kohaku-railgun";
 };
 
 const deriveRailgunWallet = async ({
@@ -331,7 +348,7 @@ const persistRailgunWallet = async ({
   keyIndex,
   chainId,
   railgunAddressOverride,
-  derivationProvider = "kohaku-railgun-alpha"
+  derivationProvider = "kohaku-railgun"
 }: {
   recoveryPhrase: string;
   source: "created" | "imported";
@@ -350,7 +367,7 @@ const persistRailgunWallet = async ({
   const railgunAddress = railgunAddressOverride ?? derived.railgunAddress;
 
   if (
-    derivationProvider === "kohaku-railgun-alpha" &&
+    derivationProvider === "kohaku-railgun" &&
     railgunAddress !== derived.railgunAddress
   ) {
     throw new Error("Kohaku RAILGUN derivation address override is invalid.");
@@ -447,7 +464,7 @@ export const persistRailgunWalletFromSdkDerivation = async ({
   persistRailgunWallet({
     recoveryPhrase: normalizeRecoveryPhrase(recoveryPhrase),
     railgunAddressOverride: railgunAddress,
-    derivationProvider: "railgun-wallet-sdk",
+    derivationProvider: "railgun-wallet-sdk-legacy",
     source,
     keyIndex,
     chainId
@@ -486,7 +503,7 @@ export const unlockEncryptedRailgunWallet =
     });
 
     if (
-      derivationProvider === "kohaku-railgun-alpha" &&
+      derivationProvider === "kohaku-railgun" &&
       derived.railgunAddress !== record.railgunAddress
     ) {
       throw new Error("Stored RAILGUN wallet address does not match the secret.");
@@ -524,43 +541,6 @@ export const exportEncryptedRailgunWallet =
       exportedFrom: "browser-local"
     };
   };
-
-export const markStoredRailgunWalletSdkCompatible = async ({
-  expectedRailgunAddress
-}: {
-  expectedRailgunAddress: string;
-}): Promise<RailgunWalletResult> => {
-  const record = await loadEncryptedWalletRecord();
-
-  if (!record) {
-    throw new Error("No encrypted RAILGUN wallet is stored locally.");
-  }
-
-  if (record.version !== 2) {
-    throw new Error(
-      "Legacy password-protected RAILGUN wallet records cannot be marked Wallet-SDK-compatible."
-    );
-  }
-
-  if (record.railgunAddress !== expectedRailgunAddress) {
-    throw new Error("Stored RAILGUN wallet address changed during repair.");
-  }
-
-  const updatedAt = new Date().toISOString();
-  await storeEncryptedWallet({
-    ...record,
-    derivationProvider: "railgun-wallet-sdk",
-    updatedAt
-  });
-
-  return {
-    railgunAddress: record.railgunAddress,
-    derivationProvider: "railgun-wallet-sdk",
-    keyIndex: record.keyIndex,
-    chainId: BigInt(record.chainId),
-    storedAt: updatedAt
-  };
-};
 
 export const clearEncryptedRailgunWallet = async (): Promise<void> => {
   if (!canUseIndexedDb()) {

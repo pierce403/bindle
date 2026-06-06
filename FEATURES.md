@@ -91,7 +91,7 @@ infrastructure.
       with a fresh browser-local `0zk` while preserving the passkey funding
       wallet.
 - [x] Convert Kohaku RAILGUN WASM traps into persistent, readable toolkit
-      errors with an explicit RAILGUN Wallet SDK fallback action.
+      errors without suggesting an unsafe Wallet SDK fallback.
 - [x] Add a browser-local Debug tab with persistent wallet/toolkit error logs
       and stack traces for transient RAILGUN/Kohaku failures.
 - [x] Guard Kohaku RAILGUN WASM initialization so `initLogging` runs once per
@@ -125,12 +125,11 @@ infrastructure.
       broadcaster/Waku status, fee token/fee, Uniswap v4 route provider, target
       token, recipient, and chain, and fail closed instead of submitting the
       private leg through ERC-4337.
-- [x] Record local RAILGUN wallet derivation metadata and require
-      Wallet-SDK-created/imported 0zk records before using the Wallet SDK +
-      Waku Broadcaster Private Pay path.
-- [x] Automatically check Private Pay 0zk compatibility when Pay review opens,
-      repair stale SDK-compatible metadata when the address matches, and offer
-      an explicit fresh SDK 0zk repair when the SDK derives a different address.
+- [x] Record local RAILGUN wallet derivation metadata, normalize old
+      `kohaku-railgun-alpha` records to `kohaku-railgun`, and label SDK-derived
+      records as `railgun-wallet-sdk-legacy`.
+- [x] Quarantine the RAILGUN Wallet SDK path so normal create/import and
+      Private Pay review do not derive or repair toward a second SDK `0zk`.
 - [x] Block Private Pay when Uniswap leftover/change cannot be returned
       privately to the 0zk account.
 
@@ -138,8 +137,8 @@ infrastructure.
 
 - [ ] Keep mnemonic import as an advanced compatibility/recovery path rather
       than the primary first-run flow.
-- [x] Use the legacy RAILGUN Wallet SDK only for lifecycle paths Kohaku does not
-      currently support.
+- [x] Keep the legacy RAILGUN Wallet SDK out of normal runtime flows; retain it
+      only for legacy detection, diagnostics, and future migration cleanup.
 - [x] Persist a non-secret local setup-complete flag after public smart-account
       metadata and browser-local RAILGUN key storage are both present, so the
       onboarding wizard does not flash during toolkit auto-start on later PWA
@@ -157,6 +156,11 @@ infrastructure.
       equivalent passkey ERC-4337 address derivation is available.
 - [ ] Reproduce and report/fix the upstream Kohaku RAILGUN WASM initialization
       `unreachable` trap so the default adapter can start reliably.
+- [ ] Investigate Kohaku private broadcast support and keep private unshield,
+      transfer, swap, and Private Pay disabled until submission does not use the
+      user's public smart wallet, ERC-4337 bundler, Pimlico, paymaster, or EOA.
+- [ ] Remove `@railgun-community/wallet`, `level-js`, and `snarkjs` after no
+      remaining source or tests need legacy SDK quarantine imports.
 
 ## Privacy And Connectivity
 

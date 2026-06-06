@@ -1,13 +1,17 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { getPayAsset } from "../src/intents/assets";
+import { kohakuPrivateActionsPendingMessage } from "../src/intents/payFlow";
 import { defaultConnectionPolicy } from "../src/privacy/connectionPolicy";
 import {
   ensureKohakuRailgunArtifactPolicyReady,
   grossUpUnshieldAmount,
+  prepareRailgunUsdcPayForRecipient,
   validateKohakuRailgunArtifactPolicy
 } from "../src/railgun/pay";
 import { resolveRailgunBroadcasterFeeTokenAddress } from "../src/railgun/wakuBroadcaster";
+import { emptyWalletState } from "../src/wallet/walletState";
 
 test("Pay grosses up RAILGUN unshield amount so public WETH covers the swap input", () => {
   expect(
@@ -48,23 +52,38 @@ test("Pay resolves the default RAILGUN broadcaster fee token to mainnet WETH", (
   );
 });
 
-test("Private Pay compatibility and private-change gates run before quote and broadcaster discovery", () => {
+test("Private Pay is disabled before quote, SDK, or broadcaster work", async () => {
+  const asset = getPayAsset("USDC");
+
+  expect(asset).not.toBeNull();
+
+  await expect(
+    prepareRailgunUsdcPayForRecipient({
+      amount: "5",
+      asset: asset!,
+      policy: defaultConnectionPolicy,
+      recipient: "0x000000000000000000000000000000000000dEaD",
+      walletState: {
+        ...emptyWalletState,
+        railgunAddress: "0zk1kohaku",
+        railgunKeyStore: "encrypted-local",
+        railgunDerivationProvider: "kohaku-railgun"
+      },
+      onProgress: () => undefined,
+      onStatus: () => undefined
+    })
+  ).rejects.toThrow(kohakuPrivateActionsPendingMessage);
+});
+
+test("Private Pay source does not import the Wallet SDK or quote/broadcaster path", () => {
   const source = readFileSync(resolve("src/railgun/pay.ts"), "utf8");
   const prepareIndex = source.indexOf("export const prepareRailgunUsdcPayForRecipient");
   const prepareSource = source.slice(prepareIndex);
-  const compatibilityIndex = prepareSource.indexOf(
-    "ensureRailgunWalletSdkWalletForLocalWallet"
-  );
-  const changeGateIndex = prepareSource.indexOf("assertPrivatePayChangeDisposition");
-  const quoteIndex = prepareSource.indexOf("Quoting Uniswap v4 ETH to USDC route");
-  const broadcasterIndex = prepareSource.indexOf("Finding RAILGUN broadcaster");
 
   expect(prepareIndex).toBeGreaterThan(-1);
-  expect(compatibilityIndex).toBeGreaterThan(-1);
-  expect(changeGateIndex).toBeGreaterThan(-1);
-  expect(quoteIndex).toBeGreaterThan(-1);
-  expect(broadcasterIndex).toBeGreaterThan(-1);
-  expect(compatibilityIndex).toBeLessThan(quoteIndex);
-  expect(changeGateIndex).toBeLessThan(quoteIndex);
-  expect(quoteIndex).toBeLessThan(broadcasterIndex);
+  expect(prepareSource).toContain("kohakuPrivateActionsPendingMessage");
+  expect(prepareSource).not.toContain("@railgun-community/wallet");
+  expect(prepareSource).not.toContain("ensureRailgunWalletSdkWalletForLocalWallet");
+  expect(prepareSource).not.toContain("prepareUniswapV4EthToUsdcExactOutputRoute");
+  expect(prepareSource).not.toContain("getRailgunWakuBroadcasterQuote");
 });

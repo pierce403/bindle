@@ -6,6 +6,7 @@ import { createKohakuWasmTrapError } from "../privacy/toolkitErrors";
 import { createVisibleMainnetClient } from "../wallet/mainnetClient";
 import { loadKohakuRailgunBrowserModule } from "./kohakuRailgunModule";
 import { unlockEncryptedRailgunWallet } from "./railgunWallet";
+import type { RailgunDerivationProvider } from "../wallet/walletState";
 import { createVisibleRailgunUtxoSyncer } from "./utxoSyncer";
 
 type KohakuRailgunTypes = typeof import("@kohaku-eth/railgun");
@@ -21,6 +22,8 @@ type RailgunAssetId = {
 
 export type ShieldedEthBalance = {
   railgunAddress: string;
+  derivationProvider: Extract<RailgunDerivationProvider, "kohaku-railgun">;
+  chainId: bigint;
   wei: bigint;
   formattedEth: string;
   usd: string | null;
@@ -217,11 +220,11 @@ export const fetchShieldedEthBalance = async (
   const unlockedWallet = await unlockEncryptedRailgunWallet();
 
   if (
-    unlockedWallet.derivationProvider !== "kohaku-railgun-alpha" ||
+    unlockedWallet.derivationProvider !== "kohaku-railgun" ||
     unlockedWallet.kohakuRailgunAddress !== unlockedWallet.railgunAddress
   ) {
     throw new Error(
-      "Shielded balance sync is currently wired through the Kohaku RAILGUN signer path, but this 0zk was derived by the RAILGUN Wallet SDK. Bindle will not sync a different Kohaku-derived address as if it were this wallet."
+      "Shielded balance sync is wired through the Kohaku RAILGUN signer path, but this 0zk is not Kohaku-canonical. Bindle will not sync a different Kohaku-derived address as if it were this wallet."
     );
   }
 
@@ -307,6 +310,8 @@ export const fetchShieldedEthBalance = async (
 
     return {
       railgunAddress: signer.address,
+      derivationProvider: "kohaku-railgun",
+      chainId: unlockedWallet.chainId,
       wei: summary.wei,
       formattedEth: formatShieldedEthBalance(summary.wei),
       usd: price

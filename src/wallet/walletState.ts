@@ -13,8 +13,8 @@ export type CustodyModel =
 
 export type RailgunKeyStore = "encrypted-local" | null;
 export type RailgunDerivationProvider =
-  | "kohaku-railgun-alpha"
-  | "railgun-wallet-sdk"
+  | "kohaku-railgun"
+  | "railgun-wallet-sdk-legacy"
   | "unknown";
 
 export type PasskeyAuthenticatorAttachment = AuthenticatorAttachment | null;
@@ -78,12 +78,24 @@ const isCustodyModel = (value: unknown): value is CustodyModel =>
 const isRailgunKeyStore = (value: unknown): value is RailgunKeyStore =>
   value === "encrypted-local" || value === null;
 
-const isRailgunDerivationProvider = (
-  value: unknown
-): value is RailgunDerivationProvider =>
-  value === "kohaku-railgun-alpha" ||
-  value === "railgun-wallet-sdk" ||
-  value === "unknown";
+const railgunDerivationProviderValue = (
+  value: unknown,
+  hasRailgunAddress: boolean
+): RailgunDerivationProvider | null => {
+  if (value === "kohaku-railgun" || value === "kohaku-railgun-alpha") {
+    return "kohaku-railgun";
+  }
+
+  if (value === "railgun-wallet-sdk" || value === "railgun-wallet-sdk-legacy") {
+    return "railgun-wallet-sdk-legacy";
+  }
+
+  if (value === "unknown") {
+    return "unknown";
+  }
+
+  return hasRailgunAddress ? "unknown" : emptyWalletState.railgunDerivationProvider;
+};
 
 const stringOrNull = (value: unknown): string | null =>
   typeof value === "string" && value.length > 0 ? value : null;
@@ -126,13 +138,10 @@ const normalizeWalletState = (value: unknown): WalletState => {
     railgunKeyStore: isRailgunKeyStore(parsed.railgunKeyStore)
       ? parsed.railgunKeyStore
       : emptyWalletState.railgunKeyStore,
-    railgunDerivationProvider: isRailgunDerivationProvider(
-      parsed.railgunDerivationProvider
-    )
-      ? parsed.railgunDerivationProvider
-      : parsed.railgunAddress
-        ? "unknown"
-        : emptyWalletState.railgunDerivationProvider,
+    railgunDerivationProvider: railgunDerivationProviderValue(
+      parsed.railgunDerivationProvider,
+      Boolean(parsed.railgunAddress)
+    ),
     passkeyPresent: booleanValue(parsed.passkeyPresent),
     mnemonicPresent: booleanValue(parsed.mnemonicPresent),
     createdAt: stringOrNull(parsed.createdAt),
@@ -184,9 +193,8 @@ export const saveWalletState = (state: WalletState): WalletState => {
     // WebAuthn private material, or provider secrets in this localStorage record.
     // The railgunKeyStore value is only a marker that encrypted local key
     // material exists in IndexedDB; it is not key material itself.
-    // railgunDerivationProvider is public compatibility metadata so Private
-    // Pay can refuse older local derivation paths before touching quote or
-    // broadcaster endpoints.
+    // railgunDerivationProvider is public compatibility metadata so Bindle can
+    // keep one canonical Kohaku 0zk and quarantine legacy SDK-derived records.
     // WebAuthn credential IDs, RP IDs, and public P-256 keys are public account
     // metadata used to reconstruct the smart-account owner; they are not
     // signing secrets.
@@ -277,7 +285,7 @@ export const markRailgunWalletReady = (
   railgunAddress: string,
   source: "created" | "imported",
   derivationProvider: Exclude<RailgunDerivationProvider, "unknown"> =
-    "kohaku-railgun-alpha"
+    "kohaku-railgun"
 ): WalletState => {
   const now = new Date().toISOString();
 

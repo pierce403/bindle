@@ -21,8 +21,8 @@ not the default first-run experience.
 - Kohaku RAILGUN alpha packages pinned in `package.json`.
 - Browser-side Kohaku RAILGUN adapter that starts from visible
   `ConnectionPolicy` endpoints only.
-- RAILGUN Wallet SDK remains isolated behind an explicit fallback adapter.
-- Browser-side legacy RAILGUN adapter with IndexedDB artifact persistence.
+- Legacy RAILGUN Wallet SDK code is quarantined for migration diagnostics and
+  is not selectable from the normal privacy-toolkit UI.
 - The privacy toolkit can auto-start after a real local `0zk` wallet exists
   when the selected visible preset allows it.
 - Local wallet metadata state for passkey-first onboarding, with no private key
@@ -61,13 +61,13 @@ not the default first-run experience.
 - Send Review stays disabled until wallet, toolkit, RPC, recipient, amount, and
   required endpoint preflight checks pass.
 - Local intent routing for `0zk`, `0x`, `.eth`, and `@provider` style recipients.
-- Pay has a real USDC route for Ethereum mainnet: asset search,
+- Pay has a USDC route-review UX for Ethereum mainnet: asset search,
   recipient/amount entry, QR or pasted payment request import, endpoint
-  preflight disclosure, modal route review, live RAILGUN proof progress,
+  preflight disclosure, modal route review, RAILGUN proof-progress disclosure,
   and route disclosure. Because this Pay route spends from private RAILGUN
-  balance, submission is deliberately disabled until Bindle can submit the
-  private source leg through a legitimate RAILGUN Broadcaster. It must not fall
-  back to the passkey smart account, Pimlico bundler, paymaster, or EOA.
+  balance, proof generation and submission are deliberately disabled until
+  Kohaku has a verified private broadcaster path that does not use the user's
+  passkey smart account, Pimlico bundler, paymaster, or EOA.
 - Endpoint presets are visible in Connections. Bindle default currently uses a
   labelled public Ethereum RPC, RAILGUN sync indexer, public Waku RAILGUN
   broadcaster network, and public ERC-4337 bundler, plus same-origin static
@@ -145,7 +145,11 @@ The default adapter is `kohaku-railgun`. It uses Kohaku's low-level RAILGUN WASM
 
 Important privacy constraint: Kohaku's higher-level `createRailgunPlugin()` helper wires a default Subsquid syncer. Bindle does not call that helper because hidden indexer traffic would violate the product rules. The current Kohaku adapter explicitly builds `RailgunBuilder` itself and uses the visible RAILGUN sync indexer only when that endpoint is present in `ConnectionPolicy`; otherwise it falls back to RPC-only sync.
 
-The `railgun-wallet-sdk` adapter remains as an explicit fallback for paths Kohaku does not cover yet, such as the older browser Wallet SDK engine and artifact store. App state should not talk to `@railgun-community/wallet` directly.
+The legacy `railgun-wallet-sdk` code path is not a normal runtime fallback.
+It is quarantined for legacy detection, diagnostics, and future migration work
+because it can derive a different `0zk` address from the same recovery phrase.
+Normal app state must not create, import, repair, or spend through
+`@railgun-community/wallet`.
 
 Smart-wallet work should stay Kohaku-first as well. Bindle should prefer a
 passkey-backed smart account path where Kohaku supports it, with any ERC-4337
@@ -172,17 +176,14 @@ For the visible Pimlico default bundler, Bindle requests User Operation gas
 prices from that same bundler endpoint before submission so the bundler does not
 reject underpriced priority fees. Pimlico is only for public smart-wallet
 operations such as account deployment, public ETH payments, and public shield
-deposits. Private Pay-to-USDC now prepares the private source leg with the
-RAILGUN Wallet SDK path only for Wallet-SDK-derived local 0zk records and must
-submit through a visible Waku RAILGUN Broadcaster instead of the public smart
-wallet. The default broadcaster fee token is WETH so the first Pay path can
-spend from shielded ETH/WETH without requiring shielded USDC just to pay the
-broadcaster. Pay review now checks SDK compatibility automatically; metadata-only
-staleness is repaired when the SDK-derived address matches, while address
-mismatches require an explicit fresh SDK 0zk and never imply fund migration. Live
-USDC Pay remains blocked until leftover swap/change funds can return privately
-to 0zk. Standalone unshielding, private RAILGUN sends, non-USDC Pay assets, and
-any-network provider routing remain pending.
+deposits. Private Pay-to-USDC is disabled before recipient resolution, quote,
+broadcaster discovery, proof generation, or submission. Bindle will not rebuild
+Private Pay on the legacy Wallet SDK path and will not submit private-origin
+RAILGUN actions through the public smart wallet. Live USDC Pay remains blocked
+until Kohaku can provide a privacy-safe broadcaster submission path and
+leftover swap/change funds can return privately to `0zk`. Standalone
+unshielding, private RAILGUN sends, non-USDC Pay assets, and any-network
+provider routing remain pending.
 
 Kohaku's current alpha RAILGUN prover has
 `https://github.com/Robert-MacWha/privacy-protocol-artifacts/raw/refs/heads/main/artifacts/`
@@ -194,7 +195,12 @@ Kohaku exposes a configurable artifact loader.
 
 ## RAILGUN Integration Notes
 
-The RAILGUN Wallet SDK remains available as a fallback path for generating private keys and `0zk` addresses, scanning private balances, generating deposits, and creating proofs for private sends or unshielding where Kohaku is not yet usable. The SDK requires browser storage such as `level-js`, proof artifacts that should be downloaded and persisted instead of bundled, a SnarkJS Groth16 prover for browser builds, and explicit RPC provider loading.
+The RAILGUN Wallet SDK remains in the dependency graph temporarily for legacy
+quarantine and diagnostics only. It is not the canonical Bindle wallet backend.
+New normal `0zk` creation/import uses Kohaku derivation and persists
+`derivationProvider = "kohaku-railgun"`. Existing SDK-derived records are
+labelled `railgun-wallet-sdk-legacy`; Bindle does not silently convert them to
+Kohaku accounts or imply funds moved.
 
 Current shield/unshield status:
 
@@ -223,13 +229,11 @@ Current shield/unshield status:
 - Private Pay-to-USDC is classified as a `railgun-private` source leg plus a
   public settlement leg. Review discloses the RAILGUN 0zk source, broadcaster
   and Waku status, broadcaster fee token/fee, Uniswap v4 route provider, target
-  token, amount, recipient, and chain. Submission uses the RAILGUN Wallet SDK
-  cross-contract proof path only for local 0zk wallets created or imported
-  through the Wallet SDK derivation path. Older Kohaku-local 0zk records remain
-  visible but are blocked for Wallet SDK Private Pay if the SDK derives a
-  different address. Pay is also blocked until leftover swap/change funds can
-  be returned privately to 0zk rather than sent to the recipient, provider, or
-  public smart wallet.
+  token, amount, recipient, and chain. Private Pay remains disabled because the
+  currently verified Kohaku path does not yet provide the required
+  privacy-safe broadcaster submission and private-change handling. The app
+  blocks before ENS/RPC recipient resolution, Uniswap quote, broadcaster
+  discovery, proof generation, or submission.
 - Standalone unshield and private send flows remain blocked until their review,
   proof, unlock, and visible submission policies are implemented.
 

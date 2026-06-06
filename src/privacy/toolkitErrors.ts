@@ -29,12 +29,6 @@ export class PrivacyToolkitStartupError extends Error {
   }
 }
 
-const railgunSdkFallbackAction: ToolkitRecoveryAction = {
-  kind: "switch-privacy-toolkit",
-  toolkit: "railgun-wallet-sdk",
-  label: "Use RAILGUN Wallet SDK fallback"
-};
-
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : "Unable to start";
 
@@ -80,9 +74,8 @@ export const createKohakuWasmTrapError = (
     : `Kohaku RAILGUN WASM failed with ${rawMessage}.`;
 
   return new PrivacyToolkitStartupError(
-    `${trapDetail} This happened while ${operation}. It is not caused by the shielded wallet password repair flow. Switch to the explicit RAILGUN Wallet SDK fallback to keep using the wallet while the Kohaku adapter is fixed.`,
+    `${trapDetail} This happened while ${operation}. It is not caused by the shielded wallet password repair flow. Bindle keeps Kohaku as the canonical RAILGUN backend, so private actions remain disabled until the Kohaku adapter path is fixed.`,
     {
-      action: railgunSdkFallbackAction,
       rawCause: error
     }
   );

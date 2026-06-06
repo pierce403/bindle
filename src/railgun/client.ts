@@ -114,7 +114,7 @@ const startRailgunBrowserEngineFresh = async (
 ): Promise<RailgunEngineHandle> => {
   if (policy.providerMode === "helios") {
     throw new Error(
-      "Helios provider mode is explicit in ConnectionPolicy but not wired for the RAILGUN Wallet SDK fallback yet."
+      "Helios provider mode is explicit in ConnectionPolicy but not wired for the legacy RAILGUN Wallet SDK quarantine path."
     );
   }
 

@@ -38,8 +38,7 @@ const providerModeValue = (value: unknown): ProviderMode =>
 const heliosNetworkValue = (value: unknown): HeliosNetwork =>
   value === "sepolia" || value === "holesky" ? value : "mainnet";
 
-const privacyToolkitValue = (value: unknown): PrivacyToolkitId =>
-  value === "railgun-wallet-sdk" ? "railgun-wallet-sdk" : "kohaku-railgun";
+const privacyToolkitValue = (_value: unknown): PrivacyToolkitId => "kohaku-railgun";
 
 const railgunBroadcasterModeValue = (
   value: unknown

@@ -1,6 +1,5 @@
 import type { ConnectionPolicy, PrivacyToolkitId } from "./connectionPolicy";
 import { startKohakuRailgunAdapter } from "./adapters/kohakuRailgun";
-import { startRailgunWalletSdkAdapter } from "./adapters/railgunWalletSdk";
 
 export type PrivacyToolkitState =
   | "idle"
@@ -34,29 +33,23 @@ export const privacyToolkitOptions: Array<{
   {
     id: "kohaku-railgun",
     label: "Kohaku RAILGUN",
-    description: "Default RPC-only Kohaku adapter"
-  },
-  {
-    id: "railgun-wallet-sdk",
-    label: "RAILGUN Wallet SDK",
-    description: "Explicit fallback for SDK-only paths"
+    description: "Canonical RPC-only Kohaku adapter"
   }
 ];
 
-const adapters: Record<PrivacyToolkitId, PrivacyToolkitAdapter> = {
+const adapters: Record<"kohaku-railgun", PrivacyToolkitAdapter> = {
   "kohaku-railgun": {
     id: "kohaku-railgun",
     label: "Kohaku RAILGUN",
     start: startKohakuRailgunAdapter
-  },
-  "railgun-wallet-sdk": {
-    id: "railgun-wallet-sdk",
-    label: "RAILGUN Wallet SDK",
-    start: startRailgunWalletSdkAdapter
   }
 };
 
 export const startPrivacyToolkit = (
   policy: ConnectionPolicy,
   onStatus: (message: string) => void
-): Promise<PrivacyToolkitHandle> => adapters[policy.privacyToolkit].start(policy, onStatus);
+): Promise<PrivacyToolkitHandle> =>
+  adapters["kohaku-railgun"].start(
+    { ...policy, privacyToolkit: "kohaku-railgun" },
+    onStatus
+  );

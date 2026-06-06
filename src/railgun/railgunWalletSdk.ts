@@ -111,7 +111,7 @@ export type RailgunWalletSdkHandle = {
 
 export type RailgunWalletSdkCompatibility = {
   compatible: boolean;
-  reason: "compatible" | "address-mismatch" | "not-sdk-derived";
+  reason: "address-mismatch" | "legacy-sdk-derived" | "kohaku-canonical";
   localAddress: string;
   kohakuRailgunAddress: string;
   walletSdkAddress: string;
@@ -133,12 +133,12 @@ export class RailgunSdkAddressMismatchError extends Error {
 
   constructor(compatibility: RailgunWalletSdkCompatibility) {
     const providerMessage =
-      compatibility.derivationProvider === "railgun-wallet-sdk"
-        ? "The RAILGUN Wallet SDK derives a different 0zk from the same recovery phrase."
-        : "Your saved 0zk was created with an older/Kohaku-local derivation path. The RAILGUN Wallet SDK derives a different 0zk from the same recovery phrase.";
+      compatibility.derivationProvider === "railgun-wallet-sdk-legacy"
+        ? "This saved 0zk was created with the legacy RAILGUN Wallet SDK path."
+        : "Your saved 0zk is Kohaku-canonical. The legacy RAILGUN Wallet SDK derives a different 0zk from the same recovery phrase.";
 
     super(
-      `${providerMessage} Private Pay is blocked to avoid spending from the wrong shielded account.\n\nLocal saved 0zk: ${compatibility.localAddress}\nWallet SDK 0zk: ${compatibility.walletSdkAddress}\nDerivation provider: ${compatibility.derivationProvider}`
+      `${providerMessage} Private Pay is blocked because Bindle now uses one canonical Kohaku 0zk account.\n\nLocal saved 0zk: ${compatibility.localAddress}\nLegacy Wallet SDK 0zk: ${compatibility.walletSdkAddress}\nDerivation provider: ${compatibility.derivationProvider}`
     );
     this.name = "RailgunSdkAddressMismatchError";
     this.compatibility = compatibility;
@@ -153,16 +153,14 @@ export const evaluateRailgunWalletSdkCompatibility = ({
   keyIndex,
   chainId
 }: Omit<RailgunWalletSdkCompatibility, "compatible" | "reason">): RailgunWalletSdkCompatibility => {
-  const addressMatches = walletSdkAddress === localAddress;
-  const providerMatches = derivationProvider === "railgun-wallet-sdk";
-
   return {
-    compatible: addressMatches && providerMatches,
-    reason: addressMatches
-      ? providerMatches
-        ? "compatible"
-        : "not-sdk-derived"
-      : "address-mismatch",
+    compatible: false,
+    reason:
+      derivationProvider === "railgun-wallet-sdk-legacy"
+        ? "legacy-sdk-derived"
+        : walletSdkAddress === localAddress
+          ? "kohaku-canonical"
+          : "address-mismatch",
     localAddress,
     kohakuRailgunAddress,
     walletSdkAddress,

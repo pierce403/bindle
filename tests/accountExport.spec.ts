@@ -11,7 +11,7 @@ const wallet: WalletState = {
   smartWalletAddress: "0x000000000000000000000000000000000000dEaD",
   railgunAddress: "0zk1testaccountaddress123456789",
   railgunKeyStore: "encrypted-local",
-  railgunDerivationProvider: "railgun-wallet-sdk",
+  railgunDerivationProvider: "kohaku-railgun",
   passkeyPresent: true,
   mnemonicPresent: true,
   createdAt: "2026-06-03T00:00:00.000Z",
@@ -31,7 +31,7 @@ test("creates an account export with explicit recovery warnings", () => {
     wallet,
     railgunWallet: {
       railgunAddress: wallet.railgunAddress ?? "",
-      derivationProvider: "railgun-wallet-sdk",
+      derivationProvider: "kohaku-railgun",
       recoveryPhrase:
         "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
       keyIndex: 0,
@@ -47,7 +47,7 @@ test("creates an account export with explicit recovery warnings", () => {
   expect(parsed.wallet.passkeyAuthenticatorAttachment).toBe("cross-platform");
   expect(parsed.wallet.passkeyUserVerification).toBe("preferred");
   expect(parsed.railgunWallet?.recoveryPhrase).toContain("abandon");
-  expect(parsed.railgunWallet?.derivationProvider).toBe("railgun-wallet-sdk");
+  expect(parsed.railgunWallet?.derivationProvider).toBe("kohaku-railgun");
   expect(parsed.reclaimPlan.publicSmartAccount.status).toBe(
     "requires-synced-passkey"
   );
@@ -60,6 +60,32 @@ test("creates an account export with explicit recovery warnings", () => {
   expect(parsed.warnings.join(" ")).toContain("same WebAuthn/passkey credential");
   expect(parsed.warnings.join(" ")).toContain("Enrolling a new passkey");
   expect(parsed.warnings.join(" ")).toContain("recovery phrase");
+});
+
+test("normalizes legacy Wallet SDK exports without treating them as Kohaku", () => {
+  const accountExport = createBindleAccountExport({
+    wallet: {
+      ...wallet,
+      railgunDerivationProvider: "railgun-wallet-sdk-legacy"
+    },
+    railgunWallet: {
+      railgunAddress: wallet.railgunAddress ?? "",
+      derivationProvider: "railgun-wallet-sdk-legacy",
+      recoveryPhrase:
+        "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      keyIndex: 0,
+      chainId: "1",
+      exportedFrom: "browser-local"
+    }
+  });
+  const parsed = parseBindleAccountExport(JSON.stringify(accountExport));
+
+  expect(parsed.wallet.railgunDerivationProvider).toBe(
+    "railgun-wallet-sdk-legacy"
+  );
+  expect(parsed.railgunWallet?.derivationProvider).toBe(
+    "railgun-wallet-sdk-legacy"
+  );
 });
 
 test("rejects unsupported account export JSON", () => {

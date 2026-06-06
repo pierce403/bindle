@@ -1,53 +1,10 @@
-import { getAddress, type Address, type Hex } from "viem";
-import type { ContractTransaction } from "ethers";
-import {
-  EVMGasType,
-  NETWORK_CONFIG,
-  NetworkName,
-  TXIDVersion,
-  type FeeTokenDetails,
-  type PreTransactionPOIsPerTxidLeafPerList,
-  type RailgunERC20Amount,
-  type RailgunERC20AmountRecipient,
-  type RailgunERC20Recipient,
-  type RailgunNFTAmount,
-  type RailgunNFTAmountRecipient,
-  type SelectedBroadcaster,
-  type TransactionGasDetails,
-  type TransactionGasDetailsType1
-} from "@railgun-community/shared-models";
 import type { PayAsset } from "../intents/assets";
-import {
-  assertPrivatePayChangeDisposition,
-  defaultPrivatePayChangeDisposition,
-  type PrivatePayChangeDisposition
-} from "../intents/payFlow";
-import { getPaySwapRoutePlan } from "../intents/swapRouting";
-import {
-  prepareUniswapV4EthToUsdcExactOutputRoute,
-  UNISWAP_V4_WETH_ADDRESS,
-  type CrossContractCall,
-  type UniswapV4PayRoute
-} from "../intents/uniswapV4PayRoute";
+import { kohakuPrivateActionsPendingMessage } from "../intents/payFlow";
 import {
   BINDLE_RAILGUN_ARTIFACT_BASE_PATH,
   type ConnectionPolicy
 } from "../privacy/connectionPolicy";
-import { createVisibleMainnetClient } from "../wallet/mainnetClient";
 import type { WalletState } from "../wallet/walletState";
-import { ensureRailgunWalletSdkWalletForLocalWallet } from "./railgunWalletSdk";
-import {
-  getRailgunWakuBroadcasterQuote,
-  resolveRailgunBroadcasterFeeTokenAddress
-} from "./wakuBroadcaster";
-
-type RailgunWalletSdkTransactionModule = Pick<
-  typeof import("@railgun-community/wallet"),
-  | "calculateBroadcasterFeeERC20Amount"
-  | "gasEstimateForUnprovenCrossContractCalls"
-  | "generateCrossContractCallsProof"
-  | "populateProvedCrossContractCalls"
->;
 
 export type RailgunPayProgress = {
   percent: number;
@@ -55,30 +12,12 @@ export type RailgunPayProgress = {
 };
 
 export type PreparedRailgunPay = {
-  route: UniswapV4PayRoute;
-  railgunAdapter: "railgun-wallet-sdk";
-  submissionMode: "railgun-waku-broadcaster";
+  railgunAdapter: "kohaku-railgun";
+  submissionMode: "disabled-pending-kohaku-broadcaster";
   railgunAddress: string;
-  txidVersion: TXIDVersion;
-  networkName: NetworkName.Ethereum;
-  transaction: {
-    to: Address;
-    data: Hex;
-  };
-  nullifiers: string[];
-  preTransactionPOIsPerTxidLeafPerList: PreTransactionPOIsPerTxidLeafPerList;
-  broadcaster: SelectedBroadcaster;
-  broadcasterFee: RailgunERC20AmountRecipient;
-  broadcasterFeeTokenAddress: Address;
-  overallBatchMinGasPrice: bigint;
-  useRelayAdapt: true;
-  unshieldAmountWei: bigint;
-  publicWethInputWei: bigint;
-  changeDisposition: PrivatePayChangeDisposition;
 };
 
 const bindleArtifactProxyVersion = "railgun-artifacts-v1";
-const railgunMainnetUnshieldFeeBps = 25;
 
 const normalizeArtifactBaseUrl = (value: string): string => {
   const trimmed = value.trim();
@@ -227,93 +166,8 @@ export const grossUpUnshieldAmount = ({
   return (desiredPublicAmount * 10_000n + denominator - 1n) / denominator;
 };
 
-const loadRailgunWalletSdkTransactionModule =
-  async (): Promise<RailgunWalletSdkTransactionModule> =>
-    import("@railgun-community/wallet");
-
-const payProgressPercent = (progress: unknown): number => {
-  if (!progress || typeof progress !== "object") {
-    return 65;
-  }
-
-  const value = (progress as { progress?: unknown }).progress;
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return 65;
-  }
-
-  const normalized = value > 1 ? value : value * 100;
-  return Math.max(55, Math.min(90, 55 + Math.round(normalized * 0.35)));
-};
-
-const payProgressStatus = (progress: unknown): string => {
-  if (!progress || typeof progress !== "object") {
-    return "Generating RAILGUN proof";
-  }
-
-  const status = (progress as { status?: unknown }).status;
-  return typeof status === "string" && status.trim()
-    ? status
-    : "Generating RAILGUN proof";
-};
-
-const transactionGasDetailsForBroadcaster = async (
-  policy: ConnectionPolicy
-): Promise<TransactionGasDetailsType1> => {
-  const client = await createVisibleMainnetClient(policy);
-  const gasPrice = await client.getGasPrice();
-
-  return {
-    evmGasType: EVMGasType.Type1,
-    gasEstimate: 0n,
-    gasPrice
-  };
-};
-
-const crossContractCallsForRailgun = (
-  calls: CrossContractCall[]
-): ContractTransaction[] =>
-  calls.map((call) => ({
-    to: call.to,
-    data: call.data,
-    value: call.value ?? 0n
-  }));
-
-const toPreparedTransaction = (
-  transaction: ContractTransaction
-): PreparedRailgunPay["transaction"] => {
-  if (!transaction.to || !transaction.data) {
-    throw new Error("RAILGUN Pay proof did not produce relay calldata.");
-  }
-
-  if (typeof transaction.to !== "string" || typeof transaction.data !== "string") {
-    throw new Error("RAILGUN Pay relay transaction is not hex calldata.");
-  }
-
-  return {
-    to: getAddress(transaction.to) as Address,
-    data: transaction.data as Hex
-  };
-};
-
-const broadcasterFeeRecipient = ({
-  broadcaster,
-  amount,
-  tokenAddress
-}: {
-  broadcaster: SelectedBroadcaster;
-  amount: bigint;
-  tokenAddress: Address;
-}): RailgunERC20AmountRecipient => ({
-  tokenAddress,
-  amount,
-  recipientAddress: broadcaster.railgunAddress
-});
-
 export const prepareRailgunUsdcPayForRecipient = async ({
-  amount,
   asset,
-  policy,
-  recipient,
   walletState,
   onProgress,
   onStatus
@@ -321,7 +175,7 @@ export const prepareRailgunUsdcPayForRecipient = async ({
   amount: string;
   asset: PayAsset;
   policy: ConnectionPolicy;
-  recipient: Address;
+  recipient: `0x${string}`;
   walletState: WalletState;
   onProgress: (progress: RailgunPayProgress) => void;
   onStatus: (message: string) => void;
@@ -334,172 +188,16 @@ export const prepareRailgunUsdcPayForRecipient = async ({
     throw new Error("Pay is currently wired for USDC output.");
   }
 
-  if (policy.providerMode !== "direct-rpc") {
-    throw new Error("Pay is currently wired through visible direct RPC mode.");
+  if (walletState.railgunDerivationProvider === "railgun-wallet-sdk-legacy") {
+    throw new Error(
+      "This 0zk was created with the legacy RAILGUN Wallet SDK derivation path. Bindle will not treat it as the Kohaku-canonical shielded account or migrate funds by changing metadata."
+    );
   }
 
-  if (!policy.ethereumRpcUrl.trim()) {
-    throw new Error("Configure an Ethereum RPC before Pay.");
-  }
-
-  await ensureKohakuRailgunArtifactPolicyReady(policy);
-
-  const networkName = NetworkName.Ethereum;
-  const txidVersion = TXIDVersion.V2_PoseidonMerkle;
-  const networkConfig = NETWORK_CONFIG[networkName];
-  const relayAdaptAddress = getAddress(networkConfig.relayAdaptContract) as Address;
-
-  const railgunWallet = await ensureRailgunWalletSdkWalletForLocalWallet({
-    policy,
-    onStatus
+  onStatus(kohakuPrivateActionsPendingMessage);
+  onProgress({
+    percent: 0,
+    status: "Private actions pending Kohaku broadcaster verification"
   });
-
-  if (railgunWallet.railgunAddress !== walletState.railgunAddress) {
-    throw new Error("Prepared RAILGUN Pay wallet does not match the saved 0zk address.");
-  }
-
-  const routePlan = getPaySwapRoutePlan(asset);
-  const changeDisposition =
-    routePlan?.changeDisposition ?? defaultPrivatePayChangeDisposition;
-  assertPrivatePayChangeDisposition(changeDisposition);
-
-  onStatus("Quoting Uniswap v4 ETH to USDC route");
-  onProgress({ percent: 0, status: "Quoting Uniswap v4 route" });
-  const route = await prepareUniswapV4EthToUsdcExactOutputRoute({
-    amount,
-    outputAsset: asset,
-    policy,
-    quoterAccount: relayAdaptAddress,
-    recipient,
-    refundRecipient: recipient
-  });
-
-  const publicWethInputWei = route.maxInputAmount;
-  const unshieldAmountWei = grossUpUnshieldAmount({
-    desiredPublicAmount: publicWethInputWei,
-    unshieldFeeBps: railgunMainnetUnshieldFeeBps
-  });
-  const relayAdaptUnshieldERC20Amounts: RailgunERC20Amount[] = [
-    {
-      tokenAddress: UNISWAP_V4_WETH_ADDRESS,
-      amount: unshieldAmountWei
-    }
-  ];
-  const relayAdaptUnshieldNFTAmounts: RailgunNFTAmount[] = [];
-  const relayAdaptShieldERC20Recipients: RailgunERC20Recipient[] = [];
-  const relayAdaptShieldNFTRecipients: RailgunNFTAmountRecipient[] = [];
-  const crossContractCalls = crossContractCallsForRailgun(route.calls);
-  const feeTokenAddress = resolveRailgunBroadcasterFeeTokenAddress(policy);
-
-  onProgress({ percent: 15, status: "Finding RAILGUN broadcaster" });
-  const broadcaster = await getRailgunWakuBroadcasterQuote({
-    chain: railgunWallet.chain,
-    feeTokenAddress,
-    policy,
-    onStatus
-  });
-  const feeTokenDetails: FeeTokenDetails = {
-    tokenAddress: feeTokenAddress,
-    feePerUnitGas: BigInt(broadcaster.tokenFee.feePerUnitGas)
-  };
-  const originalGasDetails = await transactionGasDetailsForBroadcaster(policy);
-  const walletSdk = await loadRailgunWalletSdkTransactionModule();
-
-  onStatus("Estimating Private Pay broadcaster gas and fee");
-  onProgress({ percent: 30, status: "Estimating RAILGUN broadcaster fee" });
-  const gasEstimate = await walletSdk.gasEstimateForUnprovenCrossContractCalls(
-    txidVersion,
-    networkName,
-    railgunWallet.walletID,
-    railgunWallet.encryptionKey,
-    relayAdaptUnshieldERC20Amounts,
-    relayAdaptUnshieldNFTAmounts,
-    relayAdaptShieldERC20Recipients,
-    relayAdaptShieldNFTRecipients,
-    crossContractCalls,
-    originalGasDetails,
-    feeTokenDetails,
-    false,
-    undefined
-  );
-  const gasDetails: TransactionGasDetails = {
-    ...originalGasDetails,
-    gasEstimate: gasEstimate.gasEstimate
-  };
-  const broadcasterFeeAmount =
-    walletSdk.calculateBroadcasterFeeERC20Amount(feeTokenDetails, gasDetails);
-  const broadcasterFee = broadcasterFeeRecipient({
-    broadcaster,
-    amount: broadcasterFeeAmount.amount,
-    tokenAddress: feeTokenAddress
-  });
-  const overallBatchMinGasPrice = originalGasDetails.gasPrice;
-
-  onStatus("Generating Private Pay RAILGUN proof");
-  onProgress({ percent: 55, status: "Generating RAILGUN proof" });
-  await walletSdk.generateCrossContractCallsProof(
-    txidVersion,
-    networkName,
-    railgunWallet.walletID,
-    railgunWallet.encryptionKey,
-    relayAdaptUnshieldERC20Amounts,
-    relayAdaptUnshieldNFTAmounts,
-    relayAdaptShieldERC20Recipients,
-    relayAdaptShieldNFTRecipients,
-    crossContractCalls,
-    broadcasterFee,
-    false,
-    overallBatchMinGasPrice,
-    undefined,
-    (progress) =>
-      onProgress({
-        percent: payProgressPercent(progress),
-        status: payProgressStatus(progress)
-      })
-  );
-
-  onStatus("Populating RAILGUN broadcaster transaction");
-  onProgress({ percent: 92, status: "Preparing broadcaster request" });
-  const populated = await walletSdk.populateProvedCrossContractCalls(
-    txidVersion,
-    networkName,
-    railgunWallet.walletID,
-    relayAdaptUnshieldERC20Amounts,
-    relayAdaptUnshieldNFTAmounts,
-    relayAdaptShieldERC20Recipients,
-    relayAdaptShieldNFTRecipients,
-    crossContractCalls,
-    broadcasterFee,
-    false,
-    overallBatchMinGasPrice,
-    gasDetails
-  );
-
-  if (!populated.nullifiers?.length) {
-    throw new Error("RAILGUN Pay proof did not return transaction nullifiers.");
-  }
-
-  onStatus("Private Pay broadcaster request ready");
-  onProgress({ percent: 100, status: "Ready for RAILGUN broadcaster" });
-
-  return {
-    route,
-    railgunAdapter: "railgun-wallet-sdk",
-    submissionMode: "railgun-waku-broadcaster",
-    railgunAddress: railgunWallet.railgunAddress,
-    txidVersion,
-    networkName,
-    transaction: toPreparedTransaction(populated.transaction),
-    nullifiers: populated.nullifiers,
-    preTransactionPOIsPerTxidLeafPerList:
-      populated.preTransactionPOIsPerTxidLeafPerList,
-    broadcaster,
-    broadcasterFee,
-    broadcasterFeeTokenAddress: feeTokenAddress,
-    overallBatchMinGasPrice,
-    useRelayAdapt: true,
-    unshieldAmountWei,
-    publicWethInputWei,
-    changeDisposition
-  };
+  throw new Error(kohakuPrivateActionsPendingMessage);
 };

@@ -64,12 +64,24 @@ const isCustodyModel = (value: unknown): value is CustodyModel =>
 const isRailgunKeyStore = (value: unknown): value is RailgunKeyStore =>
   value === "encrypted-local" || value === null;
 
-const isRailgunDerivationProvider = (
-  value: unknown
-): value is RailgunDerivationProvider =>
-  value === "kohaku-railgun-alpha" ||
-  value === "railgun-wallet-sdk" ||
-  value === "unknown";
+const railgunDerivationProviderValue = (
+  value: unknown,
+  hasRailgunAddress: boolean
+): RailgunDerivationProvider | null => {
+  if (value === "kohaku-railgun" || value === "kohaku-railgun-alpha") {
+    return "kohaku-railgun";
+  }
+
+  if (value === "railgun-wallet-sdk" || value === "railgun-wallet-sdk-legacy") {
+    return "railgun-wallet-sdk-legacy";
+  }
+
+  if (value === "unknown") {
+    return "unknown";
+  }
+
+  return hasRailgunAddress ? "unknown" : emptyWalletState.railgunDerivationProvider;
+};
 
 const stringOrNull = (value: unknown): string | null =>
   typeof value === "string" && value.length > 0 ? value : null;
@@ -105,13 +117,10 @@ const normalizeWallet = (value: unknown): WalletState => {
     railgunKeyStore: isRailgunKeyStore(parsed.railgunKeyStore)
       ? parsed.railgunKeyStore
       : emptyWalletState.railgunKeyStore,
-    railgunDerivationProvider: isRailgunDerivationProvider(
-      parsed.railgunDerivationProvider
-    )
-      ? parsed.railgunDerivationProvider
-      : parsed.railgunAddress
-        ? "unknown"
-        : emptyWalletState.railgunDerivationProvider,
+    railgunDerivationProvider: railgunDerivationProviderValue(
+      parsed.railgunDerivationProvider,
+      typeof parsed.railgunAddress === "string" && parsed.railgunAddress.length > 0
+    ),
     passkeyPresent: booleanValue(parsed.passkeyPresent),
     mnemonicPresent: booleanValue(parsed.mnemonicPresent),
     createdAt: stringOrNull(parsed.createdAt),
@@ -156,13 +165,17 @@ const normalizeRailgunWallet = (
     throw new Error("Account export RAILGUN wallet section is invalid.");
   }
 
+  const derivationProvider = railgunDerivationProviderValue(
+    parsed.derivationProvider,
+    true
+  );
+
   return {
     railgunAddress: parsed.railgunAddress,
-    derivationProvider: isRailgunDerivationProvider(parsed.derivationProvider)
-      ? parsed.derivationProvider === "unknown"
-        ? "kohaku-railgun-alpha"
-        : parsed.derivationProvider
-      : "kohaku-railgun-alpha",
+    derivationProvider:
+      derivationProvider === "railgun-wallet-sdk-legacy"
+        ? "railgun-wallet-sdk-legacy"
+        : "kohaku-railgun",
     recoveryPhrase: parsed.recoveryPhrase,
     keyIndex: parsed.keyIndex,
     chainId: parsed.chainId,

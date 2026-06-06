@@ -24,11 +24,8 @@ test("Kohaku WASM unreachable traps become actionable toolkit failures", () => {
   expect(failure.message).toContain(
     "not caused by the shielded wallet password repair flow"
   );
-  expect(failure.action).toEqual({
-    kind: "switch-privacy-toolkit",
-    toolkit: "railgun-wallet-sdk",
-    label: "Use RAILGUN Wallet SDK fallback"
-  });
+  expect(failure.message).toContain("Kohaku as the canonical RAILGUN backend");
+  expect(failure.action).toBeUndefined();
 });
 
 test("ordinary toolkit errors keep their current startup step", () => {

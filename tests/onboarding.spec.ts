@@ -109,7 +109,7 @@ test.describe("passkey-first onboarding", () => {
       "RAILGUN 0zk"
     );
     await expect(page.getByLabel("Review pay route")).toContainText(
-      "RAILGUN Broadcaster only"
+      "Kohaku broadcaster pending"
     );
     await expect(page.getByLabel("Review pay route")).toContainText(
       "Broadcaster fee token"
@@ -141,6 +141,9 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByLabel("Review pay route")).toContainText(
       "Create or import a shielded 0zk wallet."
     );
+    await expect(page.getByLabel("Review pay route")).toContainText(
+      "Private actions are pending Kohaku broadcaster verification"
+    );
     await expect(page.getByLabel("Proof generation progress")).toContainText(
       "ETH to USDC through Uniswap v4"
     );
@@ -148,11 +151,11 @@ test.describe("passkey-first onboarding", () => {
       "RAILGUN unshield proof"
     );
     await expect(
-      page.getByRole("button", { name: "Generate proof and pay" })
+      page.getByRole("button", { name: "Private Pay pending" })
     ).toBeDisabled();
 
     const payButtonBox = await page
-      .getByRole("button", { name: "Generate proof and pay" })
+      .getByRole("button", { name: "Private Pay pending" })
       .boundingBox();
     const navBox = await page
       .getByRole("navigation", { name: "App sections" })

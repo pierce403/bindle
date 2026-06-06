@@ -1,7 +1,10 @@
 import type { ShieldedEthBalance } from "./shieldedBalance";
+import type { RailgunDerivationProvider } from "../wallet/walletState";
 
 type StoredShieldedEthBalance = {
   railgunAddress: string;
+  derivationProvider: RailgunDerivationProvider;
+  chainId: string;
   wei: string;
   formattedEth: string;
   usd: string | null;
@@ -19,11 +22,25 @@ type StoredShieldedEthBalance = {
 
 const storageKey = "bindle.railgun.shieldedBalanceCache.v1";
 
+export type ShieldedEthBalanceCacheContext = {
+  railgunAddress: string;
+  derivationProvider: RailgunDerivationProvider;
+  chainId: bigint;
+};
+
 const canUseStorage = (): boolean =>
   typeof window !== "undefined" && "localStorage" in window;
 
-const cacheKeyForRailgunAddress = (railgunAddress: string): string =>
-  railgunAddress.trim().toLowerCase();
+const cacheKeyForContext = ({
+  chainId,
+  derivationProvider,
+  railgunAddress
+}: ShieldedEthBalanceCacheContext): string =>
+  [
+    railgunAddress.trim().toLowerCase(),
+    derivationProvider,
+    chainId.toString()
+  ].join(":");
 
 const isStoredShieldedEthBalance = (
   value: unknown
@@ -36,6 +53,10 @@ const isStoredShieldedEthBalance = (
 
   return (
     typeof parsed.railgunAddress === "string" &&
+    (parsed.derivationProvider === "kohaku-railgun" ||
+      parsed.derivationProvider === "railgun-wallet-sdk-legacy" ||
+      parsed.derivationProvider === "unknown") &&
+    typeof parsed.chainId === "string" &&
     typeof parsed.wei === "string" &&
     typeof parsed.formattedEth === "string" &&
     (typeof parsed.usd === "string" || parsed.usd === null) &&
@@ -95,9 +116,15 @@ const loadTypedCacheMap = (): Record<string, StoredShieldedEthBalance> => {
 const deserializeBalance = (
   stored: StoredShieldedEthBalance
 ): ShieldedEthBalance | null => {
+  if (stored.derivationProvider !== "kohaku-railgun") {
+    return null;
+  }
+
   try {
     return {
       railgunAddress: stored.railgunAddress,
+      derivationProvider: stored.derivationProvider,
+      chainId: BigInt(stored.chainId),
       wei: BigInt(stored.wei),
       formattedEth: stored.formattedEth,
       usd: stored.usd,
@@ -124,6 +151,8 @@ const serializeBalance = (
   balance: ShieldedEthBalance
 ): StoredShieldedEthBalance => ({
   railgunAddress: balance.railgunAddress,
+  derivationProvider: balance.derivationProvider,
+  chainId: balance.chainId.toString(),
   wei: balance.wei.toString(),
   formattedEth: balance.formattedEth,
   usd: balance.usd,
@@ -143,9 +172,9 @@ const serializeBalance = (
 });
 
 export const loadCachedShieldedEthBalance = (
-  railgunAddress: string
+  context: ShieldedEthBalanceCacheContext
 ): ShieldedEthBalance | null => {
-  const cached = loadCacheMap()[cacheKeyForRailgunAddress(railgunAddress)];
+  const cached = loadCacheMap()[cacheKeyForContext(context)];
 
   if (!isStoredShieldedEthBalance(cached)) {
     return null;
@@ -168,24 +197,23 @@ export const saveCachedShieldedEthBalance = (
   // background.
   saveCacheMap({
     ...cache,
-    [cacheKeyForRailgunAddress(balance.railgunAddress)]:
-      serializeBalance(balance)
+    [cacheKeyForContext(balance)]: serializeBalance(balance)
   });
 };
 
 export const clearCachedShieldedEthBalance = (
-  railgunAddress?: string | null
+  context?: ShieldedEthBalanceCacheContext | null
 ): void => {
   if (!canUseStorage()) {
     return;
   }
 
-  if (!railgunAddress) {
+  if (!context) {
     window.localStorage.removeItem(storageKey);
     return;
   }
 
   const cache = loadTypedCacheMap();
-  delete cache[cacheKeyForRailgunAddress(railgunAddress)];
+  delete cache[cacheKeyForContext(context)];
   saveCacheMap(cache);
 };

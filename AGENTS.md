@@ -50,7 +50,8 @@ Current stack:
 - Vite, React, TypeScript.
 - Kohaku-first privacy toolkit adapter boundary, defaulting to the Kohaku
   RAILGUN adapter.
-- RAILGUN Wallet SDK fallback, loaded only behind an explicit adapter choice.
+- Legacy RAILGUN Wallet SDK code quarantined for diagnostics/migration only;
+  it is not a selectable normal fallback.
 - GitHub Pages from `main:/docs`.
 - Manual PWA manifest and service worker from `public/`.
 - Custom domain: `bindle.cash`.
@@ -261,19 +262,15 @@ avoids requiring GitHub workflow scope.
   limited to public metadata.
 - Local RAILGUN wallet records carry explicit `derivationProvider` metadata.
   Existing version-2 records without that field are treated as
-  `kohaku-railgun-alpha`, not Wallet-SDK-compatible. New default create/import
-  flows derive the 0zk address through the RAILGUN Wallet SDK and persist
-  `railgun-wallet-sdk`. Do not remove the guard that compares the saved local
-  0zk to the Wallet SDK-derived 0zk before Private Pay.
-- Kohaku-derived 0zk records may be shown as real 0zk accounts, but Private Pay
-  through the Wallet SDK + Waku Broadcaster must refuse them unless they were
-  created/imported and verified through the Wallet SDK path. Do not silently
-  replace an older 0zk or imply funds migrated when creating a fresh SDK 0zk.
-- Pay review automatically checks RAILGUN Wallet SDK compatibility after the
-  user opens the Pay review sheet. If only metadata is stale and the SDK-derived
-  address matches the saved 0zk, Bindle may mark the record SDK-compatible. If
-  the SDK derives a different address, the only built-in repair is an explicit
-  user-confirmed fresh SDK 0zk; this does not move funds from the old 0zk.
+  `kohaku-railgun` when the Kohaku-derived address matches. New default
+  create/import flows derive the 0zk address through Kohaku only and persist
+  `kohaku-railgun`. SDK-derived records are labelled
+  `railgun-wallet-sdk-legacy` and must not be silently converted into Kohaku
+  accounts or used as proof that funds migrated.
+- Do not repair normal wallets into Wallet-SDK-derived 0zk accounts. The same
+  phrase/key index can derive different shielded accounts across Kohaku and the
+  RAILGUN Wallet SDK, so normal UI, balance sync, and private actions must use
+  the single Kohaku-canonical 0zk.
 - If saved `0zk` metadata points at a missing key-store marker, missing
   IndexedDB secrets, or a legacy password-era record,
   `RailgunKeyRecoveryPrompt` lets the user wipe only the incompatible RAILGUN
@@ -290,21 +287,28 @@ avoids requiring GitHub workflow scope.
   Ethereum mainnet RPC from `ConnectionPolicy`. The app may refresh this on load
   when an RPC is configured because the selected RPC is currently inside
   Bindle's normal-user trust boundary. Keep the endpoint visible in the UI.
+- Cached shielded balances live in localStorage for paint-on-open only and must
+  stay keyed by `railgunAddress + derivationProvider + chainId`. Do not return
+  a cached Kohaku balance for a legacy SDK or unknown wallet record that happens
+  to have the same address string.
 - Shield/unshield readiness lives in `src/railgun/shielding.ts`. Native ETH
   shield call prep uses Kohaku's low-level `ShieldBuilder.shieldNative`, not the
   higher-level helper that wires hidden Subsquid defaults. Recoverable local
   RAILGUN key material now exists after shielded wallet create/import. Shield
   submission is wired through `prepareNativeEthShieldCalls()` and
   `sendSmartWalletCalls()` after explicit amount and endpoint review. Do not
-  bypass visible RPC/bundler policy, and keep shielded balance sync as the next
-  major blocker before claiming a complete shield/unshield lifecycle.
+  bypass visible RPC/bundler policy.
 - Pay routes that spend from private RAILGUN balance are classified as
   `railgun-private` in `src/intents/payFlow.ts`. They must be submitted through
   a legitimate RAILGUN Broadcaster, never through
   `sendSmartWalletCalls()`, the passkey smart wallet, Pimlico bundler,
   paymaster, or an EOA. Keep the smart-account adapter guard in
   `src/wallet/transactionOrigin.ts` and the final broadcaster safety gate in
-  `src/railgun/broadcaster.ts` intact. Private Pay must also keep
+  `src/railgun/broadcaster.ts` intact. Private Pay is currently disabled before
+  recipient resolution, quotes, broadcaster discovery, proof generation, or
+  submission because Kohaku private broadcaster submission has not been verified
+  as privacy-safe. Do not re-enable it through the legacy Wallet SDK path.
+  Private Pay must also keep
   `changeDisposition === "private-change-to-0zk"` before live submission; do
   not send Uniswap leftover/slippage to the recipient, provider, public smart
   wallet, or any other public change address by default.
