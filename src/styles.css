@@ -398,7 +398,7 @@ button:disabled {
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 0 0 12px;
+  padding: 0 0 28px;
   scrollbar-width: none;
 }
 
@@ -1644,7 +1644,11 @@ button:disabled {
 }
 
 .settings-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
+  align-items: start;
+  justify-content: stretch;
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -1657,6 +1661,13 @@ button:disabled {
   gap: 3px;
 }
 
+.settings-row strong,
+.settings-row span,
+.settings-row small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .settings-row small {
   color: color-mix(in srgb, var(--text) 54%, transparent);
   font-size: 0.72rem;
@@ -1664,10 +1675,14 @@ button:disabled {
 }
 
 .settings-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
   gap: 8px;
+  width: 100%;
+}
+
+.settings-actions .secondary-action {
+  width: 100%;
 }
 
 .file-input {

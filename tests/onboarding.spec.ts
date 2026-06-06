@@ -229,6 +229,23 @@ test.describe("passkey-first onboarding", () => {
     await expect(
       page.getByRole("button", { name: "Import account JSON" })
     ).toBeVisible();
+
+    const ownerRow = page.locator(".settings-row", {
+      hasText: "Owner enrollment code"
+    });
+    const ownerCopy = ownerRow.getByText(
+      "Creates a new passkey on this site and copies"
+    );
+    const ownerAction = ownerRow.getByRole("button", { name: "YubiKey code" });
+    const copyBox = await ownerCopy.boundingBox();
+    const actionBox = await ownerAction.boundingBox();
+
+    expect(copyBox).not.toBeNull();
+    expect(actionBox).not.toBeNull();
+
+    if (copyBox && actionBox) {
+      expect(actionBox.y).toBeGreaterThan(copyBox.y + copyBox.height);
+    }
   });
 
   test(
