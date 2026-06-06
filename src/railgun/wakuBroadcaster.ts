@@ -15,6 +15,12 @@ import type {
 } from "../../node_modules/@kohaku-eth/railgun-waku/dist/pkg/railgun_rs.js";
 import type { ConnectionPolicy } from "../privacy/connectionPolicy";
 import { UNISWAP_V4_WETH_ADDRESS } from "../intents/uniswapV4PayRoute";
+import {
+  parseRailgunWakuFeeMessage,
+  selectBestRawRailgunBroadcasterTokenAd,
+  type RailgunBroadcasterFeeAd,
+  type RailgunBroadcasterTokenAd
+} from "./wakuFeeAds";
 
 const mainnetUsdcAddress = getAddress(
   "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
@@ -76,6 +82,12 @@ export type RailgunWakuBroadcasterTransport = {
   pubsubTopic: string;
   manager: JsBroadcasterManager;
   adapter: BindleWakuNodeAdapter;
+};
+
+export type RawRailgunWakuFeeAdSnapshot = {
+  observedMessages: number;
+  parsedAds: RailgunBroadcasterFeeAd[];
+  parseErrors: string[];
 };
 
 type RailgunBroadcasterManagerLike = Pick<
@@ -171,6 +183,10 @@ const makeWakuMessage = (decoded: IDecodedMessage): WakuMessage => ({
 class BindleWakuNodeAdapter implements WakuAdapter {
   private messageQueue: WakuMessage[] = [];
   private waiters: Array<(value: WakuMessage | null) => void> = [];
+  private feeAdWaiters: Array<(value: RailgunBroadcasterFeeAd[]) => void> = [];
+  private feeAds = new Map<string, RailgunBroadcasterFeeAd>();
+  private feeAdParseErrors: string[] = [];
+  private observedFeeMessages = 0;
   private closed = false;
 
   constructor(
@@ -229,7 +245,9 @@ class BindleWakuNodeAdapter implements WakuAdapter {
         const decoded = await promise;
 
         if (decoded) {
-          messages.push(makeWakuMessage(decoded));
+          const message = makeWakuMessage(decoded);
+          this.observeFeeAd(message);
+          messages.push(message);
         }
       }
     }
@@ -244,7 +262,12 @@ class BindleWakuNodeAdapter implements WakuAdapter {
       resolve(null);
     }
 
+    for (const resolve of this.feeAdWaiters) {
+      resolve(this.getRawFeeAdSnapshot().parsedAds);
+    }
+
     this.waiters = [];
+    this.feeAdWaiters = [];
   }
 
   async stop(): Promise<void> {
@@ -256,7 +279,39 @@ class BindleWakuNodeAdapter implements WakuAdapter {
     return (await this.node.getConnectedPeers()).length;
   }
 
+  getRawFeeAdSnapshot(): RawRailgunWakuFeeAdSnapshot {
+    return {
+      observedMessages: this.observedFeeMessages,
+      parsedAds: Array.from(this.feeAds.values()),
+      parseErrors: this.feeAdParseErrors.slice(-20)
+    };
+  }
+
+  async waitForRawFeeAds(timeoutMs: number): Promise<RailgunBroadcasterFeeAd[]> {
+    const snapshot = this.getRawFeeAdSnapshot();
+
+    if (snapshot.parsedAds.length > 0 || this.closed) {
+      return snapshot.parsedAds;
+    }
+
+    return new Promise((resolve) => {
+      const timeout = globalThis.setTimeout(() => {
+        this.feeAdWaiters = this.feeAdWaiters.filter(
+          (waiter) => waiter !== resolve
+        );
+        resolve(this.getRawFeeAdSnapshot().parsedAds);
+      }, timeoutMs);
+
+      this.feeAdWaiters.push((ads) => {
+        globalThis.clearTimeout(timeout);
+        resolve(ads);
+      });
+    });
+  }
+
   private enqueue(message: WakuMessage): void {
+    this.observeFeeAd(message);
+
     const waiter = this.waiters.shift();
 
     if (waiter) {
@@ -265,6 +320,34 @@ class BindleWakuNodeAdapter implements WakuAdapter {
     }
 
     this.messageQueue.push(message);
+  }
+
+  private observeFeeAd(message: WakuMessage): void {
+    const parsed = parseRailgunWakuFeeMessage(message);
+
+    if (!parsed.ok) {
+      if (parsed.error.startsWith("wrong content topic")) {
+        return;
+      }
+
+      this.observedFeeMessages += 1;
+      this.feeAdParseErrors.push(parsed.error);
+      return;
+    }
+
+    this.observedFeeMessages += 1;
+    const key = [
+      parsed.ad.railgunAddress,
+      parsed.ad.feesID,
+      parsed.ad.identifier ?? "default"
+    ].join(":");
+    this.feeAds.set(key, parsed.ad);
+
+    for (const resolve of this.feeAdWaiters) {
+      resolve(this.getRawFeeAdSnapshot().parsedAds);
+    }
+
+    this.feeAdWaiters = [];
   }
 }
 
@@ -388,8 +471,7 @@ const serializeFee = (fee: Fee): SelectedRailgunBroadcaster["tokenFee"] => ({
   reliability: fee.reliability
 });
 
-const currentUnixTimestampSeconds = (): bigint =>
-  BigInt(Math.floor(Date.now() / 1000));
+const currentTimestampMilliseconds = (): bigint => BigInt(Date.now());
 
 export const resolveRailgunBroadcasterFeeTokenAddress = (
   policy: Pick<
@@ -432,7 +514,7 @@ export const selectRailgunWakuBroadcaster = async ({
   onStatus(`Selecting RAILGUN Waku broadcaster for ${feeTokenAddress}.`);
   const broadcaster = await manager.bestBroadcasterForToken(
     feeTokenAddress,
-    currentUnixTimestampSeconds()
+    currentTimestampMilliseconds()
   );
 
   if (!broadcaster) {
@@ -474,6 +556,18 @@ export const getRailgunWakuBroadcasterQuote = async ({
     onStatus
   });
 };
+
+export const selectRawRailgunWakuBroadcasterAd = ({
+  feeAds,
+  feeTokenAddress
+}: {
+  feeAds: RailgunBroadcasterFeeAd[];
+  feeTokenAddress: Address;
+}): RailgunBroadcasterTokenAd | null =>
+  selectBestRawRailgunBroadcasterTokenAd({
+    ads: feeAds,
+    tokenAddress: feeTokenAddress
+  });
 
 export const submitRailgunWakuBroadcasterTransaction = async ({
   prepared,

@@ -199,7 +199,7 @@ export const prepareRailgunUsdcPayForRecipient = async ({
   onStatus(kohakuPrivateActionsPendingMessage);
   onProgress({
     percent: 0,
-    status: "Private actions pending Kohaku broadcaster verification"
+    status: "Private actions pending Kohaku Waku compatibility"
   });
   throw new Error(kohakuPrivateActionsPendingMessage);
 };

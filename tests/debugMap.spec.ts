@@ -142,6 +142,9 @@ test("copyable debug map includes status and errors without key-material labels"
         lightPush: "error",
         store: "error"
       },
+      rawFeeMessagesObserved: 0,
+      rawFeeAdsParsed: 0,
+      kohakuManagerSelections: 0,
       feeTokens: [],
       discoveredBroadcasters: [],
       notes: ["debug copy test"],

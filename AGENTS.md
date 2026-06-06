@@ -239,10 +239,16 @@ avoids requiring GitHub workflow scope.
   its DNS discovery trees, so `src/railgun/wakuBroadcaster.ts` keeps SDK DNS
   discovery disabled and dials only the direct peers visible in
   `ConnectionPolicy`, then uses peer exchange/cache after connecting.
-- Kohaku Waku `JsBroadcasterManager.bestBroadcasterForToken` expects the
-  current time as a Unix timestamp in seconds. Passing JavaScript `Date.now()`
-  milliseconds makes broadcaster fee offers look expired and reports
-  `no-broadcasters` even when Waku peers are connected.
+- Kohaku Waku `JsBroadcasterManager.bestBroadcasterForToken` is called by
+  Kohaku's own alpha.12 plugin with `BigInt(Date.now())`, so pass JavaScript
+  milliseconds, not Unix seconds.
+- Public RAILGUN Waku broadcasters are online on `/waku/2/rs/5/1`. A live
+  scan on June 6, 2026 observed and parsed current WETH/USDC fee ads, but the
+  installed Kohaku alpha.12 `JsBroadcasterManager` still returned no selectable
+  `JsBroadcaster`. Bindle now separates raw fee-ad discovery from Kohaku manager
+  selection in `src/railgun/wakuFeeAds.ts`, Debug Map, and
+  `pnpm scan:waku`. Private Pay remains blocked until a selectable
+  broadcaster/proved-operation path is available.
 - Do not use Kohaku's higher-level `createRailgunPlugin()` helper in Bindle
   until indexer/POI endpoints are configurable. Its current implementation
   wires a default Subsquid syncer, which violates Bindle's no-hidden-endpoints
@@ -365,8 +371,9 @@ avoids requiring GitHub workflow scope.
 - `scripts/scan-kohaku-waku-relays.mjs` is the terminal equivalent of the
   no-spend Waku broadcaster map. It initializes Kohaku alpha.12 WASM from local
   bytes because Node cannot `fetch()` the package's file URL, dials only
-  visible direct peers by default, polls broadcaster fee advertisements using
-  Unix seconds, and stops the Waku node before exit.
+  visible direct peers by default, reports both raw RAILGUN fee ads and Kohaku
+  manager selections using millisecond timestamps, and stops the Waku node
+  before exit.
 - Bindle is pnpm-only. `packageManager` pins pnpm, `.npmrc` enables pnpm's
   package-manager strict mode, and `scripts/require-pnpm.mjs` blocks npm/yarn
   installs.

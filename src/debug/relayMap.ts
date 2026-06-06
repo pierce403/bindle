@@ -3,6 +3,7 @@ import type { ConnectionPolicy } from "../privacy/connectionPolicy";
 import { UNISWAP_V4_WETH_ADDRESS } from "../intents/uniswapV4PayRoute";
 import {
   ensureRailgunWakuBroadcasterTransport,
+  selectRawRailgunWakuBroadcasterAd,
   selectRailgunWakuBroadcaster,
   stopRailgunWakuBroadcasterTransport
 } from "../railgun/wakuBroadcaster";
@@ -21,9 +22,12 @@ export type FeeTokenProbe = {
   symbol: "WETH" | "USDC" | "custom";
   tokenAddress: string;
   broadcasterFound: boolean;
+  rawAdFound?: boolean;
+  selectionSource?: "kohaku-manager" | "raw-fee-ad" | null;
   selectedBroadcasterRailgunAddress: string | null;
   feesId: string | null;
   feePerUnitGas: string | null;
+  signatureStatus?: string | null;
   rawTokenFee?: unknown;
   error: string | null;
 };
@@ -42,12 +46,17 @@ export type WakuBroadcasterMapSnapshot = {
     lightPush: "ready" | "unknown" | "error";
     store: "ready" | "unknown" | "error";
   };
+  rawFeeMessagesObserved: number;
+  rawFeeAdsParsed: number;
+  kohakuManagerSelections: number;
   feeTokens: FeeTokenProbe[];
   discoveredBroadcasters: Array<{
     railgunAddress: string;
     supportedFeeTokens: string[];
     feesId?: string;
     version?: string;
+    selectionSource?: "kohaku-manager" | "raw-fee-ad";
+    signatureStatus?: string;
     raw?: unknown;
   }>;
   notes: string[];
@@ -188,6 +197,9 @@ const unavailableWakuSnapshot = ({
     lightPush: "error",
     store: "error"
   },
+  rawFeeMessagesObserved: 0,
+  rawFeeAdsParsed: 0,
+  kohakuManagerSelections: 0,
   feeTokens: [],
   discoveredBroadcasters: [],
   notes: [
@@ -212,11 +224,14 @@ export const scanWakuBroadcasterMap = async (
       onStatus: () => undefined
     });
     const wakuPeerCount = await transport.adapter.peerCount();
+    await transport.adapter.waitForRawFeeAds(15_000);
+    const rawFeeAdSnapshot = transport.adapter.getRawFeeAdSnapshot();
     const discoveredByRailgunAddress = new Map<
       string,
       WakuBroadcasterMapSnapshot["discoveredBroadcasters"][number]
     >();
     const feeTokenResults: FeeTokenProbe[] = [];
+    let kohakuManagerSelections = 0;
 
     for (const feeToken of feeTokensForPolicy(policy)) {
       let tokenAddress: Address;
@@ -227,13 +242,21 @@ export const scanWakuBroadcasterMap = async (
         feeTokenResults.push({
           ...feeToken,
           broadcasterFound: false,
+          rawAdFound: false,
+          selectionSource: null,
           selectedBroadcasterRailgunAddress: null,
           feesId: null,
           feePerUnitGas: null,
+          signatureStatus: null,
           error: errorMessage(error)
         });
         continue;
       }
+
+      const rawSelected = selectRawRailgunWakuBroadcasterAd({
+        feeAds: rawFeeAdSnapshot.parsedAds,
+        feeTokenAddress: tokenAddress
+      });
 
       try {
         const selected = await selectRailgunWakuBroadcaster({
@@ -241,14 +264,18 @@ export const scanWakuBroadcasterMap = async (
           feeTokenAddress: tokenAddress,
           onStatus: () => undefined
         });
+        kohakuManagerSelections += 1;
 
         feeTokenResults.push({
           ...feeToken,
           tokenAddress,
           broadcasterFound: true,
+          rawAdFound: Boolean(rawSelected),
+          selectionSource: "kohaku-manager",
           selectedBroadcasterRailgunAddress: selected.railgunAddress,
           feesId: selected.tokenFee.feesID,
           feePerUnitGas: selected.tokenFee.perUnitGas,
+          signatureStatus: "kohaku-manager",
           rawTokenFee: selected.tokenFee,
           error: null
         });
@@ -264,17 +291,58 @@ export const scanWakuBroadcasterMap = async (
             railgunAddress: selected.railgunAddress,
             supportedFeeTokens: [feeToken.symbol],
             feesId: selected.tokenFee.feesID,
+            selectionSource: "kohaku-manager",
+            signatureStatus: "kohaku-manager",
             raw: selected.tokenFee
           });
         }
       } catch (error) {
+        if (rawSelected) {
+          feeTokenResults.push({
+            ...feeToken,
+            tokenAddress,
+            broadcasterFound: false,
+            rawAdFound: true,
+            selectionSource: "raw-fee-ad",
+            selectedBroadcasterRailgunAddress: rawSelected.railgunAddress,
+            feesId: rawSelected.feesID,
+            feePerUnitGas: rawSelected.feePerUnitGas,
+            signatureStatus: rawSelected.signatureStatus,
+            rawTokenFee: rawSelected,
+            error:
+              "Raw Waku fee ad observed, but Kohaku did not return a selectable JsBroadcaster yet."
+          });
+
+          const existing = discoveredByRailgunAddress.get(
+            rawSelected.railgunAddress
+          );
+
+          if (existing) {
+            existing.supportedFeeTokens.push(feeToken.symbol);
+          } else {
+            discoveredByRailgunAddress.set(rawSelected.railgunAddress, {
+              railgunAddress: rawSelected.railgunAddress,
+              supportedFeeTokens: [feeToken.symbol],
+              feesId: rawSelected.feesID,
+              version: rawSelected.version,
+              selectionSource: "raw-fee-ad",
+              signatureStatus: rawSelected.signatureStatus,
+              raw: rawSelected
+            });
+          }
+          continue;
+        }
+
         feeTokenResults.push({
           ...feeToken,
           tokenAddress,
           broadcasterFound: false,
+          rawAdFound: false,
+          selectionSource: null,
           selectedBroadcasterRailgunAddress: null,
           feesId: null,
           feePerUnitGas: null,
+          signatureStatus: null,
           error: errorMessage(error)
         });
       }
@@ -283,10 +351,13 @@ export const scanWakuBroadcasterMap = async (
     const foundCount = feeTokenResults.filter(
       (feeToken) => feeToken.broadcasterFound
     ).length;
+    const rawFoundCount = feeTokenResults.filter(
+      (feeToken) => feeToken.rawAdFound
+    ).length;
     const status: RelayMapStatus =
       wakuPeerCount === 0
         ? "no-waku-peers"
-        : foundCount === 0
+        : foundCount === 0 && rawFoundCount === 0
           ? "no-broadcasters"
           : foundCount === feeTokenResults.length
             ? "connected"
@@ -306,10 +377,23 @@ export const scanWakuBroadcasterMap = async (
         lightPush: "ready",
         store: "ready"
       },
+      rawFeeMessagesObserved: rawFeeAdSnapshot.observedMessages,
+      rawFeeAdsParsed: rawFeeAdSnapshot.parsedAds.length,
+      kohakuManagerSelections,
       feeTokens: feeTokenResults,
       discoveredBroadcasters: Array.from(discoveredByRailgunAddress.values()),
-      notes,
-      error: null
+      notes: [
+        ...notes,
+        rawFeeAdSnapshot.parsedAds.length > 0 && kohakuManagerSelections === 0
+          ? "Raw current RAILGUN fee ads were observed, but the installed Kohaku Waku manager did not expose a selectable JsBroadcaster. Private Pay remains blocked until that compatibility gap is fixed."
+          : null,
+        rawFeeAdSnapshot.parseErrors.length > 0
+          ? `Fee-ad parse errors: ${rawFeeAdSnapshot.parseErrors.slice(-3).join("; ")}`
+          : null
+      ].filter((note): note is string => Boolean(note)),
+      error: rawFeeAdSnapshot.parseErrors.length
+        ? rawFeeAdSnapshot.parseErrors.slice(-3).join("; ")
+        : null
     };
   } catch (error) {
     const message = errorMessage(error);

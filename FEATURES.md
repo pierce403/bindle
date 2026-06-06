@@ -173,6 +173,15 @@ infrastructure.
       fee-token broadcasters are discoverable from the installed PWA without
       generating proofs, submitting transactions, or touching the public smart
       wallet.
+- [x] Add current-format RAILGUN Waku fee-ad parsing so Debug Map and
+      `pnpm scan:waku` distinguish raw public broadcaster ads from Kohaku
+      manager selections.
+- [ ] Fix or replace the installed Kohaku alpha.12 `JsBroadcasterManager`
+      selection gap: raw WETH/USDC fee ads are visible on Waku, but the manager
+      currently returns no selectable `JsBroadcaster`.
+- [ ] Add non-SDK signature verification for broadcaster fee ads, or get the
+      verified selectable broadcaster directly from an updated Kohaku-native
+      API, before raw fee ads are allowed to drive live private spending.
 - [ ] Build the Kohaku-derived proved private operation that can be handed to
       the Waku broadcaster transport, with private change returned to 0zk,
       before enabling live private unshield/Private Pay submission.

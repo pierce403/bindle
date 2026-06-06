@@ -38,7 +38,7 @@ test("Waku broadcaster selection returns the required private submitter", async 
       bestBroadcasterForToken: async (tokenAddress, currentTime) => {
         expect(tokenAddress).toBe(UNISWAP_V4_WETH_ADDRESS);
         expect(typeof currentTime).toBe("bigint");
-        expect(Number(currentTime)).toBeLessThan(10_000_000_000);
+        expect(Number(currentTime)).toBeGreaterThan(1_700_000_000_000);
         return fakeBroadcaster;
       }
     },

@@ -142,7 +142,7 @@ test.describe("passkey-first onboarding", () => {
       "Create or import a shielded 0zk wallet."
     );
     await expect(page.getByLabel("Review pay route")).toContainText(
-      "Private actions are pending Kohaku broadcaster verification"
+      "Private actions are pending Kohaku Waku broadcaster compatibility"
     );
     await expect(page.getByLabel("Proof generation progress")).toContainText(
       "ETH to USDC through Uniswap v4"

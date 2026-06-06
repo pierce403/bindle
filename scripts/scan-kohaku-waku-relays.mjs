@@ -17,9 +17,17 @@ const defaultTokens = [
   ["WETH", "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"],
   ["USDC", "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"]
 ];
+const feesContentTopic = "/railgun/v2/0-1-fees/json";
+const activePoiListKeys = [
+  "efc6ddb59c098a13fb2b618fdae94c1c3a807abc8fb1837c93620c9143ee9e88"
+];
+const minimumBroadcasterVersion = "8.0.0";
+const maximumBroadcasterVersion = "8.999.0";
+const feeExpirationBufferMs = 40_000;
 const defaultTimeoutMs = 90_000;
 const pollMs = 2_500;
 const historyLookbackMs = 300_000;
+const textDecoder = new TextDecoder();
 
 const usage = () => `Usage:
   pnpm scan:waku
@@ -141,7 +149,110 @@ const parseRailgunWakuTopic = (topic) => {
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const unixSeconds = () => BigInt(Math.floor(Date.now() / 1000));
+const currentTimestampMilliseconds = () => BigInt(Date.now());
+
+const bytesToUtf8 = (bytes) =>
+  textDecoder.decode(bytes instanceof Uint8Array ? bytes : Uint8Array.from(bytes));
+
+const hexToUtf8 = (hex) => {
+  const normalized = hex.startsWith("0x") ? hex.slice(2) : hex;
+  const bytes = new Uint8Array(normalized.length / 2);
+
+  for (let index = 0; index < bytes.length; index += 1) {
+    bytes[index] = Number.parseInt(normalized.slice(index * 2, index * 2 + 2), 16);
+  }
+
+  return textDecoder.decode(bytes);
+};
+
+const compareSemver = (left, right) => {
+  const leftParts = left.split(".").map((part) => Number.parseInt(part, 10));
+  const rightParts = right.split(".").map((part) => Number.parseInt(part, 10));
+
+  for (let index = 0; index < 3; index += 1) {
+    const leftPart = Number.isFinite(leftParts[index]) ? leftParts[index] : 0;
+    const rightPart = Number.isFinite(rightParts[index]) ? rightParts[index] : 0;
+
+    if (leftPart !== rightPart) {
+      return leftPart > rightPart ? 1 : -1;
+    }
+  }
+
+  return 0;
+};
+
+const broadcasterVersionAllowed = (version) =>
+  compareSemver(version ?? "0.0.0", minimumBroadcasterVersion) >= 0 &&
+  compareSemver(version ?? "0.0.0", maximumBroadcasterVersion) <= 0;
+
+const feeAdUsable = (ad, nowMs = Date.now()) => {
+  if (!broadcasterVersionAllowed(ad.version)) return false;
+  if (ad.availableWallets <= 0) return false;
+  if (ad.feeExpiration < nowMs + feeExpirationBufferMs) return false;
+  return ad.requiredPOIListKeys.every((listKey) =>
+    activePoiListKeys.includes(listKey)
+  );
+};
+
+const parseFeeAd = (message) => {
+  if (message.contentTopic !== feesContentTopic) {
+    return null;
+  }
+
+  const outer = JSON.parse(bytesToUtf8(message.payload));
+  const decoded = JSON.parse(hexToUtf8(outer.data));
+  const fees = {};
+
+  for (const [tokenAddress, feePerUnitGas] of Object.entries(decoded.fees ?? {})) {
+    fees[getAddress(tokenAddress)] = String(feePerUnitGas);
+  }
+
+  return {
+    railgunAddress: decoded.railgunAddress,
+    fees,
+    feeExpiration: Number(decoded.feeExpiration),
+    feesID: String(decoded.feesID),
+    availableWallets: Number(decoded.availableWallets),
+    relayAdapt: decoded.relayAdapt,
+    relayAdapt7702: decoded.relayAdapt7702,
+    requiredPOIListKeys: Array.isArray(decoded.requiredPOIListKeys)
+      ? decoded.requiredPOIListKeys.filter((value) => typeof value === "string")
+      : [],
+    reliability: Number(decoded.reliability),
+    version: String(decoded.version),
+    identifier: decoded.identifier,
+    signatureStatus: "unverified-no-wallet-sdk",
+    receivedAt: message.timestamp ?? null
+  };
+};
+
+const selectRawFeeAd = (feeAds, tokenAddress) => {
+  const normalizedTokenAddress = getAddress(tokenAddress);
+  return feeAds
+    .filter((ad) => feeAdUsable(ad))
+    .flatMap((ad) => {
+      const feePerUnitGas = ad.fees[normalizedTokenAddress];
+
+      if (!feePerUnitGas) return [];
+
+      return [
+        {
+          ...ad,
+          tokenAddress: normalizedTokenAddress,
+          feePerUnitGas
+        }
+      ];
+    })
+    .sort((left, right) => {
+      const feeDelta = BigInt(left.feePerUnitGas) - BigInt(right.feePerUnitGas);
+
+      if (feeDelta !== 0n) {
+        return feeDelta > 0n ? 1 : -1;
+      }
+
+      return right.reliability - left.reliability;
+    })[0] ?? null;
+};
 
 const stopNode = async (node) => {
   if (!node?.stop) {
@@ -208,6 +319,9 @@ const makeWakuMessage = (decoded) => ({
 class ScriptWakuAdapter {
   messageQueue = [];
   waiters = [];
+  feeAds = new Map();
+  feeAdErrors = [];
+  observedFeeMessages = 0;
   closed = false;
 
   constructor(node, routingInfo) {
@@ -265,7 +379,9 @@ class ScriptWakuAdapter {
         const decoded = await promise;
 
         if (decoded) {
-          messages.push(makeWakuMessage(decoded));
+          const message = makeWakuMessage(decoded);
+          this.observeFeeAd(message);
+          messages.push(message);
         }
       }
     }
@@ -284,6 +400,8 @@ class ScriptWakuAdapter {
   }
 
   enqueue(message) {
+    this.observeFeeAd(message);
+
     const waiter = this.waiters.shift();
 
     if (waiter) {
@@ -292,6 +410,37 @@ class ScriptWakuAdapter {
     }
 
     this.messageQueue.push(message);
+  }
+
+  observeFeeAd(message) {
+    if (message.contentTopic !== feesContentTopic) {
+      return;
+    }
+
+    this.observedFeeMessages += 1;
+
+    try {
+      const ad = parseFeeAd(message);
+
+      if (!ad) return;
+
+      const key = [
+        ad.railgunAddress,
+        ad.feesID,
+        ad.identifier ?? "default"
+      ].join(":");
+      this.feeAds.set(key, ad);
+    } catch (error) {
+      this.feeAdErrors.push(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  rawFeeAdSnapshot() {
+    return {
+      observedMessages: this.observedFeeMessages,
+      parsedAds: [...this.feeAds.values()],
+      parseErrors: this.feeAdErrors.slice(-20)
+    };
   }
 }
 
@@ -384,13 +533,27 @@ const scan = async (options) => {
           continue;
         }
 
+        const rawSelected = selectRawFeeAd(
+          adapter.rawFeeAdSnapshot().parsedAds,
+          token.address
+        );
+
         try {
           const broadcaster = await manager.bestBroadcasterForToken(
             token.address,
-            unixSeconds()
+            currentTimestampMilliseconds()
           );
 
           if (!broadcaster) {
+            if (rawSelected) {
+              tokenResults.set(token.symbol, {
+                ...token,
+                broadcaster: null,
+                rawBroadcaster: rawSelected,
+                error:
+                  "Raw fee ad observed; Kohaku manager did not select a JsBroadcaster."
+              });
+            }
             continue;
           }
 
@@ -418,8 +581,23 @@ const scan = async (options) => {
           tokenResults.set(token.symbol, {
             ...token,
             broadcaster: null,
+            rawBroadcaster: rawSelected,
             error: error instanceof Error ? error.message : String(error)
           });
+        }
+
+        if (!current?.broadcaster && rawSelected) {
+          const next = tokenResults.get(token.symbol);
+
+          if (next && !next.broadcaster) {
+            tokenResults.set(token.symbol, {
+              ...next,
+              rawBroadcaster: rawSelected,
+              error:
+                next.error ??
+                "Raw fee ad observed; Kohaku manager did not select a JsBroadcaster."
+            });
+          }
         }
       }
 
@@ -431,8 +609,23 @@ const scan = async (options) => {
     }
 
     const peerCount = (await node.getConnectedPeers()).length;
+    const rawFeeAdSnapshot = adapter.rawFeeAdSnapshot();
+    const rawBroadcasters = rawFeeAdSnapshot.parsedAds.map((ad) => ({
+      railgunAddress: ad.railgunAddress,
+      feesID: ad.feesID,
+      identifier: ad.identifier,
+      version: ad.version,
+      availableWallets: ad.availableWallets,
+      feeExpiration: ad.feeExpiration,
+      requiredPOIListKeys: ad.requiredPOIListKeys,
+      supportedTokens: Object.keys(ad.fees),
+      signatureStatus: ad.signatureStatus
+    }));
     const result = {
       ok: found.size > 0,
+      rawFeeAdsObserved: rawFeeAdSnapshot.observedMessages,
+      rawFeeAdsParsed: rawFeeAdSnapshot.parsedAds.length,
+      rawFeeAdParseErrors: rawFeeAdSnapshot.parseErrors,
       createdAt: new Date().toISOString(),
       elapsedMs: Date.now() - startedAt,
       chainId: Number(chainId),
@@ -443,25 +636,39 @@ const scan = async (options) => {
       },
       tokens: [...tokenResults.values()],
       broadcasters: [...found.values()],
+      rawBroadcasters,
       notes: [
         "This is a no-spend Waku scan.",
         "No proof was generated.",
         "No transaction was submitted.",
         "No public smart wallet, ERC-4337 bundler, paymaster, or Pimlico endpoint was contacted.",
-        "This scanner uses visible direct peers and disables @waku/sdk default DNS discovery."
-      ]
+        "This scanner uses visible direct peers and disables @waku/sdk default DNS discovery.",
+        rawFeeAdSnapshot.parsedAds.length > 0 && found.size === 0
+          ? "Raw RAILGUN Waku fee ads were observed, but the installed Kohaku manager did not expose a selectable JsBroadcaster."
+          : null
+      ].filter(Boolean)
     };
 
     if (options.json) {
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     } else {
       console.log("");
-      console.log(found.size > 0 ? "Broadcasters found." : "No broadcasters found.");
+      console.log(
+        found.size > 0
+          ? "Kohaku-selectable broadcasters found."
+          : rawFeeAdSnapshot.parsedAds.length > 0
+            ? "Raw fee ads found, but Kohaku selected no broadcaster."
+            : "No broadcasters found."
+      );
 
       for (const result of tokenResults.values()) {
         if (result.broadcaster) {
           console.log(
             `${result.symbol}: ${result.broadcaster.railgunFeeRecipient} (${result.broadcaster.broadcasterAddress})`
+          );
+        } else if (result.rawBroadcaster) {
+          console.log(
+            `${result.symbol}: raw ${result.rawBroadcaster.railgunAddress} fee ${result.rawBroadcaster.feePerUnitGas} (${result.rawBroadcaster.signatureStatus})`
           );
         } else {
           console.log(`${result.symbol}: none`);

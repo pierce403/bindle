@@ -67,21 +67,23 @@ concerns, not the default first-run experience.
   ERC-4337 bundler, paymaster, and RAILGUN sync endpoints. Waku scanning does
   not run on app load and does not create proofs, submit transactions, or touch
   the public smart wallet.
-- `pnpm scan:waku` runs the same kind of no-spend Kohaku RAILGUN relay scan
-  from the terminal. Use `pnpm --silent scan:waku -- --json` for clean
-  machine-readable output. It starts a Waku light node with visible direct
-  peers, probes WETH/USDC broadcaster fee advertisements, then stops without
-  creating proofs, submitting transactions, calling Pimlico, or touching the
-  smart wallet.
+- `pnpm scan:waku` runs the same kind of no-spend RAILGUN relay scan from the
+  terminal. Use `pnpm --silent scan:waku -- --json` for machine-readable
+  output. It starts a Waku light node with visible direct peers, reports raw
+  current WETH/USDC broadcaster fee ads separately from Kohaku manager
+  selections, then stops without creating proofs, submitting transactions,
+  calling Pimlico, or touching the smart wallet.
 - Pay has a USDC route-review UX for Ethereum mainnet: asset search,
   recipient/amount entry, QR or pasted payment request import, endpoint
   preflight disclosure, modal route review, RAILGUN proof-progress disclosure,
   and route disclosure. Because this Pay route spends from private RAILGUN
   balance, proof generation remains deliberately disabled until Bindle can
   build the proved Kohaku private operation with private change returned to
-  `0zk`. Waku broadcaster discovery, fee quote, and prepared-operation
-  submission plumbing are wired, but Private Pay never uses the user's passkey
-  smart account, Pimlico bundler, paymaster, or EOA for the private leg.
+  `0zk` and hand it to a selectable Waku broadcaster. Raw public Waku fee ads
+  are visible in Debug/`pnpm scan:waku`, but the installed Kohaku alpha.12
+  manager currently does not expose a selectable `JsBroadcaster` from those ads.
+  Private Pay never uses the user's passkey smart account, Pimlico bundler,
+  paymaster, or EOA for the private leg.
 - Endpoint presets are visible in Connections. Bindle default currently uses a
   labelled public Ethereum RPC, RAILGUN sync indexer, visible public Waku
   RAILGUN broadcaster policy with direct peers, and public ERC-4337 bundler,

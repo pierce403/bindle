@@ -1545,13 +1545,13 @@ function WalletApp() {
     setPayStatus(kohakuPrivateActionsPendingMessage);
     setPayProofProgress({
       percent: 0,
-      status: "Private actions pending Kohaku broadcaster verification"
+      status: "Private actions pending Kohaku Waku compatibility"
     });
     setAppNotice(null);
     recordDebugEvent({
       level: "warning",
       source: "pay",
-      message: "Private Pay disabled pending Kohaku broadcaster verification",
+      message: "Private Pay disabled pending Kohaku Waku compatibility",
       detail: [
         `Recipient: ${draft.recipient.trim()}`,
         `Amount: ${draft.amount.trim()} ${asset.symbol}`,

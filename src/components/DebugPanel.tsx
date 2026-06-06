@@ -215,6 +215,17 @@ export function DebugPanel({ entries, policy, onClear }: DebugPanelProps) {
                     {wakuMap.requiredProtocols.store}
                   </span>
                 </div>
+                <div className="preflight-row">
+                  <strong>Raw fee ads</strong>
+                  <span>
+                    {wakuMap.rawFeeAdsParsed} parsed /{" "}
+                    {wakuMap.rawFeeMessagesObserved} observed
+                  </span>
+                </div>
+                <div className="preflight-row">
+                  <strong>Kohaku selected</strong>
+                  <span>{wakuMap.kohakuManagerSelections}</span>
+                </div>
                 {wakuMap.feeTokens.map((feeToken) => (
                   <div
                     className="preflight-row"
@@ -223,10 +234,17 @@ export function DebugPanel({ entries, policy, onClear }: DebugPanelProps) {
                     <strong>{feeToken.symbol}</strong>
                     <span>
                       {feeToken.broadcasterFound
-                        ? `${feeToken.selectedBroadcasterRailgunAddress} / fee ${feeToken.feePerUnitGas}`
+                        ? `Kohaku selected ${feeToken.selectedBroadcasterRailgunAddress} / fee ${feeToken.feePerUnitGas}`
+                        : feeToken.rawAdFound
+                          ? `raw ad ${feeToken.selectedBroadcasterRailgunAddress} / fee ${feeToken.feePerUnitGas} / ${feeToken.signatureStatus}`
                         : feeToken.error || "no broadcaster found"}
                     </span>
                   </div>
+                ))}
+                {wakuMap.notes.map((note) => (
+                  <p className="status-message" key={note}>
+                    {note}
+                  </p>
                 ))}
                 {wakuMap.error ? (
                   <p className="status-message error-text">{wakuMap.error}</p>
