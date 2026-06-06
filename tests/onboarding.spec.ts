@@ -220,6 +220,17 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByText("RAILGUN proving artifacts").first()).toBeVisible();
   });
 
+  test("shows account import as a dedicated settings action", async ({ page }) => {
+    await page.goto("/");
+
+    await page.getByRole("button", { name: "Settings" }).click();
+
+    await expect(page.getByText("Account import")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Import account JSON" })
+    ).toBeVisible();
+  });
+
   test(
     "enrolls a virtual passkey without inventing wallet addresses",
     async ({ page, context, browserName }) => {

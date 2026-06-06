@@ -175,6 +175,20 @@ export function SettingsPanel({
             <Download size={17} aria-hidden="true" />
             {isExportingAccount ? "Exporting" : "Export"}
           </button>
+        </div>
+      </div>
+
+      <div className="settings-row">
+        <div>
+          <strong>Account import</strong>
+          <span>
+            Imports a Bindle account JSON file and re-encrypts included RAILGUN
+            recovery material into this browser. Public smart-account spending
+            still requires the matching passkey.
+          </span>
+          {accountExportStatus ? <small>{accountExportStatus}</small> : null}
+        </div>
+        <div className="settings-actions">
           <button
             className="secondary-action"
             type="button"
@@ -183,7 +197,7 @@ export function SettingsPanel({
             title="Import account JSON"
           >
             <Upload size={17} aria-hidden="true" />
-            {isImportingAccount ? "Importing" : "Import"}
+            {isImportingAccount ? "Importing" : "Import account JSON"}
           </button>
           <input
             ref={importInputRef}
