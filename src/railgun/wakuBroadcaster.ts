@@ -388,6 +388,9 @@ const serializeFee = (fee: Fee): SelectedRailgunBroadcaster["tokenFee"] => ({
   reliability: fee.reliability
 });
 
+const currentUnixTimestampSeconds = (): bigint =>
+  BigInt(Math.floor(Date.now() / 1000));
+
 export const resolveRailgunBroadcasterFeeTokenAddress = (
   policy: Pick<
     ConnectionPolicy,
@@ -429,7 +432,7 @@ export const selectRailgunWakuBroadcaster = async ({
   onStatus(`Selecting RAILGUN Waku broadcaster for ${feeTokenAddress}.`);
   const broadcaster = await manager.bestBroadcasterForToken(
     feeTokenAddress,
-    BigInt(Date.now())
+    currentUnixTimestampSeconds()
   );
 
   if (!broadcaster) {

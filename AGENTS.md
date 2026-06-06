@@ -232,6 +232,10 @@ avoids requiring GitHub workflow scope.
   its DNS discovery trees, so `src/railgun/wakuBroadcaster.ts` keeps SDK DNS
   discovery disabled and dials only the direct peers visible in
   `ConnectionPolicy`, then uses peer exchange/cache after connecting.
+- Kohaku Waku `JsBroadcasterManager.bestBroadcasterForToken` expects the
+  current time as a Unix timestamp in seconds. Passing JavaScript `Date.now()`
+  milliseconds makes broadcaster fee offers look expired and reports
+  `no-broadcasters` even when Waku peers are connected.
 - Do not use Kohaku's higher-level `createRailgunPlugin()` helper in Bindle
   until indexer/POI endpoints are configurable. Its current implementation
   wires a default Subsquid syncer, which violates Bindle's no-hidden-endpoints
