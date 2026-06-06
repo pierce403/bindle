@@ -53,8 +53,21 @@ export type WakuBroadcasterMapSnapshot = {
   discoveredBroadcasters: Array<{
     railgunAddress: string;
     supportedFeeTokens: string[];
+    feeTokenQuotes?: Array<{
+      symbol: string;
+      tokenAddress: string;
+      feePerUnitGas: string;
+    }>;
     feesId?: string;
+    identifier?: string;
     version?: string;
+    availableWallets?: number;
+    feeExpiration?: number;
+    relayAdapt?: string;
+    relayAdapt7702?: string;
+    requiredPoiListKeys?: string[];
+    reliability?: number;
+    receivedAt?: number | null;
     selectionSource?: "kohaku-manager" | "raw-fee-ad";
     signatureStatus?: string;
     raw?: unknown;
@@ -101,6 +114,14 @@ export type DebugMapSnapshot = {
 const mainnetUsdcAddress = getAddress(
   "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 ) as Address;
+
+const knownFeeTokenSymbols = new Map<string, string>([
+  [UNISWAP_V4_WETH_ADDRESS.toLowerCase(), "WETH"],
+  [mainnetUsdcAddress.toLowerCase(), "USDC"],
+  [getAddress("0x6B175474E89094C44Da98b954EedeAC495271d0F").toLowerCase(), "DAI"],
+  [getAddress("0xdAC17F958D2ee523a2206206994597C13D831ec7").toLowerCase(), "USDT"],
+  [getAddress("0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599").toLowerCase(), "WBTC"]
+]);
 
 const noSpendNotes = [
   "No transaction was created.",
@@ -175,6 +196,40 @@ const feeTokensForPolicy = (
   return feeTokens;
 };
 
+const feeTokenSymbolForAddress = (tokenAddress: string): string => {
+  try {
+    const normalized = getAddress(tokenAddress);
+    return (
+      knownFeeTokenSymbols.get(normalized.toLowerCase()) ??
+      `${normalized.slice(0, 6)}...${normalized.slice(-4)}`
+    );
+  } catch {
+    return tokenAddress;
+  }
+};
+
+const mergeUnique = (left: string[], right: string[]): string[] =>
+  Array.from(new Set([...left, ...right]));
+
+const mergeFeeTokenQuotes = (
+  left: NonNullable<
+    WakuBroadcasterMapSnapshot["discoveredBroadcasters"][number]["feeTokenQuotes"]
+  >,
+  right: NonNullable<
+    WakuBroadcasterMapSnapshot["discoveredBroadcasters"][number]["feeTokenQuotes"]
+  >
+) => {
+  const byAddress = new Map<string, (typeof left)[number]>();
+
+  for (const quote of [...left, ...right]) {
+    byAddress.set(quote.tokenAddress.toLowerCase(), quote);
+  }
+
+  return Array.from(byAddress.values()).sort((a, b) =>
+    a.symbol.localeCompare(b.symbol)
+  );
+};
+
 const unavailableWakuSnapshot = ({
   policy,
   startedAt,
@@ -230,6 +285,67 @@ export const scanWakuBroadcasterMap = async (
       string,
       WakuBroadcasterMapSnapshot["discoveredBroadcasters"][number]
     >();
+
+    for (const ad of rawFeeAdSnapshot.parsedAds) {
+      const feeTokenQuotes = Object.entries(ad.fees)
+        .map(([tokenAddress, feePerUnitGas]) => {
+          const normalizedTokenAddress = getAddress(tokenAddress);
+          return {
+            symbol: feeTokenSymbolForAddress(normalizedTokenAddress),
+            tokenAddress: normalizedTokenAddress,
+            feePerUnitGas
+          };
+        })
+        .sort((a, b) => a.symbol.localeCompare(b.symbol));
+      const supportedFeeTokens = feeTokenQuotes.map((quote) => quote.symbol);
+      const existing = discoveredByRailgunAddress.get(ad.railgunAddress);
+
+      if (existing) {
+        existing.supportedFeeTokens = mergeUnique(
+          existing.supportedFeeTokens,
+          supportedFeeTokens
+        );
+        existing.feeTokenQuotes = mergeFeeTokenQuotes(
+          existing.feeTokenQuotes ?? [],
+          feeTokenQuotes
+        );
+        existing.feeExpiration = Math.max(
+          existing.feeExpiration ?? 0,
+          ad.feeExpiration
+        );
+        existing.availableWallets = Math.max(
+          existing.availableWallets ?? 0,
+          ad.availableWallets
+        );
+        existing.reliability = Math.max(
+          existing.reliability ?? 0,
+          ad.reliability
+        );
+        existing.receivedAt =
+          Math.max(existing.receivedAt ?? 0, ad.receivedAt ?? 0) || null;
+        existing.raw = ad;
+      } else {
+        discoveredByRailgunAddress.set(ad.railgunAddress, {
+          railgunAddress: ad.railgunAddress,
+          supportedFeeTokens,
+          feeTokenQuotes,
+          feesId: ad.feesID,
+          identifier: ad.identifier,
+          version: ad.version,
+          availableWallets: ad.availableWallets,
+          feeExpiration: ad.feeExpiration,
+          relayAdapt: ad.relayAdapt,
+          relayAdapt7702: ad.relayAdapt7702,
+          requiredPoiListKeys: ad.requiredPOIListKeys,
+          reliability: ad.reliability,
+          receivedAt: ad.receivedAt,
+          selectionSource: "raw-fee-ad",
+          signatureStatus: ad.signatureStatus,
+          raw: ad
+        });
+      }
+    }
+
     const feeTokenResults: FeeTokenProbe[] = [];
     let kohakuManagerSelections = 0;
 
@@ -285,11 +401,22 @@ export const scanWakuBroadcasterMap = async (
         );
 
         if (existing) {
-          existing.supportedFeeTokens.push(feeToken.symbol);
+          existing.supportedFeeTokens = mergeUnique(existing.supportedFeeTokens, [
+            feeToken.symbol
+          ]);
+          existing.selectionSource = "kohaku-manager";
+          existing.signatureStatus = "kohaku-manager";
         } else {
           discoveredByRailgunAddress.set(selected.railgunAddress, {
             railgunAddress: selected.railgunAddress,
             supportedFeeTokens: [feeToken.symbol],
+            feeTokenQuotes: [
+              {
+                symbol: feeToken.symbol,
+                tokenAddress,
+                feePerUnitGas: selected.tokenFee.perUnitGas
+              }
+            ],
             feesId: selected.tokenFee.feesID,
             selectionSource: "kohaku-manager",
             signatureStatus: "kohaku-manager",
@@ -318,13 +445,30 @@ export const scanWakuBroadcasterMap = async (
           );
 
           if (existing) {
-            existing.supportedFeeTokens.push(feeToken.symbol);
+            existing.supportedFeeTokens = mergeUnique(existing.supportedFeeTokens, [
+              feeToken.symbol
+            ]);
           } else {
             discoveredByRailgunAddress.set(rawSelected.railgunAddress, {
               railgunAddress: rawSelected.railgunAddress,
               supportedFeeTokens: [feeToken.symbol],
+              feeTokenQuotes: [
+                {
+                  symbol: feeToken.symbol,
+                  tokenAddress,
+                  feePerUnitGas: rawSelected.feePerUnitGas
+                }
+              ],
               feesId: rawSelected.feesID,
               version: rawSelected.version,
+              identifier: rawSelected.identifier,
+              availableWallets: rawSelected.availableWallets,
+              feeExpiration: rawSelected.feeExpiration,
+              relayAdapt: rawSelected.relayAdapt,
+              relayAdapt7702: rawSelected.relayAdapt7702,
+              requiredPoiListKeys: rawSelected.requiredPOIListKeys,
+              reliability: rawSelected.reliability,
+              receivedAt: rawSelected.receivedAt,
               selectionSource: "raw-fee-ad",
               signatureStatus: rawSelected.signatureStatus,
               raw: rawSelected
@@ -381,7 +525,16 @@ export const scanWakuBroadcasterMap = async (
       rawFeeAdsParsed: rawFeeAdSnapshot.parsedAds.length,
       kohakuManagerSelections,
       feeTokens: feeTokenResults,
-      discoveredBroadcasters: Array.from(discoveredByRailgunAddress.values()),
+      discoveredBroadcasters: Array.from(discoveredByRailgunAddress.values())
+        .map((broadcaster) => ({
+          ...broadcaster,
+          supportedFeeTokens: Array.from(new Set(broadcaster.supportedFeeTokens)).sort()
+        }))
+        .sort((left, right) =>
+          (left.identifier ?? left.railgunAddress).localeCompare(
+            right.identifier ?? right.railgunAddress
+          )
+        ),
       notes: [
         ...notes,
         rawFeeAdSnapshot.parsedAds.length > 0 && kohakuManagerSelections === 0

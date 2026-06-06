@@ -11,33 +11,31 @@ import {
 } from "../src/debug/relayMap";
 import { enableStandalonePwa } from "./support/pwa";
 
-test("Debug tab shows Map section without scanning automatically", async ({
+test("Relays tab shows map controls without scanning automatically", async ({
   page
 }) => {
   await enableStandalonePwa(page);
   await page.goto("/");
-  await page.getByRole("button", { name: "Debug" }).click();
+  await page.getByRole("button", { name: "Relays" }).click();
 
-  await expect(page.getByRole("heading", { name: "Map" })).toBeVisible();
-  await expect(
-    page.getByText("Discovers RAILGUN broadcasters over Waku")
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Relays" })).toBeVisible();
+  await expect(page.getByText("Waku RAILGUN relays")).toBeVisible();
   await expect(
     page.getByText("Checks configured RPC, ERC-4337 bundler")
   ).toBeVisible();
   await expect(page.getByText("Map status: idle")).toBeVisible();
-  await expect(page.getByText("Waku broadcaster map")).toBeVisible();
   await expect(page.getByText("Public edge map")).toBeVisible();
+  await expect(page.getByLabel("Relay filters")).not.toBeVisible();
 });
 
-test("Debug Map stays idle until a scan button is clicked", async ({ page }) => {
+test("Relays map stays idle until a scan button is clicked", async ({ page }) => {
   await enableStandalonePwa(page);
   await page.goto("/");
-  await page.getByRole("button", { name: "Debug" }).click();
+  await page.getByRole("button", { name: "Relays" }).click();
 
   await expect(page.getByText("Map status: idle")).toBeVisible();
   await expect(
-    page.getByText("Idle. Use Scan Waku broadcasters to start discovery.")
+    page.getByText("Idle. Use Scan Waku relays to start broadcaster discovery.")
   ).toBeVisible();
 });
 

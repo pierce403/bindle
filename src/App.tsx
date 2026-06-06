@@ -11,6 +11,7 @@ import { OnboardingWizard } from "./components/OnboardingWizard";
 import { PrivacySwitchboard } from "./components/PrivacySwitchboard";
 import { PwaInstallPrompt } from "./components/PwaInstallPrompt";
 import { RailgunKeyRecoveryPrompt } from "./components/RailgunKeyRecoveryPrompt";
+import { RelaysPanel } from "./components/RelaysPanel";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { UnshieldedBalanceBanner } from "./components/UnshieldedBalanceBanner";
 import { WalletActionPanel } from "./components/WalletActionPanel";
@@ -2274,6 +2275,8 @@ function WalletApp() {
           />
         ) : null}
 
+        {activeTab === "relays" ? <RelaysPanel policy={policy} /> : null}
+
         {activeTab === "settings" ? (
           <SettingsPanel
             theme={theme}
@@ -2304,7 +2307,6 @@ function WalletApp() {
         {activeTab === "debug" ? (
           <DebugPanel
             entries={debugLog}
-            policy={policy}
             onClear={clearDebugEvents}
           />
         ) : null}

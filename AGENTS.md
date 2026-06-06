@@ -67,7 +67,8 @@ Current stack:
 - Product direction follows Zodl/Zashi-style simplicity: a single home balance,
   obvious Receive/Send/Pay/Swap actions, an unshielded-balance warning, and
   no fake activity. App-level sections use bottom navigation for wallet, node
-  connections, settings, and later chat; activity stays on the wallet home.
+  connections, relay discovery, settings, and later chat; activity stays on
+  the wallet home.
 
 Important directories:
 
@@ -380,11 +381,11 @@ avoids requiring GitHub workflow scope.
   direct peers, constructs the Kohaku `JsBroadcasterManager`, selects a
   broadcaster by fee token, and submits prepared private operations. It does
   not yet construct the proved Pay/private operation itself.
-- `src/debug/relayMap.ts` provides the user-triggered Debug Map scan. It may
-  start Waku only after the user clicks "Scan Waku broadcasters"; it must stop
-  the Waku transport afterward, never create proofs, never submit transactions,
-  never touch the public smart wallet, and never call Pimlico. Keep RAILGUN
-  broadcasters and ERC-4337 bundlers separate in Debug UI copy.
+- `src/debug/relayMap.ts` provides the user-triggered relay map scan. It may
+  start Waku only after the user clicks "Scan Waku relays" in the Relays tab;
+  it must stop the Waku transport afterward, never create proofs, never submit
+  transactions, never touch the public smart wallet, and never call Pimlico.
+  Keep RAILGUN broadcasters and ERC-4337 bundlers separate in Relays UI copy.
 - `scripts/scan-kohaku-waku-relays.mjs` is the terminal equivalent of the
   no-spend Waku broadcaster map. It initializes Kohaku alpha.12 WASM from local
   bytes because Node cannot `fetch()` the package's file URL, dials only

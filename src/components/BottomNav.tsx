@@ -1,6 +1,19 @@
-import { Bug, Home, MessageCircle, PlugZap, Settings } from "lucide-react";
+import {
+  Bug,
+  Home,
+  MessageCircle,
+  PlugZap,
+  Settings,
+  Waypoints
+} from "lucide-react";
 
-export type AppTab = "wallet" | "chat" | "nodes" | "settings" | "debug";
+export type AppTab =
+  | "wallet"
+  | "chat"
+  | "nodes"
+  | "relays"
+  | "settings"
+  | "debug";
 
 type BottomNavProps = {
   activeTab: AppTab;
@@ -16,6 +29,7 @@ const tabs: Array<{
   { id: "wallet", label: "Wallet", Icon: Home },
   { id: "chat", label: "Chat", Icon: MessageCircle, disabled: true },
   { id: "nodes", label: "Nodes", Icon: PlugZap },
+  { id: "relays", label: "Relays", Icon: Waypoints },
   { id: "settings", label: "Settings", Icon: Settings },
   { id: "debug", label: "Debug", Icon: Bug }
 ];
