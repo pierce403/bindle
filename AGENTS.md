@@ -346,6 +346,11 @@ avoids requiring GitHub workflow scope.
   direct peers, constructs the Kohaku `JsBroadcasterManager`, selects a
   broadcaster by fee token, and submits prepared private operations. It does
   not yet construct the proved Pay/private operation itself.
+- `src/debug/relayMap.ts` provides the user-triggered Debug Map scan. It may
+  start Waku only after the user clicks "Scan Waku broadcasters"; it must stop
+  the Waku transport afterward, never create proofs, never submit transactions,
+  never touch the public smart wallet, and never call Pimlico. Keep RAILGUN
+  broadcasters and ERC-4337 bundlers separate in Debug UI copy.
 - Bindle is pnpm-only. `packageManager` pins pnpm, `.npmrc` enables pnpm's
   package-manager strict mode, and `scripts/require-pnpm.mjs` blocks npm/yarn
   installs.

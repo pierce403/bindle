@@ -62,6 +62,11 @@ concerns, not the default first-run experience.
 - Send Review stays disabled until wallet, toolkit, RPC, recipient, amount, and
   required endpoint preflight checks pass.
 - Local intent routing for `0zk`, `0x`, `.eth`, and `@provider` style recipients.
+- Debug includes a user-triggered Map section for no-spend RAILGUN/Waku
+  broadcaster discovery and separate public-edge checks for configured RPC,
+  ERC-4337 bundler, paymaster, and RAILGUN sync endpoints. Waku scanning does
+  not run on app load and does not create proofs, submit transactions, or touch
+  the public smart wallet.
 - Pay has a USDC route-review UX for Ethereum mainnet: asset search,
   recipient/amount entry, QR or pasted payment request import, endpoint
   preflight disclosure, modal route review, RAILGUN proof-progress disclosure,

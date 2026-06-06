@@ -1,0 +1,454 @@
+import { getAddress, numberToHex, type Address } from "viem";
+import type { ConnectionPolicy } from "../privacy/connectionPolicy";
+import { UNISWAP_V4_WETH_ADDRESS } from "../intents/uniswapV4PayRoute";
+import {
+  ensureRailgunWakuBroadcasterTransport,
+  selectRailgunWakuBroadcaster,
+  stopRailgunWakuBroadcasterTransport
+} from "../railgun/wakuBroadcaster";
+import { isPimlicoBundlerUrl } from "../wallet/userOperationGas";
+
+export type RelayMapStatus =
+  | "idle"
+  | "scanning"
+  | "connected"
+  | "no-waku-peers"
+  | "no-broadcasters"
+  | "partial"
+  | "error";
+
+export type FeeTokenProbe = {
+  symbol: "WETH" | "USDC" | "custom";
+  tokenAddress: string;
+  broadcasterFound: boolean;
+  selectedBroadcasterRailgunAddress: string | null;
+  feesId: string | null;
+  feePerUnitGas: string | null;
+  rawTokenFee?: unknown;
+  error: string | null;
+};
+
+export type WakuBroadcasterMapSnapshot = {
+  createdAt: string;
+  chainId: 1;
+  network: "ethereum-mainnet";
+  status: RelayMapStatus;
+  elapsedMs: number;
+  transport: "kohaku-waku" | "railgun-community-waku" | "unavailable";
+  pubsubTopic: string | null;
+  wakuPeerCount: number | null;
+  requiredProtocols: {
+    filter: "ready" | "unknown" | "error";
+    lightPush: "ready" | "unknown" | "error";
+    store: "ready" | "unknown" | "error";
+  };
+  feeTokens: FeeTokenProbe[];
+  discoveredBroadcasters: Array<{
+    railgunAddress: string;
+    supportedFeeTokens: string[];
+    feesId?: string;
+    version?: string;
+    raw?: unknown;
+  }>;
+  notes: string[];
+  error: string | null;
+};
+
+export type PublicEndpointMapSnapshot = {
+  ethereumRpc: {
+    url: string;
+    configured: boolean;
+    chainId: number | null;
+    blockNumber: string | null;
+    error: string | null;
+  };
+  bundler: {
+    url: string;
+    configured: boolean;
+    supportedEntryPoints?: string[];
+    pimlicoGasPriceSupported?: boolean;
+    error: string | null;
+  };
+  paymaster: {
+    url: string;
+    configured: boolean;
+    error: string | null;
+  };
+  railgunSyncIndexer: {
+    url: string;
+    configured: boolean;
+    error: string | null;
+  };
+};
+
+export type DebugMapSnapshot = {
+  createdAt: string;
+  endpointPreset: ConnectionPolicy["endpointPreset"];
+  providerMode: ConnectionPolicy["providerMode"];
+  wakuBroadcaster: WakuBroadcasterMapSnapshot | null;
+  publicEndpoints: PublicEndpointMapSnapshot | null;
+};
+
+const mainnetUsdcAddress = getAddress(
+  "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+) as Address;
+
+const noSpendNotes = [
+  "No transaction was created.",
+  "No proof was generated.",
+  "No public smart wallet or ERC-4337 bundler was contacted for Waku scanning."
+];
+
+const errorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+const jsonRpcRequest = async <Result>(
+  url: string,
+  method: string,
+  params: unknown[] = []
+): Promise<Result> => {
+  const response = await fetch(url, {
+    body: JSON.stringify({
+      id: 1,
+      jsonrpc: "2.0",
+      method,
+      params
+    }),
+    headers: {
+      "content-type": "application/json"
+    },
+    method: "POST"
+  });
+  const responseText = await response.text();
+  const payload = responseText ? (JSON.parse(responseText) as unknown) : null;
+
+  if (!response.ok) {
+    throw new Error(`${method} failed with HTTP ${response.status}`);
+  }
+
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    !("result" in payload)
+  ) {
+    const maybeError =
+      payload && typeof payload === "object" && "error" in payload
+        ? JSON.stringify((payload as { error: unknown }).error)
+        : "missing result";
+    throw new Error(`${method} returned ${maybeError}`);
+  }
+
+  return (payload as { result: Result }).result;
+};
+
+const feeTokensForPolicy = (
+  policy: ConnectionPolicy
+): Array<Pick<FeeTokenProbe, "symbol" | "tokenAddress">> => {
+  const feeTokens: Array<Pick<FeeTokenProbe, "symbol" | "tokenAddress">> = [
+    {
+      symbol: "WETH",
+      tokenAddress: UNISWAP_V4_WETH_ADDRESS
+    },
+    {
+      symbol: "USDC",
+      tokenAddress: mainnetUsdcAddress
+    }
+  ];
+  const customToken = policy.railgunBroadcasterCustomFeeTokenAddress.trim();
+
+  if (policy.railgunBroadcasterFeeToken === "custom" && customToken) {
+    feeTokens.push({
+      symbol: "custom",
+      tokenAddress: customToken
+    });
+  }
+
+  return feeTokens;
+};
+
+const unavailableWakuSnapshot = ({
+  policy,
+  startedAt,
+  error
+}: {
+  policy: ConnectionPolicy;
+  startedAt: number;
+  error: string;
+}): WakuBroadcasterMapSnapshot => ({
+  createdAt: new Date().toISOString(),
+  chainId: 1,
+  network: "ethereum-mainnet",
+  status: "error",
+  elapsedMs: Date.now() - startedAt,
+  transport: "unavailable",
+  pubsubTopic: policy.railgunBroadcasterPubSubTopic.trim() || null,
+  wakuPeerCount: null,
+  requiredProtocols: {
+    filter: "error",
+    lightPush: "error",
+    store: "error"
+  },
+  feeTokens: [],
+  discoveredBroadcasters: [],
+  notes: [
+    ...noSpendNotes,
+    "Installed Kohaku package did not complete Waku broadcaster discovery. Bindle needs the Kohaku Waku adapter path or a standalone Waku client before private actions can submit."
+  ],
+  error
+});
+
+export const scanWakuBroadcasterMap = async (
+  policy: ConnectionPolicy
+): Promise<WakuBroadcasterMapSnapshot> => {
+  const startedAt = Date.now();
+  const notes = [
+    ...noSpendNotes,
+    "The current Waku SDK build uses visible direct peers; custom DNS ENR trees are shown for policy visibility but not dialed."
+  ];
+
+  try {
+    const transport = await ensureRailgunWakuBroadcasterTransport({
+      policy,
+      onStatus: () => undefined
+    });
+    const wakuPeerCount = await transport.adapter.peerCount();
+    const discoveredByRailgunAddress = new Map<
+      string,
+      WakuBroadcasterMapSnapshot["discoveredBroadcasters"][number]
+    >();
+    const feeTokenResults: FeeTokenProbe[] = [];
+
+    for (const feeToken of feeTokensForPolicy(policy)) {
+      let tokenAddress: Address;
+
+      try {
+        tokenAddress = getAddress(feeToken.tokenAddress) as Address;
+      } catch (error) {
+        feeTokenResults.push({
+          ...feeToken,
+          broadcasterFound: false,
+          selectedBroadcasterRailgunAddress: null,
+          feesId: null,
+          feePerUnitGas: null,
+          error: errorMessage(error)
+        });
+        continue;
+      }
+
+      try {
+        const selected = await selectRailgunWakuBroadcaster({
+          manager: transport.manager,
+          feeTokenAddress: tokenAddress,
+          onStatus: () => undefined
+        });
+
+        feeTokenResults.push({
+          ...feeToken,
+          tokenAddress,
+          broadcasterFound: true,
+          selectedBroadcasterRailgunAddress: selected.railgunAddress,
+          feesId: selected.tokenFee.feesID,
+          feePerUnitGas: selected.tokenFee.perUnitGas,
+          rawTokenFee: selected.tokenFee,
+          error: null
+        });
+
+        const existing = discoveredByRailgunAddress.get(
+          selected.railgunAddress
+        );
+
+        if (existing) {
+          existing.supportedFeeTokens.push(feeToken.symbol);
+        } else {
+          discoveredByRailgunAddress.set(selected.railgunAddress, {
+            railgunAddress: selected.railgunAddress,
+            supportedFeeTokens: [feeToken.symbol],
+            feesId: selected.tokenFee.feesID,
+            raw: selected.tokenFee
+          });
+        }
+      } catch (error) {
+        feeTokenResults.push({
+          ...feeToken,
+          tokenAddress,
+          broadcasterFound: false,
+          selectedBroadcasterRailgunAddress: null,
+          feesId: null,
+          feePerUnitGas: null,
+          error: errorMessage(error)
+        });
+      }
+    }
+
+    const foundCount = feeTokenResults.filter(
+      (feeToken) => feeToken.broadcasterFound
+    ).length;
+    const status: RelayMapStatus =
+      wakuPeerCount === 0
+        ? "no-waku-peers"
+        : foundCount === 0
+          ? "no-broadcasters"
+          : foundCount === feeTokenResults.length
+            ? "connected"
+            : "partial";
+
+    return {
+      createdAt: new Date().toISOString(),
+      chainId: 1,
+      network: "ethereum-mainnet",
+      status,
+      elapsedMs: Date.now() - startedAt,
+      transport: "kohaku-waku",
+      pubsubTopic: transport.pubsubTopic,
+      wakuPeerCount,
+      requiredProtocols: {
+        filter: "ready",
+        lightPush: "ready",
+        store: "ready"
+      },
+      feeTokens: feeTokenResults,
+      discoveredBroadcasters: Array.from(discoveredByRailgunAddress.values()),
+      notes,
+      error: null
+    };
+  } catch (error) {
+    const message = errorMessage(error);
+    const lowerMessage = message.toLowerCase();
+
+    return {
+      ...unavailableWakuSnapshot({
+        policy,
+        startedAt,
+        error: message
+      }),
+      status:
+        lowerMessage.includes("peer") || lowerMessage.includes("waku")
+          ? "no-waku-peers"
+          : "error"
+    };
+  } finally {
+    await stopRailgunWakuBroadcasterTransport();
+  }
+};
+
+export const scanPublicEndpointMap = async (
+  policy: ConnectionPolicy
+): Promise<PublicEndpointMapSnapshot> => {
+  const ethereumRpcUrl = policy.ethereumRpcUrl.trim();
+  const bundlerUrl = policy.bundlerUrl.trim();
+  const paymasterUrl = policy.paymasterUrl.trim();
+  const railgunSyncUrl = policy.railgunSyncUrl.trim();
+  const snapshot: PublicEndpointMapSnapshot = {
+    ethereumRpc: {
+      url: ethereumRpcUrl,
+      configured: ethereumRpcUrl.length > 0,
+      chainId: null,
+      blockNumber: null,
+      error: ethereumRpcUrl ? null : "not configured"
+    },
+    bundler: {
+      url: bundlerUrl,
+      configured: bundlerUrl.length > 0,
+      error: bundlerUrl ? null : "not configured"
+    },
+    paymaster: {
+      url: paymasterUrl,
+      configured: paymasterUrl.length > 0,
+      error: paymasterUrl
+        ? "configured, not probed; paymaster APIs are provider-specific"
+        : "not configured"
+    },
+    railgunSyncIndexer: {
+      url: railgunSyncUrl,
+      configured: railgunSyncUrl.length > 0,
+      error: railgunSyncUrl ? null : "not configured"
+    }
+  };
+
+  if (ethereumRpcUrl) {
+    try {
+      const [chainIdHex, blockNumberHex] = await Promise.all([
+        jsonRpcRequest<string>(ethereumRpcUrl, "eth_chainId"),
+        jsonRpcRequest<string>(ethereumRpcUrl, "eth_blockNumber")
+      ]);
+
+      snapshot.ethereumRpc.chainId = Number(BigInt(chainIdHex));
+      snapshot.ethereumRpc.blockNumber = BigInt(blockNumberHex).toString();
+    } catch (error) {
+      snapshot.ethereumRpc.error = errorMessage(error);
+    }
+  }
+
+  if (bundlerUrl) {
+    try {
+      snapshot.bundler.supportedEntryPoints = await jsonRpcRequest<string[]>(
+        bundlerUrl,
+        "eth_supportedEntryPoints"
+      );
+    } catch (error) {
+      snapshot.bundler.error = errorMessage(error);
+    }
+
+    if (isPimlicoBundlerUrl(bundlerUrl)) {
+      try {
+        await jsonRpcRequest<unknown>(
+          bundlerUrl,
+          "pimlico_getUserOperationGasPrice"
+        );
+        snapshot.bundler.pimlicoGasPriceSupported = true;
+      } catch (error) {
+        snapshot.bundler.pimlicoGasPriceSupported = false;
+        snapshot.bundler.error = [
+          snapshot.bundler.error,
+          errorMessage(error)
+        ]
+          .filter(Boolean)
+          .join("; ");
+      }
+    }
+  }
+
+  if (railgunSyncUrl) {
+    try {
+      const response = await fetch(railgunSyncUrl, {
+        body: JSON.stringify({
+          query: "{ __typename }"
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+
+      if (!response.ok) {
+        snapshot.railgunSyncIndexer.error = `health query failed with HTTP ${response.status}`;
+      }
+    } catch (error) {
+      snapshot.railgunSyncIndexer.error = errorMessage(error);
+    }
+  }
+
+  return snapshot;
+};
+
+const redactSensitiveWords = (value: string): string =>
+  value.replace(
+    /\b(mnemonics?|seed phrases?|spending keys?|viewing keys?|private keys?)\b/gi,
+    "[redacted-label]"
+  );
+
+export const formatDebugMapSnapshot = (snapshot: DebugMapSnapshot): string =>
+  redactSensitiveWords(
+    JSON.stringify(
+      {
+        ...snapshot,
+        warning:
+          "Copy includes endpoint URLs, public relay map results, and errors only. It must not include mnemonics, private keys, spending keys, or viewing keys.",
+        publicEndpointHexChainId: snapshot.publicEndpoints?.ethereumRpc.chainId
+          ? numberToHex(snapshot.publicEndpoints.ethereumRpc.chainId)
+          : null
+      },
+      null,
+      2
+    )
+  );

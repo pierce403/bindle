@@ -1774,6 +1774,10 @@ button:disabled {
   border-color: color-mix(in srgb, var(--negative) 46%, var(--border));
 }
 
+.source-badge.off {
+  border-color: var(--border);
+}
+
 .status-dot {
   width: 10px;
   height: 10px;
@@ -1806,6 +1810,64 @@ button:disabled {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.debug-map {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 84%, transparent);
+}
+
+.compact-heading h3 {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.debug-map-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.debug-map-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.debug-map-card-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.debug-map-card-heading strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.debug-map-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.debug-map-details {
+  display: grid;
+  gap: 8px;
+}
+
+.error-text {
+  color: var(--negative);
 }
 
 .debug-list {

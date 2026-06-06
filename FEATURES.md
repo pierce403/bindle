@@ -94,6 +94,9 @@ infrastructure.
       errors without suggesting an unsafe legacy fallback.
 - [x] Add a browser-local Debug tab with persistent wallet/toolkit error logs
       and stack traces for transient RAILGUN/Kohaku failures.
+- [x] Add Debug Map with user-triggered, no-spend RAILGUN/Waku broadcaster
+      discovery and separate public-edge RPC/bundler/paymaster/sync endpoint
+      checks.
 - [x] Guard Kohaku RAILGUN WASM initialization so `initLogging` runs once per
       PWA session instead of trapping during shield prep after wallet creation.
 - [x] Auto-start the privacy toolkit after a real `0zk` wallet exists when the
@@ -166,6 +169,10 @@ infrastructure.
 - [x] Add non-SDK RAILGUN Waku broadcaster discovery, fee quote, and prepared
       private-operation submission plumbing without reintroducing the RAILGUN
       Wallet SDK.
+- [x] Add a local relay map scan that can confirm whether Waku peers and
+      fee-token broadcasters are discoverable from the installed PWA without
+      generating proofs, submitting transactions, or touching the public smart
+      wallet.
 - [ ] Build the Kohaku-derived proved private operation that can be handed to
       the Waku broadcaster transport, with private change returned to 0zk,
       before enabling live private unshield/Private Pay submission.

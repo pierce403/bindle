@@ -12,7 +12,7 @@ import type {
   JsPoiProvedTx,
   WakuAdapter,
   WakuMessage
-} from "@kohaku-eth/railgun-waku";
+} from "../../node_modules/@kohaku-eth/railgun-waku/dist/pkg/railgun_rs.js";
 import type { ConnectionPolicy } from "../privacy/connectionPolicy";
 import { UNISWAP_V4_WETH_ADDRESS } from "../intents/uniswapV4PayRoute";
 
@@ -24,7 +24,8 @@ const peerDiscoveryTimeoutMs = 60_000;
 const historicalLookbackMs = 300_000;
 
 type WakuSdkModule = typeof import("@waku/sdk");
-type KohakuRailgunWakuModule = typeof import("@kohaku-eth/railgun-waku");
+type KohakuRailgunWakuModule =
+  typeof import("../../node_modules/@kohaku-eth/railgun-waku/dist/pkg/railgun_rs.js");
 
 export type PreparedBroadcasterSubmit = {
   submitter: "waku-railgun-broadcaster";
@@ -96,7 +97,12 @@ const loadWakuSdkModule = (): Promise<WakuSdkModule> => {
 
 const loadKohakuRailgunWakuModule =
   (): Promise<KohakuRailgunWakuModule> => {
-    kohakuRailgunWakuModulePromise ??= import("@kohaku-eth/railgun-waku");
+    kohakuRailgunWakuModulePromise ??= import(
+      "../../node_modules/@kohaku-eth/railgun-waku/dist/pkg/railgun_rs.js"
+    ).then(async (railgunWaku) => {
+      await railgunWaku.default();
+      return railgunWaku;
+    });
     return kohakuRailgunWakuModulePromise;
   };
 
@@ -246,6 +252,10 @@ class BindleWakuNodeAdapter implements WakuAdapter {
     await this.node.stop();
   }
 
+  async peerCount(): Promise<number> {
+    return (await this.node.getConnectedPeers()).length;
+  }
+
   private enqueue(message: WakuMessage): void {
     const waiter = this.waiters.shift();
 
@@ -266,6 +276,10 @@ const stopActiveTransport = async (): Promise<void> => {
   if (transport) {
     await transport.adapter.stop().catch(() => undefined);
   }
+};
+
+export const stopRailgunWakuBroadcasterTransport = async (): Promise<void> => {
+  await stopActiveTransport();
 };
 
 export const ensureRailgunWakuBroadcasterTransport = async ({

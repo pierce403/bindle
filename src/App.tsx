@@ -2302,7 +2302,11 @@ function WalletApp() {
         ) : null}
 
         {activeTab === "debug" ? (
-          <DebugPanel entries={debugLog} onClear={clearDebugEvents} />
+          <DebugPanel
+            entries={debugLog}
+            policy={policy}
+            onClear={clearDebugEvents}
+          />
         ) : null}
 
           <PwaInstallPrompt />
