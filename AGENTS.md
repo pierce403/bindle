@@ -269,6 +269,11 @@ avoids requiring GitHub workflow scope.
   through the Wallet SDK + Waku Broadcaster must refuse them unless they were
   created/imported and verified through the Wallet SDK path. Do not silently
   replace an older 0zk or imply funds migrated when creating a fresh SDK 0zk.
+- Pay review automatically checks RAILGUN Wallet SDK compatibility after the
+  user opens the Pay review sheet. If only metadata is stale and the SDK-derived
+  address matches the saved 0zk, Bindle may mark the record SDK-compatible. If
+  the SDK derives a different address, the only built-in repair is an explicit
+  user-confirmed fresh SDK 0zk; this does not move funds from the old 0zk.
 - If saved `0zk` metadata points at a missing key-store marker, missing
   IndexedDB secrets, or a legacy password-era record,
   `RailgunKeyRecoveryPrompt` lets the user wipe only the incompatible RAILGUN

@@ -61,7 +61,8 @@ import {
   clearEncryptedRailgunWallet,
   exportEncryptedRailgunWallet,
   getEncryptedRailgunWalletStorageMode,
-  importEncryptedRailgunWallet
+  importEncryptedRailgunWallet,
+  markStoredRailgunWalletSdkCompatible
 } from "./railgun/railgunWallet";
 import {
   checkRailgunWalletSdkCompatibility,
@@ -390,6 +391,8 @@ function WalletApp() {
     isCheckingRailgunWalletSdkCompatibility,
     setIsCheckingRailgunWalletSdkCompatibility
   ] = useState(false);
+  const [isRepairingRailgunPayCompatibility, setIsRepairingRailgunPayCompatibility] =
+    useState(false);
   const [isSubmittingShield, setIsSubmittingShield] = useState(false);
   const [shieldStatus, setShieldStatus] = useState("");
   const [isExportingAccount, setIsExportingAccount] = useState(false);
@@ -1582,23 +1585,45 @@ function WalletApp() {
         policy,
         onStatus: setPayStatus
       });
-      setRailgunWalletSdkCompatibility(compatibility);
+      let finalCompatibility = compatibility;
+
+      if (compatibility.reason === "not-sdk-derived") {
+        await markStoredRailgunWalletSdkCompatible({
+          expectedRailgunAddress: compatibility.localAddress
+        });
+        const repairedState = saveWalletState({
+          ...walletState,
+          railgunDerivationProvider: "railgun-wallet-sdk",
+          lastError: null
+        });
+        setWalletState(repairedState);
+        finalCompatibility = {
+          ...compatibility,
+          compatible: true,
+          reason: "compatible",
+          derivationProvider: "railgun-wallet-sdk"
+        };
+      }
+
+      setRailgunWalletSdkCompatibility(finalCompatibility);
       recordDebugEvent({
-        level: compatibility.compatible ? "info" : "warning",
+        level: finalCompatibility.compatible ? "info" : "warning",
         source: "pay",
-        message: compatibility.compatible
-          ? "RAILGUN Wallet SDK 0zk compatibility verified"
+        message: finalCompatibility.compatible
+          ? compatibility.reason === "not-sdk-derived"
+            ? "RAILGUN Wallet SDK 0zk metadata repaired"
+            : "RAILGUN Wallet SDK 0zk compatibility verified"
           : "RAILGUN Wallet SDK 0zk compatibility mismatch",
         detail: [
-          `Local saved 0zk: ${compatibility.localAddress}`,
-          `Kohaku-derived 0zk: ${compatibility.kohakuRailgunAddress}`,
-          `Wallet SDK 0zk: ${compatibility.walletSdkAddress}`,
-          `Derivation provider: ${compatibility.derivationProvider}`,
-          `Reason: ${compatibility.reason}`
+          `Local saved 0zk: ${finalCompatibility.localAddress}`,
+          `Kohaku-derived 0zk: ${finalCompatibility.kohakuRailgunAddress}`,
+          `Wallet SDK 0zk: ${finalCompatibility.walletSdkAddress}`,
+          `Derivation provider: ${finalCompatibility.derivationProvider}`,
+          `Reason: ${finalCompatibility.reason}`
         ].join("\n")
       });
       setPayStatus(
-        compatibility.compatible
+        finalCompatibility.compatible
           ? "Private Pay 0zk compatibility verified"
           : "Private Pay blocked: saved 0zk is not Wallet-SDK-compatible"
       );
@@ -1617,6 +1642,90 @@ function WalletApp() {
       });
     } finally {
       setIsCheckingRailgunWalletSdkCompatibility(false);
+    }
+  };
+
+  const createFreshSdkCompatibleRailgunWalletForPay = async () => {
+    if (isRepairingRailgunPayCompatibility) {
+      return;
+    }
+
+    const oldRailgunAddress = walletState.railgunAddress;
+
+    if (!oldRailgunAddress) {
+      setPayStatus("Create or import a shielded 0zk wallet before repair.");
+      return;
+    }
+
+    if (
+      !window.confirm(
+        [
+          "Create a fresh Wallet-SDK-compatible 0zk for Private Pay?",
+          "",
+          `Current 0zk: ${oldRailgunAddress}`,
+          "",
+          "This does not recover, migrate, or move funds already shielded to the current 0zk. Save the new recovery phrase before funding the new address."
+        ].join("\n")
+      )
+    ) {
+      return;
+    }
+
+    setIsRepairingRailgunPayCompatibility(true);
+    setPayStatus("Creating fresh Wallet-SDK-compatible 0zk");
+    setAppNotice(null);
+
+    try {
+      const wallet = await createEncryptedRailgunWalletWithSdk({
+        policy,
+        onStatus: setPayStatus
+      });
+      const nextState = markRailgunWalletReady(
+        walletState,
+        wallet.railgunAddress,
+        "created",
+        wallet.derivationProvider
+      );
+
+      clearCachedShieldedEthBalance(oldRailgunAddress);
+      setCachedShieldedBalance(null);
+      setWalletState(nextState);
+      setRailgunStorageMode("browser-local");
+      setRailgunStorageChecked(true);
+      setCreatedRailgunRecoveryPhrase(wallet.recoveryPhrase);
+      setCopiedCreatedRailgunRecoveryPhrase(false);
+      setRailgunWalletSdkCompatibility(null);
+      const compatibility = await checkRailgunWalletSdkCompatibility({
+        policy,
+        onStatus: setPayStatus
+      });
+      setRailgunWalletSdkCompatibility(compatibility);
+      setPayStatus("Fresh Wallet-SDK-compatible 0zk created");
+      recordDebugEvent({
+        level: "warning",
+        source: "pay",
+        message: "Created fresh Wallet-SDK-compatible 0zk for Private Pay",
+        detail: [
+          `Previous 0zk: ${oldRailgunAddress}`,
+          `New 0zk: ${wallet.railgunAddress}`,
+          "Funds already shielded to the previous 0zk were not moved."
+        ].join("\n")
+      });
+    } catch (error) {
+      const message = messageFromError(
+        error,
+        "Unable to create fresh Wallet-SDK-compatible 0zk",
+        "pay",
+        `Previous 0zk: ${oldRailgunAddress}`
+      );
+      setPayStatus(message);
+      setAppNotice({
+        kind: "error",
+        title: "0zk repair failed",
+        message: `${message} Open Debug for the full stack trace.`
+      });
+    } finally {
+      setIsRepairingRailgunPayCompatibility(false);
     }
   };
 
@@ -2438,10 +2547,16 @@ function WalletApp() {
                 isCheckingRailgunWalletSdkCompatibility={
                   isCheckingRailgunWalletSdkCompatibility
                 }
+                isRepairingRailgunPayCompatibility={
+                  isRepairingRailgunPayCompatibility
+                }
                 endpointDisclosures={actionEndpointDisclosure}
                 onDeriveSmartWallet={() => void deriveSmartWallet()}
                 onCheckRailgunWalletCompatibility={() =>
                   void checkRailgunPayCompatibility()
+                }
+                onCreateSdkCompatibleRailgunWallet={() =>
+                  void createFreshSdkCompatibleRailgunWalletForPay()
                 }
                 onOpenConnections={() => setActiveTab("nodes")}
                 onCloseAction={() => setActiveAction(null)}

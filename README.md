@@ -177,9 +177,12 @@ RAILGUN Wallet SDK path only for Wallet-SDK-derived local 0zk records and must
 submit through a visible Waku RAILGUN Broadcaster instead of the public smart
 wallet. The default broadcaster fee token is WETH so the first Pay path can
 spend from shielded ETH/WETH without requiring shielded USDC just to pay the
-broadcaster. Live USDC Pay remains blocked until leftover swap/change funds can
-return privately to 0zk. Standalone unshielding, private RAILGUN sends,
-non-USDC Pay assets, and any-network provider routing remain pending.
+broadcaster. Pay review now checks SDK compatibility automatically; metadata-only
+staleness is repaired when the SDK-derived address matches, while address
+mismatches require an explicit fresh SDK 0zk and never imply fund migration. Live
+USDC Pay remains blocked until leftover swap/change funds can return privately
+to 0zk. Standalone unshielding, private RAILGUN sends, non-USDC Pay assets, and
+any-network provider routing remain pending.
 
 Kohaku's current alpha RAILGUN prover has
 `https://github.com/Robert-MacWha/privacy-protocol-artifacts/raw/refs/heads/main/artifacts/`

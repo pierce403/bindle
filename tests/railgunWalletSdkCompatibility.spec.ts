@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   evaluateRailgunWalletSdkCompatibility,
   RailgunSdkAddressMismatchError
@@ -46,4 +48,17 @@ test("Wallet SDK address mismatch error includes both 0zk addresses", () => {
   expect(error.message).toContain("0zk1saved");
   expect(error.message).toContain("0zk1sdk");
   expect(error.message).toContain("older/Kohaku-local derivation path");
+});
+
+test("Pay review attempts compatibility checks and offers only explicit fresh 0zk repair", () => {
+  const panelSource = readFileSync(
+    resolve("src/components/WalletActionPanel.tsx"),
+    "utf8"
+  );
+  const appSource = readFileSync(resolve("src/App.tsx"), "utf8");
+
+  expect(panelSource).toContain("onCheckRailgunWalletCompatibility()");
+  expect(panelSource).toContain("Create fresh SDK-compatible 0zk");
+  expect(appSource).toContain("markStoredRailgunWalletSdkCompatible");
+  expect(appSource).toContain("Funds already shielded to the previous 0zk were not moved.");
 });

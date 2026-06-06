@@ -525,6 +525,43 @@ export const exportEncryptedRailgunWallet =
     };
   };
 
+export const markStoredRailgunWalletSdkCompatible = async ({
+  expectedRailgunAddress
+}: {
+  expectedRailgunAddress: string;
+}): Promise<RailgunWalletResult> => {
+  const record = await loadEncryptedWalletRecord();
+
+  if (!record) {
+    throw new Error("No encrypted RAILGUN wallet is stored locally.");
+  }
+
+  if (record.version !== 2) {
+    throw new Error(
+      "Legacy password-protected RAILGUN wallet records cannot be marked Wallet-SDK-compatible."
+    );
+  }
+
+  if (record.railgunAddress !== expectedRailgunAddress) {
+    throw new Error("Stored RAILGUN wallet address changed during repair.");
+  }
+
+  const updatedAt = new Date().toISOString();
+  await storeEncryptedWallet({
+    ...record,
+    derivationProvider: "railgun-wallet-sdk",
+    updatedAt
+  });
+
+  return {
+    railgunAddress: record.railgunAddress,
+    derivationProvider: "railgun-wallet-sdk",
+    keyIndex: record.keyIndex,
+    chainId: BigInt(record.chainId),
+    storedAt: updatedAt
+  };
+};
+
 export const clearEncryptedRailgunWallet = async (): Promise<void> => {
   if (!canUseIndexedDb()) {
     return;

@@ -88,9 +88,11 @@ type WalletActionPanelProps = {
   privatePayReadiness: RailgunBroadcasterReadiness;
   railgunWalletSdkCompatibility: RailgunWalletSdkCompatibility | null;
   isCheckingRailgunWalletSdkCompatibility: boolean;
+  isRepairingRailgunPayCompatibility: boolean;
   endpointDisclosures: EndpointDisclosure[];
   onDeriveSmartWallet: () => void;
   onCheckRailgunWalletCompatibility: () => void;
+  onCreateSdkCompatibleRailgunWallet: () => void;
   onOpenConnections: () => void;
   onCloseAction: () => void;
   onSubmitSmartPayment: () => void;
@@ -118,9 +120,11 @@ export function WalletActionPanel({
   privatePayReadiness,
   railgunWalletSdkCompatibility,
   isCheckingRailgunWalletSdkCompatibility,
+  isRepairingRailgunPayCompatibility,
   endpointDisclosures,
   onDeriveSmartWallet,
   onCheckRailgunWalletCompatibility,
+  onCreateSdkCompatibleRailgunWallet,
   onOpenConnections,
   onCloseAction,
   onSubmitSmartPayment,
@@ -144,6 +148,7 @@ export function WalletActionPanel({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const qrStreamRef = useRef<MediaStream | null>(null);
   const qrScanActiveRef = useRef(false);
+  const payCompatibilityAutoCheckRef = useRef(false);
   const hasRecipient = draft.recipient.trim().length > 0;
   const hasAmount = isValidDecimalAmount(draft.amount);
   const hasValidRecipient = isValidRecipientShape(draft.recipient);
@@ -237,6 +242,33 @@ export function WalletActionPanel({
   useEffect(() => {
     setModalPortalTarget(document.querySelector(".app-shell"));
   }, []);
+
+  useEffect(() => {
+    if (!reviewingPayment) {
+      payCompatibilityAutoCheckRef.current = false;
+      return;
+    }
+
+    if (
+      payCompatibilityAutoCheckRef.current ||
+      railgunWalletSdkCompatibility ||
+      isCheckingRailgunWalletSdkCompatibility ||
+      !hasRecoverableRailgunKeyMaterial ||
+      !rpcConfigured
+    ) {
+      return;
+    }
+
+    payCompatibilityAutoCheckRef.current = true;
+    onCheckRailgunWalletCompatibility();
+  }, [
+    hasRecoverableRailgunKeyMaterial,
+    isCheckingRailgunWalletSdkCompatibility,
+    onCheckRailgunWalletCompatibility,
+    railgunWalletSdkCompatibility,
+    reviewingPayment,
+    rpcConfigured
+  ]);
 
   const updateDraft = (nextDraft: IntentDraft) => {
     setReviewingPayment(false);
@@ -784,6 +816,19 @@ export function WalletActionPanel({
                     Creating a fresh 0zk does not recover or move funds already
                     shielded to the old address.
                   </small>
+                  {railgunWalletSdkCompatibility.reason === "address-mismatch" ? (
+                    <button
+                      className="secondary-action wide"
+                      type="button"
+                      disabled={isRepairingRailgunPayCompatibility}
+                      onClick={onCreateSdkCompatibleRailgunWallet}
+                    >
+                      <LockKeyhole size={18} aria-hidden="true" />
+                      {isRepairingRailgunPayCompatibility
+                        ? "Creating SDK-compatible 0zk"
+                        : "Create fresh SDK-compatible 0zk"}
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
 

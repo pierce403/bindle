@@ -128,6 +128,9 @@ infrastructure.
 - [x] Record local RAILGUN wallet derivation metadata and require
       Wallet-SDK-created/imported 0zk records before using the Wallet SDK +
       Waku Broadcaster Private Pay path.
+- [x] Automatically check Private Pay 0zk compatibility when Pay review opens,
+      repair stale SDK-compatible metadata when the address matches, and offer
+      an explicit fresh SDK 0zk repair when the SDK derives a different address.
 - [x] Block Private Pay when Uniswap leftover/change cannot be returned
       privately to the 0zk account.
 
