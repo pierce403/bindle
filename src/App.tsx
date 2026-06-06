@@ -13,7 +13,10 @@ import { PwaInstallPrompt } from "./components/PwaInstallPrompt";
 import { RailgunKeyRecoveryPrompt } from "./components/RailgunKeyRecoveryPrompt";
 import { RelaysPanel } from "./components/RelaysPanel";
 import { SettingsPanel } from "./components/SettingsPanel";
-import { UnshieldedBalanceBanner } from "./components/UnshieldedBalanceBanner";
+import {
+  UnshieldedBalanceBanner,
+  type ShieldRequest
+} from "./components/UnshieldedBalanceBanner";
 import { WalletActionPanel } from "./components/WalletActionPanel";
 import { getPayAsset } from "./intents/assets";
 import {
@@ -1569,7 +1572,7 @@ function WalletApp() {
     setIsSubmittingPay(false);
   };
 
-  const submitShield = async (amount: string) => {
+  const submitShield = async (request: ShieldRequest) => {
     if (!walletState.railgunAddress) {
       setShieldStatus("Create a shielded 0zk address before shielding.");
       return;
@@ -1581,12 +1584,19 @@ function WalletApp() {
     }
 
     let amountWei: bigint;
+    let shieldMode: string;
 
-    try {
-      amountWei = parseEther(amount.trim());
-    } catch {
-      setShieldStatus("Enter a valid ETH amount to shield.");
-      return;
+    if (request.kind === "sweep-all") {
+      amountWei = publicBalance.balance.wei;
+      shieldMode = "sweep-all";
+    } else {
+      try {
+        amountWei = parseEther(request.amount.trim());
+        shieldMode = "custom-amount";
+      } catch {
+        setShieldStatus("Enter a valid ETH amount to shield.");
+        return;
+      }
     }
 
     if (amountWei <= 0n) {
@@ -1600,13 +1610,27 @@ function WalletApp() {
     }
 
     setIsSubmittingShield(true);
-    setShieldStatus("Preparing RAILGUN shield transaction");
+    setShieldStatus(
+      request.kind === "sweep-all"
+        ? "Preparing full public funding sweep to RAILGUN 0zk"
+        : "Preparing RAILGUN shield transaction"
+    );
     setAppNotice(null);
     recordDebugEvent({
       level: "info",
       source: "shield",
-      message: "Preparing RAILGUN shield transaction",
-      detail: `Amount wei: ${amountWei.toString()}\nRailgun address: ${walletState.railgunAddress}\nBundler: ${policy.bundlerUrl.trim() || "off"}`
+      message:
+        request.kind === "sweep-all"
+          ? "Preparing full public funding sweep"
+          : "Preparing RAILGUN shield transaction",
+      detail: [
+        `Mode: ${shieldMode}`,
+        `Amount wei: ${amountWei.toString()}`,
+        `Public funding balance wei: ${publicBalance.balance.wei.toString()}`,
+        `Railgun address: ${walletState.railgunAddress}`,
+        `Bundler: ${policy.bundlerUrl.trim() || "off"}`,
+        `Paymaster: ${policy.paymasterUrl.trim() || "off"}`
+      ].join("\n")
     });
 
     try {
@@ -2214,10 +2238,12 @@ function WalletApp() {
 
             <UnshieldedBalanceBanner
               balance={knownPublicBalance}
+              balanceWei={publicBalanceWei}
               canShield={canShield}
               canSync={canSyncPublicBalance}
               isSyncing={publicBalance.status === "syncing"}
               isShielding={isSubmittingShield}
+              railgunAddress={walletState.railgunAddress}
               syncDisclosure={
                 canSyncPublicBalance ? publicBalanceEndpointSummary : null
               }
@@ -2225,7 +2251,7 @@ function WalletApp() {
               shieldEndpointDisclosures={shieldEndpointDisclosure}
               shieldStatus={shieldStatus}
               onSync={() => void syncPublicBalance()}
-              onShield={(amount) => void submitShield(amount)}
+              onShield={(request) => void submitShield(request)}
             />
 
             {activeAction ? (

@@ -57,6 +57,10 @@ concerns, not the default first-run experience.
 - Public funding balance sync uses the visible Ethereum RPC from Connections.
   Bindle refreshes it on load when that RPC is configured, and still shows the
   endpoint that may receive the public smart-wallet address.
+- Shield review defaults to sweeping the exact synced ETH balance from the
+  public funding address into the user's RAILGUN `0zk` address. It does not
+  reserve ETH for EOA gas, but ERC-4337 execution is not free: the visible
+  bundler/paymaster policy must cover the operation or the sweep can fail.
 - Passkey enrollment stores non-secret credential id and public P-256 metadata;
   WebAuthn private material stays inside the platform authenticator.
 - Send Review stays disabled until wallet, toolkit, RPC, recipient, amount, and
@@ -186,8 +190,9 @@ spending/viewing keys locally, and show the resulting real `0zk` address.
 Paymaster support is optional and only used when configured. Bindle can audit
 shield/unshield readiness and can prepare native ETH shield call data through
 Kohaku's low-level WASM binding. Shield review now builds native ETH shield
-calls and submits them from the passkey smart wallet through the visible RPC and
-ERC-4337 bundler.
+calls and defaults to a full public-funding-address sweep into the RAILGUN
+`0zk` address, then submits the public deposit from the passkey smart wallet
+through the visible RPC and ERC-4337 bundler.
 For the visible Pimlico default bundler, Bindle requests User Operation gas
 prices from that same bundler endpoint before submission so the bundler does not
 reject underpriced priority fees. Pimlico is only for public smart-wallet

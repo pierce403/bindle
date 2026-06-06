@@ -774,18 +774,25 @@ test.describe("passkey-first onboarding", () => {
       .getByLabel("Unshielded ETH balance")
       .getByRole("button", { name: "Shield", exact: true })
       .click();
-    await page.getByLabel("Amount to shield").fill("0.25");
 
+    await expect(page.getByLabel("Shield sweep summary")).toContainText(
+      "Public funding sweep"
+    );
+    await expect(page.getByLabel("Shield sweep summary")).toContainText(
+      "RAILGUN 0zk"
+    );
     await expect(page.getByLabel("Shield preflight")).toContainText(
       "ERC-4337 bundler"
     );
-    await expect(page.getByRole("button", { name: "Submit shield" })).toBeEnabled();
+    await expect(
+      page.getByRole("button", { name: "Sweep public funding address" })
+    ).toBeEnabled();
 
-    await page.getByRole("button", { name: "Submit shield" }).click();
+    await page.getByRole("button", { name: "Sweep public funding address" }).click();
     await page.getByRole("button", { name: "Debug" }).click();
 
     await expect(page.getByLabel("Debug log entries")).toContainText(
-      "Preparing RAILGUN shield transaction",
+      "Preparing full public funding sweep",
       { timeout: 30_000 }
     );
     await expect(page.getByLabel("Debug log entries")).toContainText(

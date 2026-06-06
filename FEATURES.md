@@ -85,6 +85,8 @@ infrastructure.
       every audited outbound class.
 - [x] Submit native ETH shield transactions from the passkey smart wallet using
       Kohaku shield-call data and visible ERC-4337 RPC/bundler policy.
+- [x] Default Shield to sweeping the exact synced public funding balance into
+      the user's RAILGUN `0zk` address, without reserving ETH for EOA gas.
 - [x] Use visible Pimlico bundler gas-price RPC for ERC-4337 User Operation
       fee fields so default bundler submissions are not underpriced.
 - [x] Prompt users to replace missing or password-era local RAILGUN key records

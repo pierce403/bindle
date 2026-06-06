@@ -336,6 +336,11 @@ avoids requiring GitHub workflow scope.
   Ethereum mainnet RPC from `ConnectionPolicy`. The app may refresh this on load
   when an RPC is configured because the selected RPC is currently inside
   Bindle's normal-user trust boundary. Keep the endpoint visible in the UI.
+- Shield UI frames the passkey smart account as the public funding address and
+  the destination as the user's RAILGUN `0zk` address. The default Shield action
+  is a full sweep of the exact synced public ETH balance. Do not reintroduce an
+  EOA gas reserve, but do keep ERC-4337 bundler/paymaster policy visible because
+  gas sponsorship or fee handling can still make a full sweep fail.
 - Cached shielded balances live in localStorage for paint-on-open only and must
   stay keyed by `railgunAddress + derivationProvider + chainId`. Do not return
   a cached Kohaku balance for a legacy noncanonical or unknown wallet record
