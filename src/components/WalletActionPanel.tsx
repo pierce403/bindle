@@ -204,12 +204,12 @@ export function WalletActionPanel({
       ? "Repair local RAILGUN key storage before spending shielded funds."
       : null,
     hasRecoverableRailgunKeyMaterial &&
-    walletState.railgunDerivationProvider === "railgun-wallet-sdk-legacy"
-      ? "This 0zk was created with the legacy Wallet SDK derivation and is not Kohaku-canonical. Create or import a Kohaku 0zk before private actions."
+    walletState.railgunDerivationProvider === "legacy-noncanonical"
+      ? "This 0zk was created with an older non-Kohaku derivation path and is not Kohaku-canonical. Create or import a Kohaku 0zk before private actions."
       : null,
     hasRecoverableRailgunKeyMaterial &&
     walletState.railgunDerivationProvider !== "kohaku-railgun" &&
-    walletState.railgunDerivationProvider !== "railgun-wallet-sdk-legacy"
+    walletState.railgunDerivationProvider !== "legacy-noncanonical"
       ? "Private Pay requires a Kohaku-canonical 0zk wallet."
       : null,
     kohakuPrivateActionsPendingMessage,

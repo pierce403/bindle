@@ -188,9 +188,9 @@ export const prepareRailgunUsdcPayForRecipient = async ({
     throw new Error("Pay is currently wired for USDC output.");
   }
 
-  if (walletState.railgunDerivationProvider === "railgun-wallet-sdk-legacy") {
+  if (walletState.railgunDerivationProvider === "legacy-noncanonical") {
     throw new Error(
-      "This 0zk was created with the legacy RAILGUN Wallet SDK derivation path. Bindle will not treat it as the Kohaku-canonical shielded account or migrate funds by changing metadata."
+      "This 0zk was created with an older non-Kohaku derivation path. Bindle will not treat it as the Kohaku-canonical shielded account or migrate funds by changing metadata."
     );
   }
 

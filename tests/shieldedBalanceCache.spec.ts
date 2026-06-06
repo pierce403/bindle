@@ -51,7 +51,7 @@ test("shielded balance cache is keyed by address, derivation provider, and chain
   expect(
     loadCachedShieldedEthBalance({
       railgunAddress: "0zk1cached",
-      derivationProvider: "railgun-wallet-sdk-legacy",
+      derivationProvider: "legacy-noncanonical",
       chainId: 1n
     })
   ).toBeNull();

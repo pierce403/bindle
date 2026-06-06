@@ -1,30 +1,18 @@
-import type { PrivacyToolkitId } from "./connectionPolicy";
-
-export type ToolkitRecoveryAction = {
-  kind: "switch-privacy-toolkit";
-  toolkit: PrivacyToolkitId;
-  label: string;
-};
-
 export type ToolkitFailure = {
   message: string;
-  action?: ToolkitRecoveryAction;
 };
 
 export class PrivacyToolkitStartupError extends Error {
-  readonly action?: ToolkitRecoveryAction;
   readonly rawCause: unknown;
 
   constructor(
     message: string,
     options: {
-      action?: ToolkitRecoveryAction;
       rawCause?: unknown;
     } = {}
   ) {
     super(message);
     this.name = "PrivacyToolkitStartupError";
-    this.action = options.action;
     this.rawCause = options.rawCause;
   }
 }
@@ -86,12 +74,9 @@ export const describeToolkitStartFailure = (
   error: unknown
 ): ToolkitFailure => {
   const message = errorMessage(error);
-  const action =
-    error instanceof PrivacyToolkitStartupError ? error.action : undefined;
   const normalizedStep = step.trim();
 
   return {
-    message: normalizedStep ? `${normalizedStep}: ${message}` : message,
-    action
+    message: normalizedStep ? `${normalizedStep}: ${message}` : message
   };
 };

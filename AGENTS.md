@@ -50,14 +50,15 @@ Current stack:
 - Vite, React, TypeScript.
 - Kohaku-first privacy toolkit adapter boundary, defaulting to the Kohaku
   RAILGUN adapter.
-- Legacy RAILGUN Wallet SDK code quarantined for diagnostics/migration only;
-  it is not a selectable normal fallback.
+- Legacy RAILGUN Wallet SDK code and dependencies have been removed. Old
+  noncanonical derivation metadata is normalized only so those records stay
+  blocked safely.
 - GitHub Pages from `main:/docs`.
 - Manual PWA manifest and service worker from `public/`.
 - Custom domain: `bindle.cash`.
 - Target first-run onboarding: mobile PWA passkey creates a smart wallet, then
   Bindle connects that account to shielded ETH through the privacy toolkit.
-  Seed phrases, EOA imports, and legacy SDK wallet lifecycle paths are
+  Seed phrases, EOA imports, and legacy noncanonical wallet records are
   advanced compatibility or recovery flows, not the default UX.
 - Browser visits are informational only. `src/App.tsx` gates the wallet behind
   installed PWA display mode and renders `BrowserLandingPage` otherwise.
@@ -264,13 +265,13 @@ avoids requiring GitHub workflow scope.
   Existing version-2 records without that field are treated as
   `kohaku-railgun` when the Kohaku-derived address matches. New default
   create/import flows derive the 0zk address through Kohaku only and persist
-  `kohaku-railgun`. SDK-derived records are labelled
-  `railgun-wallet-sdk-legacy` and must not be silently converted into Kohaku
-  accounts or used as proof that funds migrated.
-- Do not repair normal wallets into Wallet-SDK-derived 0zk accounts. The same
-  phrase/key index can derive different shielded accounts across Kohaku and the
-  RAILGUN Wallet SDK, so normal UI, balance sync, and private actions must use
-  the single Kohaku-canonical 0zk.
+  `kohaku-railgun`. Old SDK-derived or otherwise noncanonical records are
+  normalized to `legacy-noncanonical` and must not be silently converted into
+  Kohaku accounts or used as proof that funds migrated.
+- Do not repair normal wallets into non-Kohaku 0zk accounts. The same
+  phrase/key index can derive different shielded accounts across derivation
+  implementations, so normal UI, balance sync, and private actions must use the
+  single Kohaku-canonical 0zk.
 - If saved `0zk` metadata points at a missing key-store marker, missing
   IndexedDB secrets, or a legacy password-era record,
   `RailgunKeyRecoveryPrompt` lets the user wipe only the incompatible RAILGUN
@@ -289,8 +290,8 @@ avoids requiring GitHub workflow scope.
   Bindle's normal-user trust boundary. Keep the endpoint visible in the UI.
 - Cached shielded balances live in localStorage for paint-on-open only and must
   stay keyed by `railgunAddress + derivationProvider + chainId`. Do not return
-  a cached Kohaku balance for a legacy SDK or unknown wallet record that happens
-  to have the same address string.
+  a cached Kohaku balance for a legacy noncanonical or unknown wallet record
+  that happens to have the same address string.
 - Shield/unshield readiness lives in `src/railgun/shielding.ts`. Native ETH
   shield call prep uses Kohaku's low-level `ShieldBuilder.shieldNative`, not the
   higher-level helper that wires hidden Subsquid defaults. Recoverable local
@@ -307,7 +308,8 @@ avoids requiring GitHub workflow scope.
   `src/railgun/broadcaster.ts` intact. Private Pay is currently disabled before
   recipient resolution, quotes, broadcaster discovery, proof generation, or
   submission because Kohaku private broadcaster submission has not been verified
-  as privacy-safe. Do not re-enable it through the legacy Wallet SDK path.
+  as privacy-safe. Do not re-enable it through a removed legacy dependency
+  path.
   Private Pay must also keep
   `changeDisposition === "private-change-to-0zk"` before live submission; do
   not send Uniswap leftover/slippage to the recipient, provider, public smart
@@ -322,16 +324,16 @@ avoids requiring GitHub workflow scope.
 - Explicit connection settings are persisted in
   `src/privacy/connectionPolicyState.ts`. This is a local operator
   convenience, and migration must not preserve hidden or unlabelled endpoints.
-- `@railgun-community/wallet@10.8.6` requires `ethers@6.14.3`; newer ethers
-  versions conflict with the peer dependency.
-- The RAILGUN SDK bundle is large. It is intentionally lazy-loaded behind
-  `startRailgunBrowserEngine()`.
-- The SDK references Node built-ins in browser builds. Vite uses
-  `vite-plugin-node-polyfills`, plus a local `src/shims/vm.ts` shim to avoid
-  bundling `vm-browserify`'s direct `eval` path.
-- `pnpm audit` reports vulnerabilities through the current RAILGUN dependency
-  graph. Do not force automated audit fixes without a deliberate SDK
-  compatibility review.
+- Full SDK purge removed `@railgun-community/wallet`,
+  `@railgun-community/shared-models`,
+  `@railgun-community/waku-broadcaster-client-web`, `level-js`, `snarkjs`, and
+  their type packages. `pnpm-lock.yaml` may still name `snarkjs` only as an
+  optional peer in Kohaku provider metadata; `pnpm why snarkjs` should remain
+  empty.
+- `src/railgun/wakuBroadcaster.ts` is now a closed placeholder. Keep
+  broadcaster endpoint defaults visible in `ConnectionPolicy`, but live private
+  submission needs a standalone non-SDK Waku client or Kohaku-native
+  broadcaster API before Private Pay can submit.
 - Bindle is pnpm-only. `packageManager` pins pnpm, `.npmrc` enables pnpm's
   package-manager strict mode, and `scripts/require-pnpm.mjs` blocks npm/yarn
   installs.

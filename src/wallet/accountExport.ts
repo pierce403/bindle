@@ -72,8 +72,12 @@ const railgunDerivationProviderValue = (
     return "kohaku-railgun";
   }
 
-  if (value === "railgun-wallet-sdk" || value === "railgun-wallet-sdk-legacy") {
-    return "railgun-wallet-sdk-legacy";
+  if (
+    value === "railgun-wallet-sdk" ||
+    value === "railgun-wallet-sdk-legacy" ||
+    value === "legacy-noncanonical"
+  ) {
+    return "legacy-noncanonical";
   }
 
   if (value === "unknown") {
@@ -173,9 +177,9 @@ const normalizeRailgunWallet = (
   return {
     railgunAddress: parsed.railgunAddress,
     derivationProvider:
-      derivationProvider === "railgun-wallet-sdk-legacy"
-        ? "railgun-wallet-sdk-legacy"
-        : "kohaku-railgun",
+      derivationProvider === "kohaku-railgun"
+        ? "kohaku-railgun"
+        : "legacy-noncanonical",
     recoveryPhrase: parsed.recoveryPhrase,
     keyIndex: parsed.keyIndex,
     chainId: parsed.chainId,

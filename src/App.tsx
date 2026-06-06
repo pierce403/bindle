@@ -29,10 +29,7 @@ import {
   type CreateDebugLogEntryInput,
   type DebugLogEntry
 } from "./debug/debugLog";
-import {
-  markConnectionPolicyCustom,
-  type ConnectionPolicy
-} from "./privacy/connectionPolicy";
+import type { ConnectionPolicy } from "./privacy/connectionPolicy";
 import {
   loadConnectionPolicy,
   saveConnectionPolicy
@@ -59,8 +56,7 @@ import {
   createEncryptedRailgunWallet,
   exportEncryptedRailgunWallet,
   getEncryptedRailgunWalletStorageMode,
-  importEncryptedRailgunWallet,
-  persistRailgunWalletFromSdkDerivation
+  importEncryptedRailgunWallet
 } from "./railgun/railgunWallet";
 import {
   startPrivacyToolkit,
@@ -69,8 +65,7 @@ import {
 } from "./privacy/toolkit";
 import {
   describeToolkitStartFailure,
-  isKohakuRpcFetchFailure,
-  type ToolkitRecoveryAction
+  isKohakuRpcFetchFailure
 } from "./privacy/toolkitErrors";
 import { usePwaDisplayMode } from "./pwa/usePwaDisplayMode";
 import { defaultTheme, type ThemeSelection } from "./theme/theme";
@@ -184,9 +179,7 @@ type ShieldedBalanceState =
   | { status: "ready"; balance: ShieldedEthBalance }
   | { status: "error"; message: string };
 
-type AppNoticeAction =
-  | ToolkitRecoveryAction
-  | { kind: "open-connections"; label: string };
+type AppNoticeAction = { kind: "open-connections"; label: string };
 
 type AppNotice = {
   kind: "error" | "warning";
@@ -863,8 +856,7 @@ function WalletApp() {
       setAppNotice({
         kind: "error",
         title: "Toolkit failed",
-        message: failure.message,
-        action: failure.action
+        message: failure.message
       });
     } finally {
       toolkitStartRef.current = null;
@@ -902,29 +894,7 @@ function WalletApp() {
     setPolicy(saveConnectionPolicy(nextPolicy));
   };
 
-  const handleNoticeAction = (action: AppNoticeAction) => {
-    if (action.kind === "switch-privacy-toolkit") {
-      updateConnectionPolicy(
-        markConnectionPolicyCustom({
-          ...policy,
-          privacyToolkit: "kohaku-railgun"
-        })
-      );
-      setToolkitHandle(null);
-      setToolkitState("idle");
-      setStatusMessage(
-        "Kohaku RAILGUN remains the canonical privacy toolkit."
-      );
-      setAppNotice({
-        kind: "warning",
-        title: "Wallet SDK fallback disabled",
-        message:
-          "Bindle no longer switches normal sessions to the legacy RAILGUN Wallet SDK path because it can derive a different 0zk account."
-      });
-      setActiveTab("nodes");
-      return;
-    }
-
+  const handleNoticeAction = () => {
     setActiveTab("nodes");
     setAppNotice(null);
   };
@@ -1779,20 +1749,11 @@ function WalletApp() {
     try {
       const accountExport = parseBindleAccountExport(await file.text());
       const importedWallet = accountExport.railgunWallet
-        ? accountExport.railgunWallet.derivationProvider ===
-          "railgun-wallet-sdk-legacy"
-          ? await persistRailgunWalletFromSdkDerivation({
-              recoveryPhrase: accountExport.railgunWallet.recoveryPhrase,
-              railgunAddress: accountExport.railgunWallet.railgunAddress,
-              source: "imported",
-              keyIndex: accountExport.railgunWallet.keyIndex,
-              chainId: BigInt(accountExport.railgunWallet.chainId)
-            })
-          : await importEncryptedRailgunWallet({
-              recoveryPhrase: accountExport.railgunWallet.recoveryPhrase,
-              keyIndex: accountExport.railgunWallet.keyIndex,
-              chainId: BigInt(accountExport.railgunWallet.chainId)
-            })
+        ? await importEncryptedRailgunWallet({
+            recoveryPhrase: accountExport.railgunWallet.recoveryPhrase,
+            keyIndex: accountExport.railgunWallet.keyIndex,
+            chainId: BigInt(accountExport.railgunWallet.chainId)
+          })
         : null;
 
       if (
@@ -2149,7 +2110,7 @@ function WalletApp() {
                 <button
                   className="notice-action"
                   type="button"
-                  onClick={() => handleNoticeAction(noticeAction)}
+                  onClick={handleNoticeAction}
                 >
                   {noticeAction.label}
                 </button>

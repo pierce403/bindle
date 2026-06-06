@@ -14,7 +14,7 @@ export type CustodyModel =
 export type RailgunKeyStore = "encrypted-local" | null;
 export type RailgunDerivationProvider =
   | "kohaku-railgun"
-  | "railgun-wallet-sdk-legacy"
+  | "legacy-noncanonical"
   | "unknown";
 
 export type PasskeyAuthenticatorAttachment = AuthenticatorAttachment | null;
@@ -86,8 +86,12 @@ const railgunDerivationProviderValue = (
     return "kohaku-railgun";
   }
 
-  if (value === "railgun-wallet-sdk" || value === "railgun-wallet-sdk-legacy") {
-    return "railgun-wallet-sdk-legacy";
+  if (
+    value === "railgun-wallet-sdk" ||
+    value === "railgun-wallet-sdk-legacy" ||
+    value === "legacy-noncanonical"
+  ) {
+    return "legacy-noncanonical";
   }
 
   if (value === "unknown") {
@@ -194,7 +198,7 @@ export const saveWalletState = (state: WalletState): WalletState => {
     // The railgunKeyStore value is only a marker that encrypted local key
     // material exists in IndexedDB; it is not key material itself.
     // railgunDerivationProvider is public compatibility metadata so Bindle can
-    // keep one canonical Kohaku 0zk and quarantine legacy SDK-derived records.
+    // keep one canonical Kohaku 0zk and quarantine older noncanonical records.
     // WebAuthn credential IDs, RP IDs, and public P-256 keys are public account
     // metadata used to reconstruct the smart-account owner; they are not
     // signing secrets.

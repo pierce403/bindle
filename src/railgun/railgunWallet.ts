@@ -14,7 +14,8 @@ type BrowserLocalRailgunWalletRecord = {
   derivationProvider?:
     | RailgunWalletDerivationProvider
     | "kohaku-railgun-alpha"
-    | "railgun-wallet-sdk";
+    | "railgun-wallet-sdk"
+    | "railgun-wallet-sdk-legacy";
   keyIndex: number;
   chainId: string;
   createdAt: string;
@@ -57,7 +58,7 @@ type RailgunSecretPayload = {
 
 export type RailgunWalletDerivationProvider =
   | "kohaku-railgun"
-  | "railgun-wallet-sdk-legacy";
+  | "legacy-noncanonical";
 
 export type RailgunWalletResult = {
   railgunAddress: string;
@@ -291,9 +292,10 @@ const derivationProviderForRecord = (
 
   if (
     record.derivationProvider === "railgun-wallet-sdk" ||
-    record.derivationProvider === "railgun-wallet-sdk-legacy"
+    record.derivationProvider === "railgun-wallet-sdk-legacy" ||
+    record.derivationProvider === "legacy-noncanonical"
   ) {
-    return "railgun-wallet-sdk-legacy";
+    return "legacy-noncanonical";
   }
 
   return "kohaku-railgun";
@@ -346,16 +348,12 @@ const persistRailgunWallet = async ({
   recoveryPhrase,
   source,
   keyIndex,
-  chainId,
-  railgunAddressOverride,
-  derivationProvider = "kohaku-railgun"
+  chainId
 }: {
   recoveryPhrase: string;
   source: "created" | "imported";
   keyIndex: number;
   chainId: bigint;
-  railgunAddressOverride?: string;
-  derivationProvider?: RailgunWalletDerivationProvider;
 }): Promise<RailgunWalletResult> => {
   assertRecoveryPhrase(recoveryPhrase);
 
@@ -364,14 +362,8 @@ const persistRailgunWallet = async ({
     keyIndex,
     chainId
   });
-  const railgunAddress = railgunAddressOverride ?? derived.railgunAddress;
-
-  if (
-    derivationProvider === "kohaku-railgun" &&
-    railgunAddress !== derived.railgunAddress
-  ) {
-    throw new Error("Kohaku RAILGUN derivation address override is invalid.");
-  }
+  const railgunAddress = derived.railgunAddress;
+  const derivationProvider: RailgunWalletDerivationProvider = "kohaku-railgun";
 
   const now = new Date().toISOString();
   const encrypted = await encryptSecretPayload({
@@ -444,28 +436,6 @@ export const importEncryptedRailgunWallet = async ({
   persistRailgunWallet({
     recoveryPhrase: normalizeRecoveryPhrase(recoveryPhrase),
     source: "imported",
-    keyIndex,
-    chainId
-  });
-
-export const persistRailgunWalletFromSdkDerivation = async ({
-  recoveryPhrase,
-  railgunAddress,
-  source,
-  keyIndex = 0,
-  chainId = 1n
-}: {
-  recoveryPhrase: string;
-  railgunAddress: string;
-  source: "created" | "imported";
-  keyIndex?: number;
-  chainId?: bigint;
-}): Promise<RailgunWalletResult> =>
-  persistRailgunWallet({
-    recoveryPhrase: normalizeRecoveryPhrase(recoveryPhrase),
-    railgunAddressOverride: railgunAddress,
-    derivationProvider: "railgun-wallet-sdk-legacy",
-    source,
     keyIndex,
     chainId
   });

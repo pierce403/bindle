@@ -52,7 +52,7 @@ test("Pay resolves the default RAILGUN broadcaster fee token to mainnet WETH", (
   );
 });
 
-test("Private Pay is disabled before quote, SDK, or broadcaster work", async () => {
+test("Private Pay is disabled before quote or broadcaster work", async () => {
   const asset = getPayAsset("USDC");
 
   expect(asset).not.toBeNull();
@@ -75,7 +75,7 @@ test("Private Pay is disabled before quote, SDK, or broadcaster work", async () 
   ).rejects.toThrow(kohakuPrivateActionsPendingMessage);
 });
 
-test("Private Pay source does not import the Wallet SDK or quote/broadcaster path", () => {
+test("Private Pay source does not import removed SDK or quote/broadcaster path", () => {
   const source = readFileSync(resolve("src/railgun/pay.ts"), "utf8");
   const prepareIndex = source.indexOf("export const prepareRailgunUsdcPayForRecipient");
   const prepareSource = source.slice(prepareIndex);
@@ -83,7 +83,6 @@ test("Private Pay source does not import the Wallet SDK or quote/broadcaster pat
   expect(prepareIndex).toBeGreaterThan(-1);
   expect(prepareSource).toContain("kohakuPrivateActionsPendingMessage");
   expect(prepareSource).not.toContain("@railgun-community/wallet");
-  expect(prepareSource).not.toContain("ensureRailgunWalletSdkWalletForLocalWallet");
   expect(prepareSource).not.toContain("prepareUniswapV4EthToUsdcExactOutputRoute");
   expect(prepareSource).not.toContain("getRailgunWakuBroadcasterQuote");
 });

@@ -7,8 +7,8 @@ to creating a passkey-backed smart wallet, then use the privacy toolkit boundary
 to connect that wallet to RAILGUN shielded ETH. Today, the public funding
 account is passkey-backed while the RAILGUN shielded account uses an encrypted
 local recovery phrase as an interim recoverable key path. EOA imports and
-legacy RAILGUN Wallet SDK lifecycle paths are compatibility or recovery flows,
-not the default first-run experience.
+legacy noncanonical RAILGUN wallet records are compatibility or recovery
+concerns, not the default first-run experience.
 
 ## Current Shape
 
@@ -21,8 +21,9 @@ not the default first-run experience.
 - Kohaku RAILGUN alpha packages pinned in `package.json`.
 - Browser-side Kohaku RAILGUN adapter that starts from visible
   `ConnectionPolicy` endpoints only.
-- Legacy RAILGUN Wallet SDK code is quarantined for migration diagnostics and
-  is not selectable from the normal privacy-toolkit UI.
+- Legacy RAILGUN Wallet SDK code and dependencies have been removed; old
+  noncanonical derivation metadata is normalized only so it can stay blocked
+  safely.
 - The privacy toolkit can auto-start after a real local `0zk` wallet exists
   when the selected visible preset allows it.
 - Local wallet metadata state for passkey-first onboarding, with no private key
@@ -69,9 +70,9 @@ not the default first-run experience.
   Kohaku has a verified private broadcaster path that does not use the user's
   passkey smart account, Pimlico bundler, paymaster, or EOA.
 - Endpoint presets are visible in Connections. Bindle default currently uses a
-  labelled public Ethereum RPC, RAILGUN sync indexer, public Waku RAILGUN
-  broadcaster network, and public ERC-4337 bundler, plus same-origin static
-  RAILGUN proving artifacts at `/railgun-artifacts/` and
+  labelled public Ethereum RPC, RAILGUN sync indexer, visible public Waku
+  RAILGUN broadcaster policy, and public ERC-4337 bundler, plus same-origin
+  static RAILGUN proving artifacts at `/railgun-artifacts/` and
   `onchain:uniswap-v4` quote source; Privacy max starts with hosted endpoints
   empty/off.
 - Endpoint settings are persisted locally in the browser after the user changes
@@ -145,11 +146,11 @@ The default adapter is `kohaku-railgun`. It uses Kohaku's low-level RAILGUN WASM
 
 Important privacy constraint: Kohaku's higher-level `createRailgunPlugin()` helper wires a default Subsquid syncer. Bindle does not call that helper because hidden indexer traffic would violate the product rules. The current Kohaku adapter explicitly builds `RailgunBuilder` itself and uses the visible RAILGUN sync indexer only when that endpoint is present in `ConnectionPolicy`; otherwise it falls back to RPC-only sync.
 
-The legacy `railgun-wallet-sdk` code path is not a normal runtime fallback.
-It is quarantined for legacy detection, diagnostics, and future migration work
-because it can derive a different `0zk` address from the same recovery phrase.
-Normal app state must not create, import, repair, or spend through
-`@railgun-community/wallet`.
+The legacy RAILGUN Wallet SDK code path is not bundled. Old stored SDK-style
+derivation labels are normalized to `legacy-noncanonical` so Bindle can keep
+those records visible without treating them as Kohaku-canonical wallets.
+Normal app state must not create, import, repair, or spend through the removed
+SDK path.
 
 Smart-wallet work should stay Kohaku-first as well. Bindle should prefer a
 passkey-backed smart account path where Kohaku supports it, with any ERC-4337
@@ -178,9 +179,10 @@ reject underpriced priority fees. Pimlico is only for public smart-wallet
 operations such as account deployment, public ETH payments, and public shield
 deposits. Private Pay-to-USDC is disabled before recipient resolution, quote,
 broadcaster discovery, proof generation, or submission. Bindle will not rebuild
-Private Pay on the legacy Wallet SDK path and will not submit private-origin
-RAILGUN actions through the public smart wallet. Live USDC Pay remains blocked
-until Kohaku can provide a privacy-safe broadcaster submission path and
+Private Pay on a removed legacy dependency path and will not submit
+private-origin RAILGUN actions through the public smart wallet. Live USDC Pay
+remains blocked until Kohaku can provide a privacy-safe broadcaster submission
+path, or Bindle adds a standalone non-SDK Waku broadcaster transport, and
 leftover swap/change funds can return privately to `0zk`. Standalone
 unshielding, private RAILGUN sends, non-USDC Pay assets, and any-network
 provider routing remain pending.
@@ -195,12 +197,11 @@ Kohaku exposes a configurable artifact loader.
 
 ## RAILGUN Integration Notes
 
-The RAILGUN Wallet SDK remains in the dependency graph temporarily for legacy
-quarantine and diagnostics only. It is not the canonical Bindle wallet backend.
-New normal `0zk` creation/import uses Kohaku derivation and persists
-`derivationProvider = "kohaku-railgun"`. Existing SDK-derived records are
-labelled `railgun-wallet-sdk-legacy`; Bindle does not silently convert them to
-Kohaku accounts or imply funds moved.
+Kohaku is the only bundled RAILGUN backend. New normal `0zk` creation/import
+uses Kohaku derivation and persists `derivationProvider = "kohaku-railgun"`.
+Existing old SDK-derived or otherwise noncanonical records are normalized to
+`legacy-noncanonical`; Bindle does not silently convert them to Kohaku accounts
+or imply funds moved.
 
 Current shield/unshield status:
 
@@ -231,9 +232,12 @@ Current shield/unshield status:
   and Waku status, broadcaster fee token/fee, Uniswap v4 route provider, target
   token, amount, recipient, and chain. Private Pay remains disabled because the
   currently verified Kohaku path does not yet provide the required
-  privacy-safe broadcaster submission and private-change handling. The app
-  blocks before ENS/RPC recipient resolution, Uniswap quote, broadcaster
-  discovery, proof generation, or submission.
+  privacy-safe broadcaster submission and private-change handling. The previous
+  bundled Waku broadcaster client was removed with the SDK dependency graph, so
+  Bindle needs either Kohaku-native broadcaster submission or a standalone
+  non-SDK Waku client before live Private Pay can submit. The app blocks before
+  ENS/RPC recipient resolution, Uniswap quote, broadcaster discovery, proof
+  generation, or submission.
 - Standalone unshield and private send flows remain blocked until their review,
   proof, unlock, and visible submission policies are implemented.
 
@@ -242,17 +246,14 @@ Primary references:
 - https://github.com/ethereum/kohaku
 - https://ethereum.github.io/kohaku/getting-started/
 - https://docs.railgun.org/wiki
-- https://docs.railgun.org/wiki/learn/integrating-railgun/railgun-sdks
-- https://docs.railgun.org/developer-guide/wallet/getting-started
-- https://github.com/Railgun-Community/wallet
 - https://docs.uniswap.org/contracts/v4/deployments
 - https://docs.uniswap.org/contracts/universal-router/technical-reference
 
 ## Privacy Defaults
 
 Bindle should not silently phone home. It may ship sane endpoint presets, but
-no endpoint may be hidden in source code, SDK helper defaults, environment
-magic, CDN imports, or undocumented library defaults.
+no endpoint may be hidden in source code, dependency helper defaults,
+environment magic, CDN imports, or undocumented library defaults.
 
 Current presets:
 
@@ -274,7 +275,7 @@ endpoints that may be contacted before sensitive actions.
 
 ## Helios Direction
 
-Helios is a viable candidate for reducing RPC trust because it runs as a Rust/WASM light client and exposes a local RPC surface. It does not eliminate outbound connections: it still needs an execution RPC that supports `eth_getProof`, a consensus RPC or trusted checkpoint path, and compatibility testing against the RAILGUN SDK calls Bindle needs.
+Helios is a viable candidate for reducing RPC trust because it runs as a Rust/WASM light client and exposes a local RPC surface. It does not eliminate outbound connections: it still needs an execution RPC that supports `eth_getProof`, a consensus RPC or trusted checkpoint path, and compatibility testing against the RAILGUN calls Bindle needs.
 
 Helios fields live in `ConnectionPolicy` now, but the Helios adapter is not
 wired yet. Selecting Helios mode fails closed until execution RPC, consensus

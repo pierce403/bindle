@@ -54,7 +54,7 @@ const isStoredShieldedEthBalance = (
   return (
     typeof parsed.railgunAddress === "string" &&
     (parsed.derivationProvider === "kohaku-railgun" ||
-      parsed.derivationProvider === "railgun-wallet-sdk-legacy" ||
+      parsed.derivationProvider === "legacy-noncanonical" ||
       parsed.derivationProvider === "unknown") &&
     typeof parsed.chainId === "string" &&
     typeof parsed.wei === "string" &&

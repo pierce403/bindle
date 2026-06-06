@@ -28,7 +28,7 @@ export type HeliosNetwork = "mainnet" | "sepolia" | "holesky";
 
 export type EndpointSource = "default" | "custom" | "off" | "local";
 
-export type PrivacyToolkitId = "kohaku-railgun" | "railgun-wallet-sdk";
+export type PrivacyToolkitId = "kohaku-railgun";
 
 export type RailgunBroadcasterMode =
   | "waku-public-network"

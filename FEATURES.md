@@ -10,7 +10,7 @@ infrastructure.
 - [x] Make mobile PWA onboarding default to a passkey-backed smart wallet,
       not a seed phrase or browser extension.
 - [x] Evaluate Kohaku's smart-wallet/account path for passkey-backed accounts
-      before adding direct lifecycle state around the legacy RAILGUN Wallet SDK.
+      before adding direct lifecycle state around any legacy RAILGUN backend.
 - [x] Implement local wallet/intents state above the privacy toolkit boundary.
 - [x] Track real wallet status, smart-wallet address, real `0zk` address,
       created/imported timestamp, passkey-present boolean,
@@ -60,7 +60,7 @@ infrastructure.
 - [x] Add recoverable RAILGUN spending/viewing key lifecycle using Kohaku
       derivation paths and encrypted local recovery phrase storage.
 - [x] Build RAILGUN wallet create/import around Kohaku low-level RAILGUN
-      primitives instead of direct app state around the legacy Wallet SDK.
+      primitives instead of direct app state around a legacy wallet backend.
 - [x] Store the RAILGUN recovery phrase encrypted in IndexedDB under a
       browser-local WebCrypto key; localStorage stores only non-secret public
       metadata.
@@ -91,7 +91,7 @@ infrastructure.
       with a fresh browser-local `0zk` while preserving the passkey funding
       wallet.
 - [x] Convert Kohaku RAILGUN WASM traps into persistent, readable toolkit
-      errors without suggesting an unsafe Wallet SDK fallback.
+      errors without suggesting an unsafe legacy fallback.
 - [x] Add a browser-local Debug tab with persistent wallet/toolkit error logs
       and stack traces for transient RAILGUN/Kohaku failures.
 - [x] Guard Kohaku RAILGUN WASM initialization so `initLogging` runs once per
@@ -126,19 +126,20 @@ infrastructure.
       token, recipient, and chain, and fail closed instead of submitting the
       private leg through ERC-4337.
 - [x] Record local RAILGUN wallet derivation metadata, normalize old
-      `kohaku-railgun-alpha` records to `kohaku-railgun`, and label SDK-derived
-      records as `railgun-wallet-sdk-legacy`.
-- [x] Quarantine the RAILGUN Wallet SDK path so normal create/import and
-      Private Pay review do not derive or repair toward a second SDK `0zk`.
+      `kohaku-railgun-alpha` records to `kohaku-railgun`, and label old
+      noncanonical records as `legacy-noncanonical`.
+- [x] Remove the legacy RAILGUN Wallet SDK dependency graph and code path so
+      normal create/import and Private Pay review cannot derive or repair
+      toward a second non-Kohaku `0zk`.
 - [x] Block Private Pay when Uniswap leftover/change cannot be returned
       privately to the 0zk account.
+- [x] Replace the SDK-backed Waku broadcaster runtime with a closed placeholder
+      after removing the Wallet SDK dependency graph.
 
 ## Now
 
 - [ ] Keep mnemonic import as an advanced compatibility/recovery path rather
       than the primary first-run flow.
-- [x] Keep the legacy RAILGUN Wallet SDK out of normal runtime flows; retain it
-      only for legacy detection, diagnostics, and future migration cleanup.
 - [x] Persist a non-secret local setup-complete flag after public smart-account
       metadata and browser-local RAILGUN key storage are both present, so the
       onboarding wizard does not flash during toolkit auto-start on later PWA
@@ -159,8 +160,8 @@ infrastructure.
 - [ ] Investigate Kohaku private broadcast support and keep private unshield,
       transfer, swap, and Private Pay disabled until submission does not use the
       user's public smart wallet, ERC-4337 bundler, Pimlico, paymaster, or EOA.
-- [ ] Remove `@railgun-community/wallet`, `level-js`, and `snarkjs` after no
-      remaining source or tests need legacy SDK quarantine imports.
+- [ ] Add non-SDK Waku broadcaster transport or Kohaku-native broadcaster
+      submission before enabling live private unshield/Private Pay submission.
 
 ## Privacy And Connectivity
 

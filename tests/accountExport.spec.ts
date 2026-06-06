@@ -62,11 +62,11 @@ test("creates an account export with explicit recovery warnings", () => {
   expect(parsed.warnings.join(" ")).toContain("recovery phrase");
 });
 
-test("normalizes legacy Wallet SDK exports without treating them as Kohaku", () => {
+test("normalizes legacy noncanonical exports without treating them as Kohaku", () => {
   const accountExport = createBindleAccountExport({
     wallet: {
       ...wallet,
-      railgunDerivationProvider: "railgun-wallet-sdk-legacy"
+      railgunDerivationProvider: "legacy-noncanonical"
     },
     railgunWallet: {
       railgunAddress: wallet.railgunAddress ?? "",
@@ -81,10 +81,10 @@ test("normalizes legacy Wallet SDK exports without treating them as Kohaku", () 
   const parsed = parseBindleAccountExport(JSON.stringify(accountExport));
 
   expect(parsed.wallet.railgunDerivationProvider).toBe(
-    "railgun-wallet-sdk-legacy"
+    "legacy-noncanonical"
   );
   expect(parsed.railgunWallet?.derivationProvider).toBe(
-    "railgun-wallet-sdk-legacy"
+    "legacy-noncanonical"
   );
 });
 
