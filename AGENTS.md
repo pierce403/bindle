@@ -253,6 +253,23 @@ avoids requiring GitHub workflow scope.
   until indexer/POI endpoints are configurable. Its current implementation
   wires a default Subsquid syncer, which violates Bindle's no-hidden-endpoints
   rule.
+- `kassandraoftroy/kohaku-cli` is useful reference code but not a directly
+  copyable Bindle private relay path. As of its May 31, 2026 state it uses
+  `createRailgunPlugin(host, { rpcBatchSize: 450 })`; RAILGUN unshield calls
+  `setBundler(Bundler.pimlico(...))` and `setDelegatingSigner(...)`, and its UI
+  labels the route `Railgun (ERC-4337 bundler)`. That confirms the Kohaku alpha
+  can prepare/broadcast unshield through a bundler/delegating signer, but it is
+  not the Waku RAILGUN broadcaster path required for Bindle private-origin
+  Pay.
+- `kohaku-cli` wraps Kohaku provider `eth_getLogs` calls into small sequential
+  chunks, defaulting to 499 blocks with `KOHAKU_GETLOGS_MAX_BLOCK_SPAN` as an
+  override. This is a credible reference for mitigating browser RPCs that reject
+  large RAILGUN note-sync log scans.
+- `kassandraoftroy/derive-railgun-keys` documents the BabyJubJub RAILGUN HD
+  derivation used by `kohaku-cli`: spending `m/44'/1984'/0'/0'/i'`, viewing
+  `m/420'/1984'/0'/0'/i'`, HMAC seed string `babyjubjub seed`. Treat it as a
+  reference, not a Bindle dependency: the published package pulls older Kohaku
+  railgun alpha dependencies including Waku/snarkjs.
 - Bindle's Kohaku adapter imports the generated WASM binding file directly
   from `@kohaku-eth/railgun/dist/pkg/index.js` and initializes it with the
   default export plus `initLogging()`. Importing the package root pulled the
