@@ -53,6 +53,10 @@ export type SmartWalletCall = {
   origin?: TxOrigin;
 };
 
+const smartAccountDeploymentProbeAddress = getAddress(
+  "0x000000000000000000000000000000000000dEaD"
+) as Address;
+
 export const kohakuSmartAccountSupport: SmartAccountAdapterStatus = {
   usable: false,
   label: "Kohaku passkey smart account",
@@ -311,6 +315,76 @@ export const sendSmartWalletEthPayment = async ({
             {
               to,
               value: parseEther(amount.trim())
+            }
+          ]
+        });
+        const receipt = await bundlerClient.waitForUserOperationReceipt({
+          hash: userOperationHash
+        });
+
+        return {
+          userOperationHash,
+          transactionHash: receipt.receipt.transactionHash
+        };
+      } catch (error) {
+        if (!isPasskeyLookupError(error)) {
+          throw error;
+        }
+
+        passkeyLookupErrors.push(error);
+      }
+    }
+
+    throw (
+      passkeyLookupErrors.at(-1) ??
+      new Error("No saved passkey was available for signing.")
+    );
+  } catch (error) {
+    throw explainPasskeyLookupError(error, walletState);
+  }
+};
+
+export const deploySmartWalletAccount = async ({
+  policy,
+  walletState
+}: {
+  policy: ConnectionPolicy;
+  walletState: WalletState;
+}): Promise<SmartWalletPaymentResult> => {
+  try {
+    if (!policy.bundlerUrl.trim()) {
+      throw new Error("Configure an ERC-4337 bundler before deployment.");
+    }
+
+    const accounts = await createSmartAccountCandidates(policy, walletState);
+    const passkeyLookupErrors: unknown[] = [];
+
+    for (const { account, client } of accounts) {
+      try {
+        const paymasterClient = policy.paymasterUrl.trim()
+          ? createPaymasterClient({
+              transport: http(policy.paymasterUrl.trim())
+            })
+          : null;
+        const bundlerClient = createBundlerClient({
+          account,
+          client,
+          paymaster: paymasterClient ?? undefined,
+          transport: http(policy.bundlerUrl.trim()),
+          userOperation: {
+            estimateFeesPerGas: () =>
+              estimateVisibleUserOperationFees({
+                bundlerUrl: policy.bundlerUrl,
+                fallbackEstimator: client
+              })
+          }
+        });
+        const userOperationHash = await bundlerClient.sendUserOperation({
+          account,
+          calls: [
+            {
+              to: smartAccountDeploymentProbeAddress,
+              value: 0n
             }
           ]
         });

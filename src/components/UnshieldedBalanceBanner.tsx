@@ -134,9 +134,9 @@ export function UnshieldedBalanceBanner({
             </div>
           </div>
           <small className="shield-review-note">
-            The main Shield button sweeps the exact synced public ETH balance.
-            Use a custom amount only when you intentionally want to leave public
-            ETH in the funding address.
+            The main Shield button sweeps the spendable synced public ETH
+            balance. Without a paymaster, Bindle reserves enough ETH for visible
+            ERC-4337 fees.
           </small>
           <label className="field">
             <span>Custom amount to shield</span>

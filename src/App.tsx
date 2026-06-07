@@ -49,7 +49,9 @@ import { buildEndpointDisclosure } from "./privacy/preflightDisclosure";
 import { refreshAndSelectRailgunBroadcasterForPrivateAction } from "./railgun/broadcasterSelection";
 import {
   assessShieldReadiness,
+  estimatePublicShieldGasReserveWei,
   prepareNativeEthShieldCalls,
+  spendablePublicShieldAmountWei,
   summarizeMissingRequirements
 } from "./railgun/shielding";
 import {
@@ -92,6 +94,7 @@ import {
   parseBindleAccountExport
 } from "./wallet/accountExport";
 import {
+  deploySmartWalletAccount,
   deriveSmartWalletAddressFromPasskey,
   sendSmartWalletCalls,
   sendSmartWalletEthPayment
@@ -104,8 +107,11 @@ import {
 } from "./wallet/smartAccountDeployment";
 import {
   fetchPublicEthBalance,
+  formatEthBalance,
   type PublicEthBalance
 } from "./wallet/publicBalance";
+import { createVisibleMainnetClient } from "./wallet/mainnetClient";
+import { estimateVisibleUserOperationFees } from "./wallet/userOperationGas";
 import {
   fetchPublicEthActivity,
   type PublicEthActivityScan
@@ -160,6 +166,22 @@ const shieldedBalanceSyncDetail = (
     `RPC: ${policy.ethereumRpcUrl.trim()}`,
     `RAILGUN sync indexer: ${policy.railgunSyncUrl.trim() || "off (RPC-only)"}`
   ].join("\n");
+
+const estimateShieldSweepGasReserve = async (
+  policy: ConnectionPolicy
+): Promise<bigint> => {
+  if (policy.paymasterUrl.trim()) {
+    return 0n;
+  }
+
+  const client = await createVisibleMainnetClient(policy);
+  const fees = await estimateVisibleUserOperationFees({
+    bundlerUrl: policy.bundlerUrl,
+    fallbackEstimator: client
+  });
+
+  return estimatePublicShieldGasReserveWei(fees.maxFeePerGas);
+};
 
 const createShieldedBalanceSyncTimeoutError = (): Error => {
   const error = new Error(
@@ -1837,30 +1859,21 @@ function WalletApp() {
       return;
     }
 
-    let amountWei: bigint;
-    let shieldMode: string;
+    let requestedAmountWei: bigint | null = null;
+    const shieldMode = request.kind === "sweep-all" ? "sweep-all" : "custom-amount";
 
-    if (request.kind === "sweep-all") {
-      amountWei = publicBalance.balance.wei;
-      shieldMode = "sweep-all";
-    } else {
+    if (request.kind !== "sweep-all") {
       try {
-        amountWei = parseEther(request.amount.trim());
-        shieldMode = "custom-amount";
+        requestedAmountWei = parseEther(request.amount.trim());
       } catch {
         setShieldStatus("Enter a valid ETH amount to shield.");
         return;
       }
-    }
 
-    if (amountWei <= 0n) {
-      setShieldStatus("Shield amount must be greater than zero.");
-      return;
-    }
-
-    if (amountWei > publicBalance.balance.wei) {
-      setShieldStatus("Shield amount exceeds the synced public ETH balance.");
-      return;
+      if (requestedAmountWei <= 0n) {
+        setShieldStatus("Shield amount must be greater than zero.");
+        return;
+      }
     }
 
     setIsSubmittingShield(true);
@@ -1870,24 +1883,103 @@ function WalletApp() {
         : "Preparing RAILGUN shield transaction"
     );
     setAppNotice(null);
-    recordDebugEvent({
-      level: "info",
-      source: "shield",
-      message:
-        request.kind === "sweep-all"
-          ? "Preparing full public funding sweep"
-          : "Preparing RAILGUN shield transaction",
-      detail: [
-        `Mode: ${shieldMode}`,
-        `Amount wei: ${amountWei.toString()}`,
-        `Public funding balance wei: ${publicBalance.balance.wei.toString()}`,
-        `Railgun address: ${walletState.railgunAddress}`,
-        `Bundler: ${policy.bundlerUrl.trim() || "off"}`,
-        `Paymaster: ${policy.paymasterUrl.trim() || "off"}`
-      ].join("\n")
-    });
+
+    let amountWei = requestedAmountWei ?? publicBalance.balance.wei;
+    let availableBalanceWei = publicBalance.balance.wei;
+    let gasReserveWei = 0n;
 
     try {
+      if (!walletState.smartWalletAddress) {
+        throw new Error("Create the public funding smart account before shielding.");
+      }
+
+      const deployment = await fetchSmartAccountDeploymentStatus(
+        policy,
+        walletState.smartWalletAddress
+      );
+      setSmartAccountDeployment(deployment);
+
+      if (deployment.status === "counterfactual") {
+        setShieldStatus("Deploying public smart account before shield sweep");
+        recordDebugEvent({
+          level: "info",
+          source: "shield",
+          message: "Deploying public smart account before shield sweep",
+          detail: [
+            `Address: ${walletState.smartWalletAddress}`,
+            `Bundler: ${policy.bundlerUrl.trim() || "off"}`,
+            `Paymaster: ${policy.paymasterUrl.trim() || "off"}`
+          ].join("\n")
+        });
+
+        const deployResult = await deploySmartWalletAccount({
+          policy,
+          walletState
+        });
+        recordDebugEvent({
+          level: "info",
+          source: "shield",
+          message: deployResult.transactionHash
+            ? `Public smart account deployed: ${deployResult.transactionHash}`
+            : `Public smart-account deployment user operation submitted: ${deployResult.userOperationHash}`
+        });
+
+        const [postDeployment, postDeploymentBalance] = await Promise.all([
+          fetchSmartAccountDeploymentStatus(policy, walletState.smartWalletAddress),
+          fetchPublicEthBalance(policy, walletState.smartWalletAddress)
+        ]);
+        setSmartAccountDeployment(postDeployment);
+        setPublicBalance({ status: "ready", balance: postDeploymentBalance });
+        availableBalanceWei = postDeploymentBalance.wei;
+      }
+
+      gasReserveWei = await estimateShieldSweepGasReserve(policy);
+
+      if (request.kind === "sweep-all") {
+        amountWei = spendablePublicShieldAmountWei({
+          gasReserveWei,
+          publicBalanceWei: availableBalanceWei
+        });
+      } else if (
+        requestedAmountWei !== null &&
+        requestedAmountWei >
+          spendablePublicShieldAmountWei({
+            gasReserveWei,
+            publicBalanceWei: availableBalanceWei
+          })
+      ) {
+        throw new Error(
+          "Shield amount exceeds the spendable public ETH balance after reserving ERC-4337 fees."
+        );
+      }
+
+      setShieldStatus(
+        gasReserveWei > 0n && request.kind === "sweep-all"
+          ? `Preparing spendable sweep to RAILGUN 0zk; reserving ${formatEthBalance(
+              gasReserveWei
+            )} for ERC-4337 fees because no paymaster is configured.`
+          : request.kind === "sweep-all"
+            ? "Preparing full public funding sweep to RAILGUN 0zk"
+            : "Preparing RAILGUN shield transaction"
+      );
+      recordDebugEvent({
+        level: "info",
+        source: "shield",
+        message:
+          request.kind === "sweep-all"
+            ? "Preparing public funding sweep"
+            : "Preparing RAILGUN shield transaction",
+        detail: [
+          `Mode: ${shieldMode}`,
+          `Amount wei: ${amountWei.toString()}`,
+          `Available public funding balance wei: ${availableBalanceWei.toString()}`,
+          `Reserved gas wei: ${gasReserveWei.toString()}`,
+          `Railgun address: ${walletState.railgunAddress}`,
+          `Bundler: ${policy.bundlerUrl.trim() || "off"}`,
+          `Paymaster: ${policy.paymasterUrl.trim() || "off"}`
+        ].join("\n")
+      });
+
       const shieldCalls = await prepareNativeEthShieldCalls({
         amountWei,
         debugLogging: policy.debugLogging,
@@ -1924,7 +2016,12 @@ function WalletApp() {
         error,
         "Unable to submit shield",
         "shield",
-        `Amount wei: ${amountWei.toString()}\nRailgun address: ${walletState.railgunAddress}`
+        [
+          `Amount wei: ${amountWei.toString()}`,
+          `Available public funding balance wei: ${availableBalanceWei.toString()}`,
+          `Reserved gas wei: ${gasReserveWei.toString()}`,
+          `Railgun address: ${walletState.railgunAddress}`
+        ].join("\n")
       );
       setShieldStatus(message);
       setAppNotice({

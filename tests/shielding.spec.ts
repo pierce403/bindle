@@ -3,6 +3,9 @@ import { defaultConnectionPolicy } from "../src/privacy/connectionPolicy";
 import {
   assessShieldReadiness,
   assessUnshieldReadiness,
+  estimatePublicShieldGasReserveWei,
+  minimumPublicShieldGasReserveWei,
+  spendablePublicShieldAmountWei,
   summarizeMissingRequirements
 } from "../src/railgun/shielding";
 
@@ -69,4 +72,22 @@ test("unshield path remains blocked until keys, balance sync, and broadcaster ex
       })
     ])
   );
+});
+
+test("shield sweep reserves visible ERC-4337 fees when no paymaster sponsors gas", () => {
+  expect(estimatePublicShieldGasReserveWei(1n)).toBe(
+    minimumPublicShieldGasReserveWei
+  );
+  expect(
+    spendablePublicShieldAmountWei({
+      publicBalanceWei: 20_000_000_000_000_000n,
+      gasReserveWei: minimumPublicShieldGasReserveWei
+    })
+  ).toBe(19_000_000_000_000_000n);
+  expect(() =>
+    spendablePublicShieldAmountWei({
+      publicBalanceWei: minimumPublicShieldGasReserveWei,
+      gasReserveWei: minimumPublicShieldGasReserveWei
+    })
+  ).toThrow(/too small to shield/i);
 });

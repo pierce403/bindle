@@ -57,10 +57,11 @@ concerns, not the default first-run experience.
 - Public funding balance sync uses the visible Ethereum RPC from Connections.
   Bindle refreshes it on load when that RPC is configured, and still shows the
   endpoint that may receive the public smart-wallet address.
-- Shield review defaults to sweeping the exact synced ETH balance from the
-  public funding address into the user's RAILGUN `0zk` address. It does not
-  reserve ETH for EOA gas, but ERC-4337 execution is not free: the visible
-  bundler/paymaster policy must cover the operation or the sweep can fail.
+- Shield review defaults to deploying the public smart account when it is still
+  counterfactual, then sweeping the spendable synced ETH balance from the public
+  funding address into the user's RAILGUN `0zk` address. With no visible
+  paymaster, Bindle reserves ETH for ERC-4337 fees; exact zero-balance sweep
+  requires sponsorship.
 - Passkey enrollment stores non-secret credential id and public P-256 metadata;
   WebAuthn private material stays inside the platform authenticator.
 - Send Review stays disabled until wallet, toolkit, RPC, recipient, amount, and

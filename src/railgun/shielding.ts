@@ -40,6 +40,39 @@ export type ShieldCall = {
   value: bigint;
 };
 
+export const minimumPublicShieldGasReserveWei = 1_000_000_000_000_000n;
+export const publicShieldGasReserveGasUnits = 2_500_000n;
+
+export const estimatePublicShieldGasReserveWei = (
+  maxFeePerGas: bigint
+): bigint => {
+  const dynamicReserve = maxFeePerGas * publicShieldGasReserveGasUnits;
+
+  return dynamicReserve > minimumPublicShieldGasReserveWei
+    ? dynamicReserve
+    : minimumPublicShieldGasReserveWei;
+};
+
+export const spendablePublicShieldAmountWei = ({
+  publicBalanceWei,
+  gasReserveWei
+}: {
+  publicBalanceWei: bigint;
+  gasReserveWei: bigint;
+}): bigint => {
+  if (gasReserveWei <= 0n) {
+    return publicBalanceWei;
+  }
+
+  if (publicBalanceWei <= gasReserveWei) {
+    throw new Error(
+      "Public funding balance is too small to shield after reserving ETH for the visible ERC-4337 bundler fees. Configure a paymaster or add more ETH."
+    );
+  }
+
+  return publicBalanceWei - gasReserveWei;
+};
+
 type KohakuRailgunTypes = typeof import("@kohaku-eth/railgun");
 type KohakuShieldModule = Pick<
   KohakuRailgunTypes,

@@ -85,9 +85,11 @@ infrastructure.
       every audited outbound class.
 - [x] Submit native ETH shield transactions from the passkey smart wallet using
       Kohaku shield-call data and visible ERC-4337 RPC/bundler policy.
-- [x] Default Shield to sweeping the exact synced public funding balance into
-      the user's RAILGUN `0zk` address through the visible public
-      smart-wallet/4337 path, without reserving ETH for EOA gas.
+- [x] Default Shield to deploying the public smart account when it is still
+      counterfactual, then sweeping the spendable synced public funding balance
+      into the user's RAILGUN `0zk` address through the visible public
+      smart-wallet/4337 path. Exact zero-balance sweep requires a visible
+      paymaster; otherwise Bindle reserves ETH for ERC-4337 fees.
 - [x] Use visible Pimlico bundler gas-price RPC for ERC-4337 User Operation
       fee fields so default funding-address sweeps and other public
       smart-wallet submissions are not underpriced. Pimlico remains a public

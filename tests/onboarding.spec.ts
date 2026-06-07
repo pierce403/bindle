@@ -439,12 +439,14 @@ test.describe("passkey-first onboarding", () => {
         id: request.id,
         result:
           request.method === "eth_chainId"
-            ? "0x1"
-            : request.method === "eth_getBalance"
-              ? "0xde0b6b3a7640000"
-              : request.method === "eth_blockNumber"
-                ? "0x100"
-                : request.method === "eth_getLogs"
+              ? "0x1"
+              : request.method === "eth_getBalance"
+                ? "0xde0b6b3a7640000"
+                : request.method === "eth_getCode"
+                  ? "0x01"
+                : request.method === "eth_blockNumber"
+                  ? "0x100"
+                  : request.method === "eth_getLogs"
                   ? []
                   : request.method === "eth_call"
                     ? "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -455,6 +457,30 @@ test.describe("passkey-first onboarding", () => {
                         : request.method === "eth_getTransactionCount"
                           ? "0x0"
                           : null
+      }));
+
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(Array.isArray(payload) ? responses : responses[0])
+      });
+    });
+    await page.route("https://public.pimlico.io/v2/1/rpc", async (route) => {
+      const payload = JSON.parse(route.request().postData() ?? "{}") as
+        | { id: number; method: string }
+        | Array<{ id: number; method: string }>;
+      const requests = Array.isArray(payload) ? payload : [payload];
+      const responses = requests.map((request) => ({
+        jsonrpc: "2.0",
+        id: request.id,
+        result:
+          request.method === "pimlico_getUserOperationGasPrice"
+            ? {
+                fast: {
+                  maxFeePerGas: "1",
+                  maxPriorityFeePerGas: "1"
+                }
+              }
+            : null
       }));
 
       await route.fulfill({
@@ -698,12 +724,14 @@ test.describe("passkey-first onboarding", () => {
         id: request.id,
         result:
           request.method === "eth_chainId"
-            ? "0x1"
-            : request.method === "eth_getBalance"
-              ? "0xde0b6b3a7640000"
-              : request.method === "eth_blockNumber"
-                ? "0x100"
-                : request.method === "eth_getLogs"
+              ? "0x1"
+              : request.method === "eth_getBalance"
+                ? "0xde0b6b3a7640000"
+                : request.method === "eth_getCode"
+                  ? "0x01"
+                : request.method === "eth_blockNumber"
+                  ? "0x100"
+                  : request.method === "eth_getLogs"
                   ? []
                   : request.method === "eth_call"
                     ? "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -714,6 +742,30 @@ test.describe("passkey-first onboarding", () => {
                         : request.method === "eth_getTransactionCount"
                           ? "0x0"
                           : null
+      }));
+
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(Array.isArray(payload) ? responses : responses[0])
+      });
+    });
+    await page.route("https://public.pimlico.io/v2/1/rpc", async (route) => {
+      const payload = JSON.parse(route.request().postData() ?? "{}") as
+        | { id: number; method: string }
+        | Array<{ id: number; method: string }>;
+      const requests = Array.isArray(payload) ? payload : [payload];
+      const responses = requests.map((request) => ({
+        jsonrpc: "2.0",
+        id: request.id,
+        result:
+          request.method === "pimlico_getUserOperationGasPrice"
+            ? {
+                fast: {
+                  maxFeePerGas: "1",
+                  maxPriorityFeePerGas: "1"
+                }
+              }
+            : null
       }));
 
       await route.fulfill({
@@ -780,7 +832,7 @@ test.describe("passkey-first onboarding", () => {
     await page.getByRole("button", { name: "Debug" }).click();
 
     await expect(page.getByLabel("Debug log entries")).toContainText(
-      "Preparing full public funding sweep",
+      "Preparing public funding sweep",
       { timeout: 30_000 }
     );
     await expect(page.getByLabel("Debug log entries")).toContainText(
