@@ -239,3 +239,49 @@ test("retries passkey lookup with discoverable credentials after stale credentia
     });
   }
 });
+
+test("rejects discoverable passkey fallback when it selects a different credential", async () => {
+  const originalNavigator = globalThis.navigator;
+
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: {
+      credentials: {
+        get: async (options?: CredentialRequestOptions) => {
+          if (options?.publicKey?.allowCredentials) {
+            throw new Error("No passkeys available");
+          }
+
+          return {
+            id: "different-credential",
+            type: "public-key"
+          } as Credential;
+        }
+      }
+    }
+  });
+
+  try {
+    const requestCredential = createPasskeyRequestFn("platform", "required");
+
+    await expect(
+      requestCredential?.({
+        publicKey: {
+          challenge: new Uint8Array([1]).buffer,
+          allowCredentials: [
+            {
+              id: new Uint8Array([2]).buffer,
+              type: "public-key"
+            }
+          ],
+          userVerification: "preferred"
+        }
+      })
+    ).rejects.toThrow("No passkeys available for the saved credential id");
+  } finally {
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      value: originalNavigator
+    });
+  }
+});

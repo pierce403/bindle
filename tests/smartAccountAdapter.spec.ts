@@ -68,6 +68,54 @@ test("funding credential candidates keep active and saved passkey owners", () =>
   ]);
 });
 
+test("funding credential candidates prefer current-site passkey owners", () => {
+  const originalWindow = globalThis.window;
+
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      location: {
+        hostname: "bindle.cash"
+      }
+    }
+  });
+
+  try {
+    const candidates = getFundingCredentialCandidates({
+      ...emptyWalletState,
+      passkeyPresent: true,
+      passkeyCredentialId: "legacy-bindleme",
+      passkeyPublicKey:
+        "0xc18dd9496b23664467e10015e26c0d2d39a1fca1adacfa995641a820f39c5b0ea47207155abb2204701fd125829b76659fd6d48915890c5cc9c296a07c543310",
+      passkeyRpId: "bindle.me",
+      passkeyAuthenticatorAttachment: "platform",
+      passkeyUserVerification: "required",
+      passkeyCredentials: [
+        {
+          id: "bindlecash-slot-five",
+          publicKey:
+            "0x2b5d5cf1a7b1c3495240543df638e3680180a49260dbbd20e04783e20841d63b619eef55450a6b5fe4064ca0d29e309124eb0946cee3aaccb5b370ea3acabe62",
+          rpId: "bindle.cash",
+          authenticatorAttachment: "platform",
+          userVerification: "required",
+          createdAt: "2026-06-06T00:00:00.000Z",
+          lastUsedAt: "2026-06-06T00:00:00.000Z"
+        }
+      ]
+    });
+
+    expect(candidates.map((candidate) => candidate.id)).toEqual([
+      "bindlecash-slot-five",
+      "legacy-bindleme"
+    ]);
+  } finally {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: originalWindow
+    });
+  }
+});
+
 test("funding credential candidates can come from saved owner records only", () => {
   const candidates = getFundingCredentialCandidates({
     ...emptyWalletState,

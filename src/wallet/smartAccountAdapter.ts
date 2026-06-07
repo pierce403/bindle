@@ -14,6 +14,7 @@ import { createVisibleMainnetClient } from "./mainnetClient";
 import {
   createPasskeyRequestFn,
   explainPasskeyLookupError,
+  getCurrentPasskeyHostname,
   isPasskeyLookupError
 } from "./passkeys";
 import { estimateVisibleUserOperationFees } from "./userOperationGas";
@@ -107,8 +108,7 @@ export const getFundingCredentialCandidates = (
     ? [activeCredential, ...walletState.passkeyCredentials]
     : walletState.passkeyCredentials;
   const seen = new Set<string>();
-
-  return candidates.filter((candidate) => {
+  const uniqueCandidates = candidates.filter((candidate) => {
     const key = candidateKey(candidate);
 
     if (seen.has(key)) {
@@ -118,6 +118,23 @@ export const getFundingCredentialCandidates = (
     seen.add(key);
     return true;
   });
+  const currentHostname = getCurrentPasskeyHostname();
+
+  return uniqueCandidates
+    .map((candidate, index) => ({ candidate, index }))
+    .sort((left, right) => {
+      const leftCurrent =
+        currentHostname !== null && left.candidate.rpId === currentHostname;
+      const rightCurrent =
+        currentHostname !== null && right.candidate.rpId === currentHostname;
+
+      if (leftCurrent !== rightCurrent) {
+        return leftCurrent ? -1 : 1;
+      }
+
+      return left.index - right.index;
+    })
+    .map(({ candidate }) => candidate);
 };
 
 const createSmartAccount = async (

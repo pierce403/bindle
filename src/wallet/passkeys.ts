@@ -73,6 +73,11 @@ const currentOrigin = (): string => {
 
 const encodeBase64Url = (value: string): string => {
   const bytes = new TextEncoder().encode(value);
+
+  return encodeBytesBase64Url(bytes);
+};
+
+const encodeBytesBase64Url = (bytes: Uint8Array): string => {
   let binary = "";
 
   bytes.forEach((byte) => {
@@ -461,7 +466,24 @@ export const createPasskeyRequestFn = (
 
         if (!relaxedOptions.publicKey) {
           throw relaxedError;
-        }
+      }
+
+      const allowedCredentialIds =
+        relaxedOptions.publicKey.allowCredentials
+          ?.map((credential) =>
+            credential.id instanceof ArrayBuffer
+              ? encodeBytesBase64Url(new Uint8Array(credential.id))
+              : ArrayBuffer.isView(credential.id)
+                ? encodeBytesBase64Url(
+                    new Uint8Array(
+                      credential.id.buffer,
+                      credential.id.byteOffset,
+                      credential.id.byteLength
+                    )
+                  )
+                : null
+          )
+          .filter((id): id is string => id !== null) ?? [];
 
         const {
           allowCredentials: _allowCredentials,
@@ -472,10 +494,22 @@ export const createPasskeyRequestFn = (
         // passkey for the same RP ID can still be present in the platform
         // provider. This does not recover private key material; it only lets the
         // authenticator choose a local passkey instead of failing on one stale id.
-        return navigator.credentials.get({
+        const discoveredCredential = await navigator.credentials.get({
           ...relaxedOptions,
           publicKey: discoverablePublicKey
         });
+
+        if (
+          allowedCredentialIds.length > 0 &&
+          discoveredCredential?.id &&
+          !allowedCredentialIds.includes(discoveredCredential.id)
+        ) {
+          throw new Error(
+            "No passkeys available for the saved credential id."
+          );
+        }
+
+        return discoveredCredential;
       }
     }
   };
