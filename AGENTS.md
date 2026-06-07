@@ -362,6 +362,10 @@ avoids requiring GitHub workflow scope.
   stay keyed by `railgunAddress + derivationProvider + chainId`. Do not return
   a cached Kohaku balance for a legacy noncanonical or unknown wallet record
   that happens to have the same address string.
+- After a shield sweep, invalidate the shielded-balance auto-sync key and retry
+  RAILGUN balance sync after short delays. The public shield transaction can be
+  mined before the visible RAILGUN sync path/indexer returns the new private
+  note, so a single pre-shield sync is not enough.
 - Shield/unshield readiness lives in `src/railgun/shielding.ts`. Native ETH
   shield call prep uses Kohaku's low-level `ShieldBuilder.shieldNative`, not the
   higher-level helper that wires hidden Subsquid defaults. Recoverable local

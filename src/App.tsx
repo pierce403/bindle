@@ -65,6 +65,10 @@ import {
   type ShieldedEthBalance
 } from "./railgun/shieldedBalance";
 import {
+  postShieldBalanceRefreshDelaysMs,
+  shouldStartShieldedBalanceAutoSync
+} from "./railgun/shieldedBalanceRefresh";
+import {
   clearCachedShieldedEthBalance,
   loadCachedShieldedEthBalance,
   saveCachedShieldedEthBalance,
@@ -1408,7 +1412,13 @@ function WalletApp() {
       railgunStorageMode
     ].join(":");
 
-    if (shieldedBalanceAutoSyncKeyRef.current === syncKey) {
+    if (
+      !shouldStartShieldedBalanceAutoSync({
+        previousSyncKey: shieldedBalanceAutoSyncKeyRef.current,
+        shieldedBalanceStatus: shieldedBalance.status,
+        syncKey
+      })
+    ) {
       return;
     }
 
@@ -1426,6 +1436,75 @@ function WalletApp() {
     toolkitState,
     shieldedBalance.status
   ]);
+
+  const refreshShieldedBalanceAfterShield = () => {
+    const railgunAddress = walletState.railgunAddress;
+    const policyKey = [
+      policy.ethereumRpcUrl.trim(),
+      policy.railgunSyncUrl.trim(),
+      policy.providerMode,
+      policy.privacyToolkit
+    ].join(":");
+
+    if (!railgunAddress || !hasRecoverableRailgunKeyMaterial) {
+      return;
+    }
+
+    const stillCurrent = () => {
+      const currentPolicy = loadConnectionPolicy();
+      const currentPolicyKey = [
+        currentPolicy.ethereumRpcUrl.trim(),
+        currentPolicy.railgunSyncUrl.trim(),
+        currentPolicy.providerMode,
+        currentPolicy.privacyToolkit
+      ].join(":");
+
+      return (
+        loadWalletState().railgunAddress === railgunAddress &&
+        currentPolicyKey === policyKey
+      );
+    };
+
+    const runRefresh = async (message: string, detail: string) => {
+      if (!stillCurrent()) {
+        return;
+      }
+
+      shieldedBalanceAutoSyncKeyRef.current = null;
+      recordDebugEvent({
+        level: "info",
+        source: "shielded-balance",
+        message,
+        detail
+      });
+      await syncShieldedBalance();
+    };
+
+    void (async () => {
+      await runRefresh(
+        "Refreshing shielded balance after shield submission",
+        `Railgun address: ${railgunAddress}`
+      );
+
+      for (const delayMs of postShieldBalanceRefreshDelaysMs) {
+        await new Promise<void>((resolve) => {
+          window.setTimeout(resolve, delayMs);
+        });
+
+        if (!stillCurrent()) {
+          return;
+        }
+
+        await runRefresh(
+          "Retrying shielded balance refresh after RAILGUN indexer delay",
+          [
+            `Railgun address: ${railgunAddress}`,
+            `Delay ms: ${delayMs.toString()}`
+          ].join("\n")
+        );
+      }
+    })();
+  };
 
   useEffect(() => {
     const smartWalletAddress = walletState.smartWalletAddress;
@@ -2000,8 +2079,8 @@ function WalletApp() {
       });
       setShieldStatus(
         result.transactionHash
-          ? `Shield submitted: ${result.transactionHash}`
-          : `Shield user operation submitted: ${result.userOperationHash}`
+          ? `Shield submitted: ${result.transactionHash}. Syncing shielded balance.`
+          : `Shield user operation submitted: ${result.userOperationHash}. Syncing shielded balance.`
       );
       recordDebugEvent({
         level: "info",
@@ -2011,6 +2090,7 @@ function WalletApp() {
           : `Shield user operation submitted: ${result.userOperationHash}`
       });
       await syncPublicBalance();
+      refreshShieldedBalanceAfterShield();
     } catch (error) {
       const message = messageFromError(
         error,
