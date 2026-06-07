@@ -1,6 +1,5 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
-import { nodePolyfills } from "vite-plugin-node-polyfills";
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
@@ -124,18 +123,7 @@ export default defineConfig({
       vm: new URL("./src/shims/vm.ts", import.meta.url).pathname
     }
   },
-  plugins: [
-    buildInfoPlugin(),
-    react(),
-    nodePolyfills({
-      include: ["crypto", "stream", "url", "http", "https", "zlib"],
-      globals: {
-        Buffer: true,
-        global: true,
-        process: true
-      }
-    })
-  ],
+  plugins: [buildInfoPlugin(), react()],
   build: {
     outDir: "docs",
     emptyOutDir: true,

@@ -416,6 +416,13 @@ avoids requiring GitHub workflow scope.
 - Bindle is pnpm-only. `packageManager` pins pnpm, `.npmrc` enables pnpm's
   package-manager strict mode, and `scripts/require-pnpm.mjs` blocks npm/yarn
   installs.
+- `package.json` uses pnpm overrides to keep Dependabot-alerted transitive
+  packages on patched versions: `underscore@1.13.8`, `uuid@11.1.1`, and
+  `ws@8.20.1`. The old `vite-plugin-node-polyfills` dependency was removed
+  because it pulled the unfixed `elliptic`/`crypto-browserify` graph and is no
+  longer needed after the RAILGUN Wallet SDK purge. Do not re-add broad Node
+  browser polyfills unless a current build failure proves a specific polyfill is
+  required.
 - `pnpm-workspace.yaml` sets `ignoreDepScripts: true` so dependency lifecycle
   scripts do not execute during install, sets `minimumReleaseAge: 1440`, and
   records the reviewed transitive dependency build scripts that pnpm should

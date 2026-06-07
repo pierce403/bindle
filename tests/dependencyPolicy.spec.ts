@@ -55,6 +55,43 @@ test("Kohaku Waku relay dependency is explicit and not the Wallet SDK", () => {
   expect(packageJson.dependencies).toHaveProperty("@waku/sdk", "0.0.36");
 });
 
+test("Dependabot-alerted transitive packages are patched or absent", () => {
+  const packageJson = readJson<{
+    pnpm?: { overrides?: Record<string, string> };
+    devDependencies?: Record<string, string>;
+  }>("package.json");
+  const lockfile = readFileSync("pnpm-lock.yaml", "utf8");
+
+  expect(packageJson.pnpm?.overrides).toMatchObject({
+    underscore: "1.13.8",
+    uuid: "11.1.1",
+    ws: "8.20.1"
+  });
+  expect(packageJson.devDependencies).not.toHaveProperty(
+    "vite-plugin-node-polyfills"
+  );
+
+  for (const vulnerablePackage of [
+    "underscore@1.13.6",
+    "uuid@9.0.1",
+    "ws@8.17.1",
+    "ws@8.18.3",
+    "elliptic@6.6.1",
+    "crypto-browserify@3.12.1",
+    "vite-plugin-node-polyfills"
+  ]) {
+    expect(lockfile, vulnerablePackage).not.toContain(vulnerablePackage);
+  }
+
+  for (const patchedPackage of [
+    "underscore@1.13.8",
+    "uuid@11.1.1",
+    "ws@8.20.1"
+  ]) {
+    expect(lockfile, patchedPackage).toContain(patchedPackage);
+  }
+});
+
 test("source does not import removed RAILGUN SDK packages", () => {
   const files = listFiles("src").filter((path) => /\.(ts|tsx)$/.test(path));
 
