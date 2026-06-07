@@ -5,6 +5,7 @@ import {
   type ConnectionPolicy
 } from "../privacy/connectionPolicy";
 import type { WalletState } from "../wallet/walletState";
+import type { FreshRailgunBroadcasterSelection } from "./broadcasterSelection";
 import type { PreparedBroadcasterSubmit } from "./wakuBroadcaster";
 
 export type RailgunPayProgress = {
@@ -16,6 +17,7 @@ export type PreparedRailgunPay = {
   railgunAdapter: "kohaku-railgun";
   submissionMode: "disabled-pending-kohaku-broadcaster";
   railgunAddress: string;
+  freshBroadcasterSelection?: FreshRailgunBroadcasterSelection;
   privateOperation?: PreparedBroadcasterSubmit;
 };
 

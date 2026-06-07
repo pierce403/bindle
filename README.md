@@ -89,6 +89,9 @@ concerns, not the default first-run experience.
   `0zk` and hand it to a selectable Waku broadcaster. Raw public Waku fee ads
   are visible in Debug/`pnpm scan:waku`, but the installed Kohaku alpha.12
   manager currently does not expose a selectable `JsBroadcaster` from those ads.
+  Saved broadcaster observations are hints only; Private Pay refreshes Waku ads
+  immediately before readiness checks and will not use stale registry state as
+  authority for private submit.
   Private Pay never uses the user's passkey smart account, Pimlico bundler,
   paymaster, or EOA for the private leg.
 - Endpoint presets are visible in Connections. Bindle default currently uses a
@@ -260,8 +263,10 @@ Current shield/unshield status:
   token, amount, recipient, and chain. Bindle includes a standalone Waku
   RAILGUN broadcaster transport using the Waku-enabled Kohaku package line, but
   Private Pay remains disabled until a Kohaku-derived proved private operation
-  can be built with private change returned to `0zk`. The app blocks before
-  ENS/RPC recipient resolution, Uniswap quote, proof generation, or submission.
+  can be built with private change returned to `0zk`. The readiness path
+  refreshes Waku ads first and shows a fresh selected broadcaster when one is
+  available, then blocks before ENS/RPC recipient resolution, Uniswap quote,
+  proof generation, or submission.
 - Standalone unshield and private send flows remain blocked until their review,
   proof, unlock, and visible submission policies are implemented.
 

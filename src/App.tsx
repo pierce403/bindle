@@ -20,10 +20,16 @@ import {
 import { WalletActionPanel } from "./components/WalletActionPanel";
 import { getPayAsset } from "./intents/assets";
 import {
+  assertPrivatePayChangeDisposition,
+  classifyPayTransactionOrigin,
   getRailgunBroadcasterReadiness,
-  kohakuPrivateActionsPendingMessage
+  kohakuPrivateActionsPendingMessage,
+  privatePayChangeRequiredMessage,
+  privateUsdcPayLegs,
+  type RailgunBroadcasterReadiness
 } from "./intents/payFlow";
 import { routeIntent, type IntentDraft, type RoutedIntent } from "./intents/router";
+import { getPaySwapRoutePlan } from "./intents/swapRouting";
 import {
   clearDebugLog,
   createDebugLogEntry,
@@ -40,6 +46,7 @@ import {
   saveConnectionPolicy
 } from "./privacy/connectionPolicyState";
 import { buildEndpointDisclosure } from "./privacy/preflightDisclosure";
+import { refreshAndSelectRailgunBroadcasterForPrivateAction } from "./railgun/broadcasterSelection";
 import {
   assessShieldReadiness,
   prepareNativeEthShieldCalls,
@@ -398,6 +405,8 @@ function WalletApp() {
     percent: 0,
     status: ""
   });
+  const [freshPrivatePayReadiness, setFreshPrivatePayReadiness] =
+    useState<RailgunBroadcasterReadiness | null>(null);
   const [isSubmittingShield, setIsSubmittingShield] = useState(false);
   const [shieldStatus, setShieldStatus] = useState("");
   const [isExportingAccount, setIsExportingAccount] = useState(false);
@@ -486,7 +495,8 @@ function WalletApp() {
     activeAction === "pay"
       ? buildEndpointDisclosure(policy, "pay-review")
       : sendEndpointDisclosure;
-  const privatePayReadiness = getRailgunBroadcasterReadiness(policy);
+  const privatePayReadiness =
+    freshPrivatePayReadiness ?? getRailgunBroadcasterReadiness(policy);
   const relayAutoWatchEnabled =
     policy.wakuEnabled &&
     policy.railgunBroadcasterEnabled &&
@@ -791,7 +801,8 @@ function WalletApp() {
   useEffect(() => {
     setPayStatus("");
     setPayProofProgress({ percent: 0, status: "" });
-  }, [draft.amount, draft.asset, draft.recipient]);
+    setFreshPrivatePayReadiness(null);
+  }, [draft.amount, draft.asset, draft.recipient, policy]);
 
   useEffect(() => {
     const handleWindowError = (event: ErrorEvent) => {
@@ -1694,31 +1705,125 @@ function WalletApp() {
       return;
     }
 
+    if (classifyPayTransactionOrigin(privateUsdcPayLegs) !== "railgun-private") {
+      setPayStatus("Private Pay route origin is not railgun-private.");
+      return;
+    }
+
+    const paySwapRoutePlan = getPaySwapRoutePlan(asset);
+
     setIsSubmittingPay(true);
-    setPayStatus(kohakuPrivateActionsPendingMessage);
+    setPayStatus("Refreshing RAILGUN Waku broadcaster ads.");
     setPayProofProgress({
-      percent: 0,
-      status: "Private actions pending Kohaku Waku compatibility"
+      percent: 40,
+      status: "Refreshing fresh Waku broadcaster ads"
     });
     setAppNotice(null);
-    recordDebugEvent({
-      level: "warning",
-      source: "pay",
-      message: "Private Pay disabled pending Kohaku Waku compatibility",
-      detail: [
-        `Recipient: ${draft.recipient.trim()}`,
-        `Amount: ${draft.amount.trim()} ${asset.symbol}`,
-        `Railgun address: ${walletState.railgunAddress}`,
-        `Derivation provider: ${walletState.railgunDerivationProvider ?? "unknown"}`,
-        kohakuPrivateActionsPendingMessage
-      ].join("\n")
-    });
-    setAppNotice({
-      kind: "warning",
-      title: "Private Pay disabled",
-      message: kohakuPrivateActionsPendingMessage
-    });
-    setIsSubmittingPay(false);
+
+    try {
+      const manuallySelectedRelay = selectedRailgunRelay(relayRegistryRef.current);
+      const freshSelection =
+        await refreshAndSelectRailgunBroadcasterForPrivateAction({
+          policy,
+          registry: relayRegistryRef.current,
+          preferredFeeToken: policy.railgunBroadcasterFeeToken,
+          manualRelayId:
+            manuallySelectedRelay?.selectedBy === "manual"
+              ? manuallySelectedRelay.id
+              : null,
+          onStatus: (message) => {
+            setPayStatus(message);
+            setRelayWatchStatus(message);
+          }
+        });
+
+      relayRegistryRef.current = freshSelection.registry;
+      setRelayRegistry(freshSelection.registry);
+      setFreshPrivatePayReadiness({
+        ready: true,
+        status: "configured",
+        message: `Fresh Waku broadcaster selected from ${freshSelection.source}.`,
+        feeToken: freshSelection.selectedBroadcaster.tokenFee.token,
+        fee: `${freshSelection.selectedBroadcaster.tokenFee.perUnitGas} per gas`,
+        wakuStatus: `fresh ${freshSelection.snapshot.status}`
+      });
+
+      const readinessLines = [
+        "✅ Fresh Waku ads checked",
+        `✅ Compatible broadcaster selected: ${
+          freshSelection.selectedRelay.identifier ??
+          freshSelection.selectedRelay.railgunAddress
+        }`,
+        `✅ Broadcaster fee token: ${freshSelection.selectedBroadcaster.tokenFee.token}`,
+        `✅ Broadcaster fee quote: ${freshSelection.selectedBroadcaster.tokenFee.perUnitGas} per gas`,
+        "✅ Public smart-wallet fallback disabled for private source leg",
+        "❌ Kohaku proved private operation not built yet"
+      ];
+
+      try {
+        assertPrivatePayChangeDisposition(
+          paySwapRoutePlan?.changeDisposition ?? "unknown"
+        );
+        readinessLines.push("✅ Private change routing returns to 0zk");
+      } catch {
+        readinessLines.push(`❌ ${privatePayChangeRequiredMessage}`);
+      }
+
+      setPayProofProgress({
+        percent: 60,
+        status: readinessLines.join("\n")
+      });
+      setPayStatus(readinessLines.join("\n"));
+      recordDebugEvent({
+        level: "warning",
+        source: "pay",
+        message: "Private Pay readiness checked; final submit still disabled",
+        detail: [
+          `Recipient: ${draft.recipient.trim()}`,
+          `Amount: ${draft.amount.trim()} ${asset.symbol}`,
+          `Railgun address: ${walletState.railgunAddress}`,
+          `Derivation provider: ${walletState.railgunDerivationProvider ?? "unknown"}`,
+          `Broadcaster: ${freshSelection.selectedBroadcaster.railgunAddress}`,
+          `Fee token: ${freshSelection.selectedBroadcaster.tokenFee.token}`,
+          `Fee per gas: ${freshSelection.selectedBroadcaster.tokenFee.perUnitGas}`,
+          readinessLines.join("\n"),
+          kohakuPrivateActionsPendingMessage
+        ].join("\n")
+      });
+      setAppNotice({
+        kind: "warning",
+        title: "Private Pay readiness checked",
+        message:
+          "Fresh Waku broadcaster selection is working, but live Pay remains disabled until Kohaku private operation building and private change routing are wired."
+      });
+    } catch (error) {
+      setFreshPrivatePayReadiness(null);
+      setPayProofProgress({
+        percent: 40,
+        status: "❌ Fresh Waku broadcaster selection failed"
+      });
+      setPayStatus(
+        messageFromError(
+          error,
+          "Unable to select a fresh RAILGUN Waku broadcaster",
+          "pay",
+          [
+            `Recipient: ${draft.recipient.trim()}`,
+            `Amount: ${draft.amount.trim()} ${asset.symbol}`,
+            `Railgun address: ${walletState.railgunAddress}`,
+            "Private Pay did not fall back to the public smart wallet."
+          ].join("\n")
+        )
+      );
+      setAppNotice({
+        kind: "warning",
+        title: "Private Pay blocked",
+        message:
+          "Bindle could not select a fresh compatible RAILGUN Waku broadcaster. It did not fall back to public smart-wallet submission."
+      });
+    } finally {
+      setIsSubmittingPay(false);
+    }
   };
 
   const submitShield = async (request: ShieldRequest) => {

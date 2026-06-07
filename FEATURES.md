@@ -86,9 +86,12 @@ infrastructure.
 - [x] Submit native ETH shield transactions from the passkey smart wallet using
       Kohaku shield-call data and visible ERC-4337 RPC/bundler policy.
 - [x] Default Shield to sweeping the exact synced public funding balance into
-      the user's RAILGUN `0zk` address, without reserving ETH for EOA gas.
+      the user's RAILGUN `0zk` address through the visible public
+      smart-wallet/4337 path, without reserving ETH for EOA gas.
 - [x] Use visible Pimlico bundler gas-price RPC for ERC-4337 User Operation
-      fee fields so default bundler submissions are not underpriced.
+      fee fields so default funding-address sweeps and other public
+      smart-wallet submissions are not underpriced. Pimlico remains a public
+      funding-wallet path only, not a private RAILGUN relay.
 - [x] Prompt users to replace missing or password-era local RAILGUN key records
       with a fresh browser-local `0zk` while preserving the passkey funding
       wallet.
@@ -180,7 +183,15 @@ infrastructure.
       manager selections.
 - [x] Auto-watch Waku relay fee ads from the installed app when the visible
       Waku broadcaster preset is enabled, keep a local non-secret broadcaster
-      registry, and auto-select the first compatible relay candidate.
+      registry, and auto-select the first compatible RAILGUN broadcaster
+      candidate. This is Bindle's discovery path for private RAILGUN relays,
+      not a public smart-wallet or Pimlico submission path.
+- [x] Add a fresh Waku broadcaster preflight helper for every
+      `railgun-private` action path. Saved broadcaster observations are hints
+      only; Private Pay now refreshes Waku ads, updates the registry, rejects
+      stale/unavailable/raw-only candidates for live submit, and shows which
+      readiness pieces were solved before stopping at the known Kohaku
+      proof/private-change blockers.
 - [ ] Fix or replace the installed Kohaku alpha.12 `JsBroadcasterManager`
       selection gap: raw WETH/USDC fee ads are visible on Waku, but the manager
       currently returns no selectable `JsBroadcaster`.
@@ -213,6 +224,10 @@ infrastructure.
 - [ ] Add explicit default Helios consensus RPC and checkpoint presets only
       after their network dependencies and privacy tradeoffs are visible in
       Connections and preflight disclosure.
+- [ ] Investigate Portal Network as a future decentralized data/provider
+      adapter for Ethereum state, history, or light-client-style reads. Keep it
+      behind `ConnectionPolicy`, disclose peer/network activity in preflight,
+      and do not present it as metadata-private until tested.
 
 ## Security And Privacy Features
 
@@ -268,7 +283,9 @@ infrastructure.
       before the user takes an action that requires it.
 - [x] Do not start hidden broadcasters, provider resolvers, or network
       services on page load or PWA launch. Public Waku broadcaster defaults are
-      allowed only when visible, inspectable, replaceable, and disclosed.
+      allowed only when visible, inspectable, replaceable, and disclosed, and
+      are used to discover RAILGUN broadcasters rather than to submit through
+      the public funding wallet.
 - [ ] Do not auto-start the privacy toolkit unless the selected policy exposes
       that behavior and a real local `0zk` wallet already exists.
 - [ ] Do not preload remote images, fonts, scripts, maps, avatars, token lists,
@@ -279,6 +296,10 @@ infrastructure.
       liquidity, or fake `0zk` addresses to make the app look populated.
 - [ ] Do not silently choose a broadcaster, paymaster, bridge, swap route, or
       provider resolver without showing the declassified routing leg.
+- [x] Do not use saved RAILGUN broadcaster registry state alone for a private
+      transaction. Refresh Waku ads immediately before each private-source
+      action, and only submit through the fresh selected
+      `waku-railgun-broadcaster`.
 - [ ] Do not make security state ambiguous: disabled, unsupported, unsynced,
       locked, and error states must be visibly different.
 - [ ] Do not hide dependency vulnerabilities or SDK limitations behind polished

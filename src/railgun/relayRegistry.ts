@@ -20,6 +20,7 @@ export type RegisteredRailgunRelay = {
   lastSeenAt: string;
   seenCount: number;
   selectedAt: string | null;
+  selectedBy: "manual" | "auto" | null;
 };
 
 export type RailgunRelayRegistry = {
@@ -115,7 +116,11 @@ const normalizeRelay = (value: unknown): RegisteredRailgunRelay | null => {
     firstSeenAt,
     lastSeenAt,
     seenCount: numberOrNull(value.seenCount) ?? 1,
-    selectedAt: stringOrNull(value.selectedAt)
+    selectedAt: stringOrNull(value.selectedAt),
+    selectedBy:
+      value.selectedBy === "manual" || value.selectedBy === "auto"
+        ? value.selectedBy
+        : null
   };
 };
 
@@ -239,6 +244,13 @@ const compareRelays = (
     return reliabilityDelta;
   }
 
+  const lastSeenDelta =
+    Date.parse(right.lastSeenAt) - Date.parse(left.lastSeenAt);
+
+  if (Number.isFinite(lastSeenDelta) && lastSeenDelta !== 0) {
+    return lastSeenDelta;
+  }
+
   return right.seenCount - left.seenCount;
 };
 
@@ -274,7 +286,8 @@ export const upsertRelaysFromWakuSnapshot = ({
       firstSeenAt: existing?.firstSeenAt ?? now,
       lastSeenAt: now,
       seenCount: (existing?.seenCount ?? 0) + 1,
-      selectedAt: existing?.selectedAt ?? null
+      selectedAt: existing?.selectedAt ?? null,
+      selectedBy: existing?.selectedBy ?? null
     };
 
     byId.set(
@@ -316,7 +329,7 @@ export const upsertRelaysFromWakuSnapshot = ({
     selectedRelayId,
     relays: relays.map((relay) =>
       relay.id === selectedRelayId && relay.selectedAt === null
-        ? { ...relay, selectedAt: now }
+        ? { ...relay, selectedAt: now, selectedBy: "auto" }
         : relay
     )
   });
@@ -324,14 +337,15 @@ export const upsertRelaysFromWakuSnapshot = ({
 
 export const selectRailgunRelay = (
   registry: RailgunRelayRegistry,
-  relayId: string | null
+  relayId: string | null,
+  selectedBy: "manual" | "auto" = "manual"
 ): RailgunRelayRegistry =>
   saveRailgunRelayRegistry({
     version: 1,
     selectedRelayId: relayId,
     relays: registry.relays.map((relay) =>
       relay.id === relayId
-        ? { ...relay, selectedAt: new Date().toISOString() }
+        ? { ...relay, selectedAt: new Date().toISOString(), selectedBy }
         : relay
     )
   });

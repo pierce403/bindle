@@ -752,11 +752,11 @@ export function WalletActionPanel({
               <button
                 className="primary-action wide"
                 type="button"
-                disabled={!payRouteReady || isSubmittingPay}
+                disabled={!canReviewPayIntent || isSubmittingPay}
                 onClick={onSubmitPay}
               >
                 <Send size={18} aria-hidden="true" />
-                {isSubmittingPay ? "Preparing Pay" : "Private Pay pending"}
+                {isSubmittingPay ? "Checking readiness" : "Check Private Pay readiness"}
               </button>
               {payStatus ? (
                 <p className="status-message pay-status-message">{payStatus}</p>

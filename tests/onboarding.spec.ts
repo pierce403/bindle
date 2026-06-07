@@ -151,11 +151,11 @@ test.describe("passkey-first onboarding", () => {
       "RAILGUN unshield proof"
     );
     await expect(
-      page.getByRole("button", { name: "Private Pay pending" })
-    ).toBeDisabled();
+      page.getByRole("button", { name: "Check Private Pay readiness" })
+    ).toBeEnabled();
 
     const payButtonBox = await page
-      .getByRole("button", { name: "Private Pay pending" })
+      .getByRole("button", { name: "Check Private Pay readiness" })
       .boundingBox();
     const navBox = await page
       .getByRole("navigation", { name: "App sections" })

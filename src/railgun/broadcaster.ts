@@ -71,8 +71,27 @@ export const submitPayIntent = async ({
   if (intent.kind === "pay" && intent.source === "railgun-private") {
     assertBroadcasterReady(policy);
 
+    if (!intent.preparedPay.freshBroadcasterSelection) {
+      throw new Error(
+        "Refresh and select a fresh RAILGUN Waku broadcaster before submitting Private Pay."
+      );
+    }
+
     if (!intent.preparedPay.privateOperation) {
       throw new Error(kohakuPrivateActionsPendingMessage);
+    }
+
+    const freshBroadcaster =
+      intent.preparedPay.freshBroadcasterSelection.selectedBroadcaster;
+    const preparedBroadcaster = intent.preparedPay.privateOperation.broadcaster;
+
+    if (
+      freshBroadcaster.railgunAddress !== preparedBroadcaster.railgunAddress ||
+      freshBroadcaster.tokenFee.feesID !== preparedBroadcaster.tokenFee.feesID
+    ) {
+      throw new Error(
+        "Prepared Private Pay broadcaster does not match the fresh preflight-selected broadcaster."
+      );
     }
 
     return sendRailgunBroadcasterTransaction({
