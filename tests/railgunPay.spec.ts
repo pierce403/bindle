@@ -7,7 +7,7 @@ import { defaultConnectionPolicy } from "../src/privacy/connectionPolicy";
 import {
   ensureKohakuRailgunArtifactPolicyReady,
   grossUpUnshieldAmount,
-  prepareRailgunUsdcPayForRecipient,
+  prepareRailgunPayForRecipient,
   validateKohakuRailgunArtifactPolicy
 } from "../src/railgun/pay";
 import { resolveRailgunBroadcasterFeeTokenAddress } from "../src/railgun/wakuBroadcaster";
@@ -58,7 +58,7 @@ test("Private Pay is disabled before quote or broadcaster work", async () => {
   expect(asset).not.toBeNull();
 
   await expect(
-    prepareRailgunUsdcPayForRecipient({
+    prepareRailgunPayForRecipient({
       amount: "5",
       asset: asset!,
       policy: defaultConnectionPolicy,
@@ -77,7 +77,7 @@ test("Private Pay is disabled before quote or broadcaster work", async () => {
 
 test("Private Pay source does not import removed SDK or quote/broadcaster path", () => {
   const source = readFileSync(resolve("src/railgun/pay.ts"), "utf8");
-  const prepareIndex = source.indexOf("export const prepareRailgunUsdcPayForRecipient");
+  const prepareIndex = source.indexOf("export const prepareRailgunPayForRecipient");
   const prepareSource = source.slice(prepareIndex);
 
   expect(prepareIndex).toBeGreaterThan(-1);

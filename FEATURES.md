@@ -123,24 +123,25 @@ infrastructure.
 - [x] Scaffold a separate `bindle-migration` static bridge app for `bindle.me`
       that imports account exports, creates replacement passkeys, and submits
       explicit add-owner UserOperations.
-- [x] Add a Pay intent builder for mainnet ETH/USDC with local asset search,
-      payment request QR/paste import, route review, and endpoint preflight
-      disclosure.
+- [x] Add a Pay intent builder for mainnet ETH/WETH/common ERC-20 targets with
+      local asset search, payment request QR/paste import, route review, and
+      endpoint preflight disclosure.
 - [x] Present Pay route review, proof progress, blockers, and submit state in a
       modal sheet instead of inserting the review below the form.
-- [x] Add explicit Private Pay route handling for USDC on Ethereum mainnet:
-      classify the source as `railgun-private`, disclose RAILGUN 0zk source,
-      broadcaster/Waku status, fee token/fee, Uniswap v4 route provider, target
-      token, recipient, and chain, and fail closed instead of submitting the
-      private leg through ERC-4337.
+- [x] Add explicit Private Pay route handling on Ethereum mainnet: classify the
+      source as `railgun-private`, disclose RAILGUN 0zk source,
+      broadcaster/Waku status, fee token/fee, Uniswap v4 route provider when a
+      swap is needed, target token, recipient, and chain, and fail closed
+      instead of submitting the private leg through ERC-4337.
 - [x] Record local RAILGUN wallet derivation metadata, normalize old
       `kohaku-railgun-alpha` records to `kohaku-railgun`, and label old
       noncanonical records as `legacy-noncanonical`.
 - [x] Remove the legacy RAILGUN Wallet SDK dependency graph and code path so
       normal create/import and Private Pay review cannot derive or repair
       toward a second non-Kohaku `0zk`.
-- [x] Block Private Pay when Uniswap leftover/change cannot be returned
-      privately to the 0zk account.
+- [x] Keep Private Pay change handling explicit: accept private return to 0zk
+      or leftover funds in a fresh ephemeral settlement account for later sweep,
+      while blocking recipient, provider, or durable funding-wallet change.
 - [x] Add a standalone Kohaku/Waku broadcaster transport that starts a Waku
       LightNode from visible `ConnectionPolicy` peers, selects a RAILGUN
       broadcaster by fee token, and submits prepared private operations only as
@@ -191,7 +192,7 @@ infrastructure.
       only; Private Pay now refreshes Waku ads, updates the registry, rejects
       stale/unavailable/raw-only candidates for live submit, and shows which
       readiness pieces were solved before stopping at the known Kohaku
-      proof/private-change blockers.
+      private-operation builder blocker.
 - [ ] Fix or replace the installed Kohaku alpha.12 `JsBroadcasterManager`
       selection gap: raw WETH/USDC fee ads are visible on Waku, but the manager
       currently returns no selectable `JsBroadcaster`.
@@ -199,7 +200,8 @@ infrastructure.
       verified selectable broadcaster directly from an updated Kohaku-native
       API, before raw fee ads are allowed to drive live private spending.
 - [ ] Build the Kohaku-derived proved private operation that can be handed to
-      the Waku broadcaster transport, with private change returned to 0zk,
+      the Waku broadcaster transport, with change either returned privately to
+      0zk or kept in a fresh ephemeral settlement account for later sweep,
       before enabling live private unshield/Private Pay submission.
 
 ## Privacy And Connectivity
@@ -324,17 +326,20 @@ infrastructure.
 - [x] Implement RAILGUN Broadcaster discovery, fee quote, and submission only
       through explicit broadcaster policy.
 - [ ] Implement provider payment routing for decloaked outbound messages.
-- [ ] Implement one-shot USDC Private Pay execution for shielded ETH unshield,
-      explicit ETH-to-USDC routing through Uniswap v4, final ERC-20 delivery,
-      RAILGUN proof generation, v4 quote/router calldata, RAILGUN Broadcaster
-      submission, private change returned to 0zk, and slippage controls.
+- [ ] Implement live Private Pay execution for shielded ETH/WETH unshield,
+      optional ERC-20 routing through Uniswap v4, final delivery, RAILGUN proof
+      generation, v4 quote/router calldata, RAILGUN Broadcaster submission,
+      private-or-ephemeral change handling, and slippage controls.
 - [x] Add Pay proof-path UX with honest stage status and RAILGUN proof progress
       normalization for the SDK callback once proof generation is invoked.
 - [x] Default quote source to explicit `onchain:uniswap-v4` under Bindle
       default, while keeping Privacy max empty/off.
-- [x] Default Pay swap review to 1% max slippage and block if leftover ETH
-      cannot be returned privately to 0zk.
-- [ ] Add Pay support for non-USDC output assets.
+- [x] Default Pay swap review to 1% max slippage and show ephemeral settlement
+      change handling instead of blocking solely because private change return
+      is not wired.
+- [x] Add Pay route-review support for non-USDC output assets.
+- [ ] Add live generic ERC-20 Pay route quotes and execution beyond the current
+      ETH/WETH simple route and USDC calldata helper.
 - [ ] Explore LayerZero-style Pay routing for any-network settlement.
 - [ ] Add Uniswap-based Swap flow.
 - [ ] Add XMTP chat or payment messaging.

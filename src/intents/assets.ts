@@ -1,4 +1,4 @@
-export type PayAssetSymbol = "ETH" | "USDC";
+export type PayAssetSymbol = string;
 
 export type PayAsset = {
   symbol: PayAssetSymbol;
@@ -23,6 +23,16 @@ export const mainnetPayAssets: PayAsset[] = [
     searchTerms: ["eth", "ether", "ethereum", "native"]
   },
   {
+    symbol: "WETH",
+    name: "Wrapped Ether",
+    chainId: 1,
+    decimals: 18,
+    kind: "erc20",
+    address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    settlementNetwork: "ethereum-mainnet",
+    searchTerms: ["weth", "wrapped ether", "wrapped eth", "ethereum"]
+  },
+  {
     symbol: "USDC",
     name: "USD Coin",
     chainId: 1,
@@ -31,13 +41,42 @@ export const mainnetPayAssets: PayAsset[] = [
     address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
     settlementNetwork: "ethereum-mainnet",
     searchTerms: ["usdc", "usd coin", "circle", "dollar"]
+  },
+  {
+    symbol: "DAI",
+    name: "Dai Stablecoin",
+    chainId: 1,
+    decimals: 18,
+    kind: "erc20",
+    address: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+    settlementNetwork: "ethereum-mainnet",
+    searchTerms: ["dai", "stablecoin", "dollar"]
+  },
+  {
+    symbol: "USDT",
+    name: "Tether USD",
+    chainId: 1,
+    decimals: 6,
+    kind: "erc20",
+    address: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    settlementNetwork: "ethereum-mainnet",
+    searchTerms: ["usdt", "tether", "stablecoin", "dollar"]
   }
 ];
 
 export const getPayAsset = (symbol: string): PayAsset | null => {
-  const normalized = symbol.trim().toUpperCase();
+  const normalized = symbol.trim();
+  const normalizedSymbol = normalized.toUpperCase();
+  const normalizedAddress = normalized.toLowerCase();
 
-  return mainnetPayAssets.find((asset) => asset.symbol === normalized) ?? null;
+  return (
+    mainnetPayAssets.find(
+      (asset) =>
+        asset.symbol === normalizedSymbol ||
+        (asset.address !== "native" &&
+          asset.address.toLowerCase() === normalizedAddress)
+    ) ?? null
+  );
 };
 
 export const searchPayAssets = (query: string): PayAsset[] => {

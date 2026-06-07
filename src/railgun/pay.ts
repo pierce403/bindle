@@ -170,7 +170,7 @@ export const grossUpUnshieldAmount = ({
   return (desiredPublicAmount * 10_000n + denominator - 1n) / denominator;
 };
 
-export const prepareRailgunUsdcPayForRecipient = async ({
+export const prepareRailgunPayForRecipient = async ({
   asset,
   walletState,
   onProgress,
@@ -188,20 +188,18 @@ export const prepareRailgunUsdcPayForRecipient = async ({
     throw new Error("Create or import a shielded 0zk wallet before Pay.");
   }
 
-  if (asset.symbol !== "USDC") {
-    throw new Error("Pay is currently wired for USDC output.");
-  }
-
   if (walletState.railgunDerivationProvider === "legacy-noncanonical") {
     throw new Error(
       "This 0zk was created with an older non-Kohaku derivation path. Bindle will not treat it as the Kohaku-canonical shielded account or migrate funds by changing metadata."
     );
   }
 
-  onStatus(kohakuPrivateActionsPendingMessage);
+  onStatus(`${asset.symbol} ${kohakuPrivateActionsPendingMessage}`);
   onProgress({
     percent: 0,
-    status: "Private actions pending Kohaku Waku compatibility"
+    status: `${asset.symbol} Private Pay pending Kohaku Waku compatibility`
   });
   throw new Error(kohakuPrivateActionsPendingMessage);
 };
+
+export const prepareRailgunUsdcPayForRecipient = prepareRailgunPayForRecipient;

@@ -50,9 +50,9 @@ export const getDefaultPasskeyRpId = (): string => {
     return bindleCanonicalPasskeyRpId;
   }
 
-  const hostname = window.location.hostname;
+  const hostname = window.location?.hostname;
 
-  return hostname;
+  return hostname || bindleCanonicalPasskeyRpId;
 };
 
 export const getCurrentPasskeyHostname = (): string | null => {
@@ -60,7 +60,7 @@ export const getCurrentPasskeyHostname = (): string | null => {
     return null;
   }
 
-  return window.location.hostname || null;
+  return window.location?.hostname || null;
 };
 
 const currentOrigin = (): string => {
@@ -68,7 +68,7 @@ const currentOrigin = (): string => {
     return "https://bindle.cash";
   }
 
-  return window.location.origin;
+  return window.location?.origin || "https://bindle.cash";
 };
 
 const encodeBase64Url = (value: string): string => {

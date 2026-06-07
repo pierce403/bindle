@@ -18,10 +18,11 @@ import { createPortal } from "react-dom";
 import { getPayAsset, searchPayAssets } from "../intents/assets";
 import {
   describePaySettlement,
+  isAcceptablePrivatePayChangeDisposition,
   kohakuPrivateActionsPendingMessage,
   privatePayChangeRequiredMessage,
   payPrivacyLabel,
-  privateUsdcPayLegs,
+  privatePayLegs,
   type RailgunBroadcasterReadiness
 } from "../intents/payFlow";
 import { parsePaymentRequest } from "../intents/paymentRequests";
@@ -144,7 +145,7 @@ export function WalletActionPanel({
   const selectedPayAsset = getPayAsset(draft.asset);
   const paySwapRoutePlan = getPaySwapRoutePlan(selectedPayAsset);
   const payAssetResults = searchPayAssets(assetQuery);
-  const privatePayLabel = payPrivacyLabel(privateUsdcPayLegs);
+  const privatePayLabel = payPrivacyLabel(privatePayLegs);
   const paySettlement = describePaySettlement({
     amount: draft.amount,
     asset: selectedPayAsset,
@@ -183,8 +184,7 @@ export function WalletActionPanel({
     !walletState.smartWalletAddress;
   const canReviewPayIntent =
     hasRecipient && hasValidRecipient && hasAmount && selectedPayAsset !== null;
-  const paySwapRouteReady =
-    paySwapRoutePlan !== null && selectedPayAsset?.symbol === "USDC";
+  const paySwapRouteReady = paySwapRoutePlan !== null;
   const payProofProgress = buildPayProofProgress({
     intentReady: canReviewPayIntent,
     endpointsReady: requiredEndpointsReady,
@@ -214,11 +214,8 @@ export function WalletActionPanel({
       : null,
     kohakuPrivateActionsPendingMessage,
     paySwapRoutePlan?.changeDisposition &&
-    paySwapRoutePlan.changeDisposition !== "private-change-to-0zk"
+    !isAcceptablePrivatePayChangeDisposition(paySwapRoutePlan.changeDisposition)
       ? privatePayChangeRequiredMessage
-      : null,
-    selectedPayAsset?.symbol !== "USDC"
-      ? `${UNISWAP_V4_PROTOCOL_LABEL} Pay is wired for USDC first.`
       : null
   ].filter((blocker): blocker is string => blocker !== null);
   const payRouteReady = payRouteBlockers.length === 0;

@@ -376,11 +376,12 @@ avoids requiring GitHub workflow scope.
   imply `submitter === "waku-railgun-broadcaster"`. Private Pay is currently
   disabled before recipient resolution, quotes, proof generation, or live
   submission because Bindle still needs a Kohaku-derived proved private
-  operation whose change returns privately to `0zk`.
-  Private Pay must also keep
-  `changeDisposition === "private-change-to-0zk"` before live submission; do
-  not send Uniswap leftover/slippage to the recipient, provider, public smart
-  wallet, or any other public change address by default.
+  operation and selectable Waku broadcaster. Bindle should not expose a
+  user-facing Public Pay mode; Pay starts from shielded RAILGUN balance.
+  Private Pay change may return privately to `0zk` or remain in a fresh
+  ephemeral settlement account for later sweep. Do not send Uniswap
+  leftover/slippage to the recipient, provider, durable public funding address,
+  passkey smart wallet, or any other public change address by default.
 - First-run setup is surfaced through `src/components/OnboardingWizard.tsx`.
   Keep new wallet prerequisites in that state-driven flow so users are not
   forced to discover setup steps by opening Receive or Connections manually.

@@ -58,7 +58,7 @@ test("parses a JSON payment request", () => {
 
 test("rejects unsupported payment request assets", () => {
   const parsed = parsePaymentRequest(
-    "bindle:pay?to=deanpierce.eth&amount=5&asset=DAI"
+    "bindle:pay?to=deanpierce.eth&amount=5&asset=ZEC"
   );
 
   expect(parsed).toEqual({

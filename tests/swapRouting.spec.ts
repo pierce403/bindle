@@ -11,7 +11,7 @@ import {
   UNISWAP_V4_WETH_ADDRESS
 } from "../src/intents/uniswapV4PayRoute";
 
-test("USDC pay routes default to Uniswap v4 with 1 percent max slippage", () => {
+test("token pay routes default to Uniswap v4 with 1 percent max slippage", () => {
   const plan = getPaySwapRoutePlan(getPayAsset("USDC"));
 
   expect(plan).toEqual(
@@ -20,9 +20,27 @@ test("USDC pay routes default to Uniswap v4 with 1 percent max slippage", () => 
       quoteSource: "onchain:uniswap-v4",
       slippageBps: DEFAULT_PAY_MAX_SLIPPAGE_BPS,
       slippageLabel: "Max 1%",
-      remainderLabel: "Private change to 0zk required; not wired yet",
-      changeDisposition: "unknown",
+      remainderLabel:
+        "Leftover stays in an ephemeral settlement account for later sweep",
+      changeDisposition: "ephemeral-settlement-account",
       requiresSwap: true
+    })
+  );
+});
+
+test("ETH and WETH pay routes avoid Uniswap", () => {
+  expect(getPaySwapRoutePlan(getPayAsset("ETH"))).toEqual(
+    expect.objectContaining({
+      protocol: "none",
+      requiresSwap: false,
+      changeDisposition: "private-change-to-0zk"
+    })
+  );
+  expect(getPaySwapRoutePlan(getPayAsset("WETH"))).toEqual(
+    expect.objectContaining({
+      protocol: "none",
+      requiresSwap: false,
+      executionLabel: "Deliver WETH/ETH without Uniswap"
     })
   );
 });

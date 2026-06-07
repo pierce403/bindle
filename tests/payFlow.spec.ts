@@ -2,10 +2,11 @@ import { expect, test } from "@playwright/test";
 import {
   classifyPayTransactionOrigin,
   assertPrivatePayChangeDisposition,
+  ephemeralPrivatePayChangeMessage,
   getRailgunBroadcasterReadiness,
   privatePayChangeRequiredMessage,
   privatePayBroadcasterRequiredMessage,
-  privateUsdcPayLegs
+  privatePayLegs
 } from "../src/intents/payFlow";
 import { defaultConnectionPolicy } from "../src/privacy/connectionPolicy";
 import {
@@ -14,12 +15,12 @@ import {
 } from "../src/railgun/broadcaster";
 
 test("Private Pay classifies as railgun-private", () => {
-  expect(classifyPayTransactionOrigin(privateUsdcPayLegs)).toBe(
+  expect(classifyPayTransactionOrigin(privatePayLegs)).toBe(
     "railgun-private"
   );
 });
 
-test("Private Pay blocks unsafe change dispositions", () => {
+test("Private Pay accepts private or ephemeral change dispositions", () => {
   expect(() => assertPrivatePayChangeDisposition("unknown")).toThrow(
     privatePayChangeRequiredMessage
   );
@@ -32,6 +33,10 @@ test("Private Pay blocks unsafe change dispositions", () => {
   expect(() =>
     assertPrivatePayChangeDisposition("private-change-to-0zk")
   ).not.toThrow();
+  expect(() =>
+    assertPrivatePayChangeDisposition("ephemeral-settlement-account")
+  ).not.toThrow();
+  expect(ephemeralPrivatePayChangeMessage).toMatch(/ephemeral settlement account/i);
 });
 
 test("Pay is disabled when broadcaster mode is off", () => {

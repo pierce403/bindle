@@ -19,9 +19,10 @@ export type PayLeg =
       disclosure: "recipient-token-amount" | "provider-route" | "public-call";
     };
 
-export type PayPrivacyLabel = "Private Pay" | "Public Pay";
+export type PayPrivacyLabel = "Private Pay";
 export type PrivatePayChangeDisposition =
   | "private-change-to-0zk"
+  | "ephemeral-settlement-account"
   | "unknown"
   | "public-recipient"
   | "public-smart-wallet"
@@ -40,15 +41,18 @@ export const privatePayBroadcasterRequiredMessage =
   "Pay requires a RAILGUN Broadcaster for the private source leg. Public smart-wallet submission would link this payment to your funding wallet.";
 
 export const kohakuPrivateActionsPendingMessage =
-  "Private actions are pending Kohaku Waku broadcaster compatibility. Bindle now watches Waku fee ads and auto-selects compatible relay candidates, but live Private Pay still needs a verified Kohaku submitter plus a proved private operation with private change. Bindle will not submit private RAILGUN actions through your public smart wallet.";
+  "Private actions are pending Kohaku Waku broadcaster compatibility. Bindle now watches Waku fee ads and auto-selects compatible relay candidates, but live Private Pay still needs a verified Kohaku submitter plus a proved private operation. Bindle will not submit private RAILGUN actions through your public smart wallet.";
 
 export const privatePayChangeRequiredMessage =
-  "Private Pay requires leftover swap/change funds to return privately to your 0zk. Private change routing is not wired yet, so Pay is blocked rather than leaking or giving away change.";
+  "Private Pay change must return privately to your 0zk or remain in a fresh ephemeral settlement account for later sweep. Bindle will not send leftover change to the recipient, provider, or durable funding wallet.";
+
+export const ephemeralPrivatePayChangeMessage =
+  "Leftover swap/change funds may remain in a fresh ephemeral settlement account for later sweep.";
 
 export const defaultPrivatePayChangeDisposition: PrivatePayChangeDisposition =
   "unknown";
 
-export const privateUsdcPayLegs: PayLeg[] = [
+export const privatePayLegs: PayLeg[] = [
   {
     kind: "private-source",
     origin: "railgun-private",
@@ -62,15 +66,15 @@ export const privateUsdcPayLegs: PayLeg[] = [
   }
 ];
 
+export const privateUsdcPayLegs = privatePayLegs;
+
 export const classifyPayTransactionOrigin = (legs: PayLeg[]): TxOrigin =>
   legs.some((leg) => leg.kind === "private-source")
     ? "railgun-private"
     : "public-smart-wallet";
 
-export const payPrivacyLabel = (legs: PayLeg[]): PayPrivacyLabel =>
-  classifyPayTransactionOrigin(legs) === "railgun-private"
-    ? "Private Pay"
-    : "Public Pay";
+export const payPrivacyLabel = (_legs: PayLeg[]): PayPrivacyLabel =>
+  "Private Pay";
 
 const normalizedBroadcasterMode = (policy: ConnectionPolicy) =>
   policy.railgunBroadcasterMode ?? "off";
@@ -167,10 +171,16 @@ export const assertBroadcasterReady = (policy: ConnectionPolicy): void => {
   }
 };
 
+export const isAcceptablePrivatePayChangeDisposition = (
+  disposition: PrivatePayChangeDisposition
+): boolean =>
+  disposition === "private-change-to-0zk" ||
+  disposition === "ephemeral-settlement-account";
+
 export const assertPrivatePayChangeDisposition = (
   disposition: PrivatePayChangeDisposition
 ): void => {
-  if (disposition !== "private-change-to-0zk") {
+  if (!isAcceptablePrivatePayChangeDisposition(disposition)) {
     throw new Error(privatePayChangeRequiredMessage);
   }
 };

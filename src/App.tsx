@@ -22,10 +22,10 @@ import { getPayAsset } from "./intents/assets";
 import {
   assertPrivatePayChangeDisposition,
   classifyPayTransactionOrigin,
+  ephemeralPrivatePayChangeMessage,
   getRailgunBroadcasterReadiness,
   kohakuPrivateActionsPendingMessage,
-  privatePayChangeRequiredMessage,
-  privateUsdcPayLegs,
+  privatePayLegs,
   type RailgunBroadcasterReadiness
 } from "./intents/payFlow";
 import { routeIntent, type IntentDraft, type RoutedIntent } from "./intents/router";
@@ -1695,17 +1695,12 @@ function WalletApp() {
       return;
     }
 
-    if (asset.symbol !== "USDC") {
-      setPayStatus("USDC Pay is wired first.");
-      return;
-    }
-
     if (!walletState.railgunAddress) {
       setPayStatus("Create or import a shielded 0zk wallet before Pay.");
       return;
     }
 
-    if (classifyPayTransactionOrigin(privateUsdcPayLegs) !== "railgun-private") {
+    if (classifyPayTransactionOrigin(privatePayLegs) !== "railgun-private") {
       setPayStatus("Private Pay route origin is not railgun-private.");
       return;
     }
@@ -1761,12 +1756,17 @@ function WalletApp() {
       ];
 
       try {
-        assertPrivatePayChangeDisposition(
-          paySwapRoutePlan?.changeDisposition ?? "unknown"
+        const changeDisposition =
+          paySwapRoutePlan?.changeDisposition ?? "unknown";
+
+        assertPrivatePayChangeDisposition(changeDisposition);
+        readinessLines.push(
+          changeDisposition === "private-change-to-0zk"
+            ? "✅ Change routing returns to 0zk"
+            : `✅ ${ephemeralPrivatePayChangeMessage}`
         );
-        readinessLines.push("✅ Private change routing returns to 0zk");
       } catch {
-        readinessLines.push(`❌ ${privatePayChangeRequiredMessage}`);
+        readinessLines.push("❌ Unsafe change routing is blocked");
       }
 
       setPayProofProgress({
@@ -1794,7 +1794,7 @@ function WalletApp() {
         kind: "warning",
         title: "Private Pay readiness checked",
         message:
-          "Fresh Waku broadcaster selection is working, but live Pay remains disabled until Kohaku private operation building and private change routing are wired."
+          "Fresh Waku broadcaster selection is working, but live Pay remains disabled until Kohaku private operation building and selectable Waku submission are wired."
       });
     } catch (error) {
       setFreshPrivatePayReadiness(null);

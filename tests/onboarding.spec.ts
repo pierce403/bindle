@@ -94,10 +94,7 @@ test.describe("passkey-first onboarding", () => {
     );
     await expect(page.getByLabel("Review pay route")).toContainText("Max 1%");
     await expect(page.getByLabel("Review pay route")).toContainText(
-      "Private change to 0zk required; not wired yet"
-    );
-    await expect(page.getByLabel("Review pay route")).toContainText(
-      "Private Pay requires leftover swap/change funds to return privately to your 0zk"
+      "Leftover stays in an ephemeral settlement account for later sweep"
     );
     await expect(page.getByLabel("Review pay route")).toContainText(
       "5 USDC to deanpierce.eth"

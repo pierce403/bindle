@@ -40,13 +40,17 @@ export const getPaySwapRoutePlan = (
     return null;
   }
 
-  if (outputAsset.symbol === "ETH") {
+  if (outputAsset.symbol === "ETH" || outputAsset.symbol === "WETH") {
     return {
       protocol: "none",
       quoteSource: "none",
       quoteLabel: "No quote needed",
-      routerLabel: "No swap",
-      executionLabel: "Unshield ETH to recipient",
+      routerLabel:
+        outputAsset.symbol === "ETH" ? "No swap" : "Wrap/unwrap handled at settlement",
+      executionLabel:
+        outputAsset.symbol === "ETH"
+          ? "Unshield ETH to recipient"
+          : "Deliver WETH/ETH without Uniswap",
       slippageBps: 0,
       slippageLabel: "No swap slippage",
       remainderLabel: "No swap remainder expected",
@@ -63,8 +67,8 @@ export const getPaySwapRoutePlan = (
     executionLabel: `ETH to ${outputAsset.symbol} through Uniswap v4`,
     slippageBps: DEFAULT_PAY_MAX_SLIPPAGE_BPS,
     slippageLabel: `Max ${formatSlippageBps(DEFAULT_PAY_MAX_SLIPPAGE_BPS)}`,
-    remainderLabel: "Private change to 0zk required; not wired yet",
-    changeDisposition: "unknown",
+    remainderLabel: "Leftover stays in an ephemeral settlement account for later sweep",
+    changeDisposition: "ephemeral-settlement-account",
     requiresSwap: true
   };
 };
