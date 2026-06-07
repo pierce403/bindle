@@ -95,18 +95,34 @@ export const resolveCoinbaseSmartAccountOwnerIndex = async (
     return 0;
   }
 
-  if (!isAddress(walletState.smartWalletAddress)) {
+  return resolveCoinbaseSmartAccountOwnerIndexForPublicKey({
+    client,
+    publicKey: walletState.passkeyPublicKey,
+    smartWalletAddress: walletState.smartWalletAddress
+  });
+};
+
+export const resolveCoinbaseSmartAccountOwnerIndexForPublicKey = async ({
+  client,
+  publicKey,
+  smartWalletAddress
+}: {
+  client: VisibleMainnetClient;
+  publicKey: `0x${string}`;
+  smartWalletAddress: string | null;
+}): Promise<number> => {
+  if (!smartWalletAddress || !isAddress(smartWalletAddress)) {
     return 0;
   }
 
-  const address = getAddress(walletState.smartWalletAddress) as Address;
+  const address = getAddress(smartWalletAddress) as Address;
   const code = await client.getCode({ address });
 
   if (!code || code === "0x") {
     return 0;
   }
 
-  const [x, y] = splitP256OwnerPublicKey(walletState.passkeyPublicKey);
+  const [x, y] = splitP256OwnerPublicKey(publicKey);
   const isOwner = await client.readContract({
     address,
     abi: coinbaseSmartAccountOwnerAbi,
@@ -151,7 +167,7 @@ export const resolveCoinbaseSmartAccountOwnerIndex = async (
 
   const ownerIndex = findCoinbaseOwnerIndex({
     owners,
-    publicKey: walletState.passkeyPublicKey
+    publicKey
   });
 
   if (ownerIndex === null) {

@@ -187,3 +187,55 @@ test("retries passkey lookup without transport hints when no credential is found
     });
   }
 });
+
+test("retries passkey lookup with discoverable credentials after stale credential id misses", async () => {
+  const originalNavigator = globalThis.navigator;
+  const requestedOptions: CredentialRequestOptions[] = [];
+
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: {
+      credentials: {
+        get: async (options?: CredentialRequestOptions) => {
+          if (options) {
+            requestedOptions.push(options);
+          }
+
+          if (requestedOptions.length < 3) {
+            throw new Error("No passkeys available");
+          }
+
+          return null;
+        }
+      }
+    }
+  });
+
+  try {
+    const requestCredential = createPasskeyRequestFn("platform", "required");
+
+    await requestCredential?.({
+      publicKey: {
+        challenge: new Uint8Array([1]).buffer,
+        allowCredentials: [
+          {
+            id: new Uint8Array([2]).buffer,
+            type: "public-key"
+          }
+        ],
+        userVerification: "preferred"
+      }
+    });
+
+    expect(requestedOptions).toHaveLength(3);
+    expect(requestedOptions[0]?.publicKey?.allowCredentials).toHaveLength(1);
+    expect(requestedOptions[1]?.publicKey?.allowCredentials).toHaveLength(1);
+    expect(requestedOptions[2]?.publicKey?.allowCredentials).toBeUndefined();
+    expect(requestedOptions[2]?.publicKey?.userVerification).toBe("required");
+  } finally {
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      value: originalNavigator
+    });
+  }
+});

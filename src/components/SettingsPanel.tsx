@@ -110,6 +110,10 @@ export function SettingsPanel({
           <small>
             Active public key: {shorten(walletState.passkeyPublicKey)}
           </small>
+          <small>
+            Saved public passkey owners: {walletState.passkeyCredentials.length}.
+            Bindle checks deployed smart-account owner slots before signing.
+          </small>
           {migratedPasskeyExpected ? (
             <small>
               Migrated account detected. This site must be allowed by the

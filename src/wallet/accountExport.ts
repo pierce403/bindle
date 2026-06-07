@@ -6,6 +6,7 @@ import {
   type PasskeyAuthenticatorAttachment,
   type PasskeyUserVerification,
   type RailgunKeyStore,
+  type StoredPasskeyCredential,
   type WalletState,
   type WalletStatus
 } from "./walletState";
@@ -107,6 +108,77 @@ const userVerificationOrNull = (value: unknown): PasskeyUserVerification =>
     ? value
     : null;
 
+const storedPasskeyCredentialOrNull = (
+  value: unknown
+): StoredPasskeyCredential | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const parsed = value as Record<string, unknown>;
+  const id = stringOrNull(parsed.id);
+  const publicKey = hexOrNull(parsed.publicKey);
+
+  if (!id || !publicKey) {
+    return null;
+  }
+
+  return {
+    id,
+    publicKey,
+    rpId: stringOrNull(parsed.rpId),
+    authenticatorAttachment: authenticatorAttachmentOrNull(
+      parsed.authenticatorAttachment
+    ),
+    userVerification: userVerificationOrNull(parsed.userVerification),
+    createdAt: stringOrNull(parsed.createdAt),
+    lastUsedAt: stringOrNull(parsed.lastUsedAt)
+  };
+};
+
+const normalizeStoredPasskeyCredentials = (
+  parsed: Record<string, unknown>
+): StoredPasskeyCredential[] => {
+  const credentials = Array.isArray(parsed.passkeyCredentials)
+    ? parsed.passkeyCredentials
+        .map(storedPasskeyCredentialOrNull)
+        .filter(
+          (credential): credential is StoredPasskeyCredential =>
+            credential !== null
+        )
+    : [];
+  const activeCredential =
+    typeof parsed.passkeyCredentialId === "string" &&
+    typeof parsed.passkeyPublicKey === "string"
+      ? storedPasskeyCredentialOrNull({
+          id: parsed.passkeyCredentialId,
+          publicKey: parsed.passkeyPublicKey,
+          rpId: parsed.passkeyRpId,
+          authenticatorAttachment: parsed.passkeyAuthenticatorAttachment,
+          userVerification: parsed.passkeyUserVerification,
+          createdAt: parsed.createdAt,
+          lastUsedAt: null
+        })
+      : null;
+  const merged = activeCredential
+    ? [activeCredential, ...credentials]
+    : credentials;
+  const seen = new Set<string>();
+
+  return merged.filter((credential) => {
+    const key = `${credential.id}:${credential.publicKey.toLowerCase()}:${
+      credential.rpId ?? ""
+    }`;
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+};
+
 const normalizeWallet = (value: unknown): WalletState => {
   if (!value || typeof value !== "object") {
     return emptyWalletState;
@@ -142,7 +214,8 @@ const normalizeWallet = (value: unknown): WalletState => {
     ),
     passkeyUserVerification: userVerificationOrNull(
       parsed.passkeyUserVerification
-    )
+    ),
+    passkeyCredentials: normalizeStoredPasskeyCredentials(parsed)
   };
 };
 

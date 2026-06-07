@@ -23,7 +23,18 @@ const wallet: WalletState = {
   passkeyPublicKey: "0x04",
   passkeyRpId: "bindle.me",
   passkeyAuthenticatorAttachment: "cross-platform",
-  passkeyUserVerification: "preferred"
+  passkeyUserVerification: "preferred",
+  passkeyCredentials: [
+    {
+      id: "credential-id",
+      publicKey: "0x04",
+      rpId: "bindle.me",
+      authenticatorAttachment: "cross-platform",
+      userVerification: "preferred",
+      createdAt: "2026-06-03T00:00:00.000Z",
+      lastUsedAt: "2026-06-03T00:00:00.000Z"
+    }
+  ]
 };
 
 test("creates an account export with explicit recovery warnings", () => {
@@ -44,6 +55,8 @@ test("creates an account export with explicit recovery warnings", () => {
   expect(parsed.schema).toBe("me.bindle.account-export");
   expect(parsed.wallet.smartWalletAddress).toBe(wallet.smartWalletAddress);
   expect(parsed.wallet.passkeyRpId).toBe("bindle.me");
+  expect(parsed.wallet.passkeyCredentials).toHaveLength(1);
+  expect(parsed.wallet.passkeyCredentials[0]?.id).toBe("credential-id");
   expect(parsed.wallet.passkeyAuthenticatorAttachment).toBe("cross-platform");
   expect(parsed.wallet.passkeyUserVerification).toBe("preferred");
   expect(parsed.railgunWallet?.recoveryPhrase).toContain("abandon");

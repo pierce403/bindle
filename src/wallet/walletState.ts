@@ -20,6 +20,16 @@ export type RailgunDerivationProvider =
 export type PasskeyAuthenticatorAttachment = AuthenticatorAttachment | null;
 export type PasskeyUserVerification = UserVerificationRequirement | null;
 
+export type StoredPasskeyCredential = {
+  id: string;
+  publicKey: `0x${string}`;
+  rpId: string | null;
+  authenticatorAttachment: PasskeyAuthenticatorAttachment;
+  userVerification: PasskeyUserVerification;
+  createdAt: string | null;
+  lastUsedAt: string | null;
+};
+
 export type WalletState = {
   status: WalletStatus;
   smartWalletAddress: string | null;
@@ -38,6 +48,7 @@ export type WalletState = {
   passkeyRpId: string | null;
   passkeyAuthenticatorAttachment?: PasskeyAuthenticatorAttachment;
   passkeyUserVerification?: PasskeyUserVerification;
+  passkeyCredentials: StoredPasskeyCredential[];
 };
 
 const storageKey = "bindle.wallet.metadata.v1";
@@ -59,7 +70,8 @@ export const emptyWalletState: WalletState = {
   passkeyPublicKey: null,
   passkeyRpId: null,
   passkeyAuthenticatorAttachment: null,
-  passkeyUserVerification: null
+  passkeyUserVerification: null,
+  passkeyCredentials: []
 };
 
 const isWalletStatus = (value: unknown): value is WalletStatus =>
@@ -121,6 +133,85 @@ const userVerificationOrNull = (value: unknown): PasskeyUserVerification =>
     ? value
     : null;
 
+const credentialKey = ({
+  id,
+  publicKey,
+  rpId
+}: {
+  id: string;
+  publicKey: `0x${string}`;
+  rpId: string | null;
+}): string => `${id}:${publicKey.toLowerCase()}:${rpId ?? ""}`;
+
+const storedPasskeyCredentialOrNull = (
+  value: unknown
+): StoredPasskeyCredential | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const parsed = value as Record<string, unknown>;
+  const id = stringOrNull(parsed.id);
+  const publicKey = hexOrNull(parsed.publicKey);
+
+  if (!id || !publicKey) {
+    return null;
+  }
+
+  return {
+    id,
+    publicKey,
+    rpId: stringOrNull(parsed.rpId),
+    authenticatorAttachment: authenticatorAttachmentOrNull(
+      parsed.authenticatorAttachment
+    ),
+    userVerification: userVerificationOrNull(parsed.userVerification),
+    createdAt: stringOrNull(parsed.createdAt),
+    lastUsedAt: stringOrNull(parsed.lastUsedAt)
+  };
+};
+
+const normalizeStoredPasskeyCredentials = (
+  parsed: Record<string, unknown>
+): StoredPasskeyCredential[] => {
+  const credentials = Array.isArray(parsed.passkeyCredentials)
+    ? parsed.passkeyCredentials
+        .map(storedPasskeyCredentialOrNull)
+        .filter(
+          (credential): credential is StoredPasskeyCredential =>
+            credential !== null
+        )
+    : [];
+  const activeCredential =
+    typeof parsed.passkeyCredentialId === "string" &&
+    typeof parsed.passkeyPublicKey === "string"
+      ? storedPasskeyCredentialOrNull({
+          id: parsed.passkeyCredentialId,
+          publicKey: parsed.passkeyPublicKey,
+          rpId: parsed.passkeyRpId,
+          authenticatorAttachment: parsed.passkeyAuthenticatorAttachment,
+          userVerification: parsed.passkeyUserVerification,
+          createdAt: parsed.createdAt,
+          lastUsedAt: null
+        })
+      : null;
+  const merged = activeCredential
+    ? [activeCredential, ...credentials]
+    : credentials;
+  const seen = new Set<string>();
+
+  return merged.filter((credential) => {
+    const key = credentialKey(credential);
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+};
+
 const normalizeWalletState = (value: unknown): WalletState => {
   if (!value || typeof value !== "object") {
     return emptyWalletState;
@@ -160,7 +251,8 @@ const normalizeWalletState = (value: unknown): WalletState => {
     ),
     passkeyUserVerification: userVerificationOrNull(
       parsed.passkeyUserVerification
-    )
+    ),
+    passkeyCredentials: normalizeStoredPasskeyCredentials(parsed)
   };
 };
 
@@ -204,6 +296,9 @@ export const saveWalletState = (state: WalletState): WalletState => {
     // signing secrets.
     // Authenticator attachment and user-verification values are policy hints
     // for how to ask the browser for that same credential later.
+    // passkeyCredentials is a list of public owner records. It lets Bindle try
+    // the right local passkey when a deployed smart account has several owner
+    // slots; it still does not contain WebAuthn private key material.
     window.localStorage.setItem(storageKey, JSON.stringify(normalized));
   }
 
@@ -251,13 +346,41 @@ export const markPasskeyEnrolled = (
     authenticatorAttachment?: PasskeyAuthenticatorAttachment;
     userVerification?: PasskeyUserVerification;
   }
-): WalletState =>
-  saveWalletState({
+): WalletState => {
+  const now = new Date().toISOString();
+  const nextCredential: StoredPasskeyCredential | null = credential.publicKey
+    ? {
+        id: credential.id,
+        publicKey: credential.publicKey,
+        rpId: credential.rpId,
+        authenticatorAttachment:
+          credential.authenticatorAttachment ??
+          currentState.passkeyAuthenticatorAttachment ??
+          null,
+        userVerification:
+          credential.userVerification ??
+          currentState.passkeyUserVerification ??
+          null,
+        createdAt: currentState.createdAt ?? now,
+        lastUsedAt: now
+      }
+    : null;
+  const credentialList = nextCredential
+    ? [
+        nextCredential,
+        ...currentState.passkeyCredentials.filter(
+          (storedCredential) =>
+            credentialKey(storedCredential) !== credentialKey(nextCredential)
+        )
+      ]
+    : currentState.passkeyCredentials;
+
+  return saveWalletState({
     ...currentState,
     status: currentState.railgunAddress ? "railgun-ready" : "passkey-ready",
     passkeyPresent: true,
     custodyModel: "passkey-4337",
-    createdAt: currentState.createdAt ?? new Date().toISOString(),
+    createdAt: currentState.createdAt ?? now,
     lastError: null,
     passkeyCredentialId: credential.id,
     passkeyPublicKey: credential.publicKey,
@@ -268,8 +391,10 @@ export const markPasskeyEnrolled = (
       credential.userVerification ?? currentState.passkeyUserVerification,
     smartWalletAddress: credential.publicKey
       ? currentState.smartWalletAddress
-      : null
+      : null,
+    passkeyCredentials: credentialList
   });
+};
 
 export const markSmartWalletReady = (
   currentState: WalletState,

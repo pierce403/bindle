@@ -7,17 +7,22 @@ import {
 } from "viem/account-abstraction";
 import type { ConnectionPolicy } from "../privacy/connectionPolicy";
 import {
-  resolveCoinbaseSmartAccountOwnerIndex,
+  resolveCoinbaseSmartAccountOwnerIndexForPublicKey,
   withCoinbaseSignatureOwnerIndex
 } from "./coinbaseSmartWalletOwners";
 import { createVisibleMainnetClient } from "./mainnetClient";
-import { createPasskeyRequestFn, explainPasskeyLookupError } from "./passkeys";
+import {
+  createPasskeyRequestFn,
+  explainPasskeyLookupError,
+  isPasskeyLookupError
+} from "./passkeys";
 import { estimateVisibleUserOperationFees } from "./userOperationGas";
 import {
   assertPublicSmartWalletOrigin,
   type TxOrigin
 } from "./transactionOrigin";
 import type { WalletState } from "./walletState";
+import type { StoredPasskeyCredential } from "./walletState";
 
 export type SmartAccountAdapterStatus = {
   usable: boolean;
@@ -61,39 +66,89 @@ export const viemCoinbaseSmartAccountSupport: SmartAccountAdapterStatus = {
     "Viem supports WebAuthn owners for Coinbase Smart Wallet accounts and can derive a counterfactual ERC-4337 funding address from explicit RPC configuration."
 };
 
-const getFundingCredential = (walletState: WalletState) => {
-  if (!walletState.passkeyCredentialId || !walletState.passkeyPublicKey) {
+type SmartAccountCredentialCandidate = StoredPasskeyCredential;
+
+const candidateKey = ({
+  id,
+  publicKey,
+  rpId
+}: {
+  id: string;
+  publicKey: `0x${string}`;
+  rpId: string | null;
+}): string => `${id}:${publicKey.toLowerCase()}:${rpId ?? ""}`;
+
+export const getFundingCredentialCandidates = (
+  walletState: WalletState
+): SmartAccountCredentialCandidate[] => {
+  if (
+    (!walletState.passkeyCredentialId || !walletState.passkeyPublicKey) &&
+    walletState.passkeyCredentials.length === 0
+  ) {
     throw new Error(
       "Create a funding passkey first. Existing legacy passkey metadata cannot derive a smart-wallet address."
     );
   }
 
-  return {
-    id: walletState.passkeyCredentialId,
-    publicKey: walletState.passkeyPublicKey
-  };
+  const activeCredential: SmartAccountCredentialCandidate | null =
+    walletState.passkeyCredentialId && walletState.passkeyPublicKey
+      ? {
+          id: walletState.passkeyCredentialId,
+          publicKey: walletState.passkeyPublicKey,
+          rpId: walletState.passkeyRpId,
+          authenticatorAttachment:
+            walletState.passkeyAuthenticatorAttachment ?? null,
+          userVerification: walletState.passkeyUserVerification ?? null,
+          createdAt: walletState.createdAt,
+          lastUsedAt: null
+        }
+      : null;
+  const candidates = activeCredential
+    ? [activeCredential, ...walletState.passkeyCredentials]
+    : walletState.passkeyCredentials;
+  const seen = new Set<string>();
+
+  return candidates.filter((candidate) => {
+    const key = candidateKey(candidate);
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
 };
 
 const createSmartAccount = async (
   policy: ConnectionPolicy,
-  walletState: WalletState
+  walletState: WalletState,
+  credentialCandidate = getFundingCredentialCandidates(walletState)[0]
 ) => {
+  if (!credentialCandidate) {
+    throw new Error("No passkey credential metadata is available.");
+  }
+
   const client = await createVisibleMainnetClient(policy);
   const accountAddress =
     walletState.smartWalletAddress && isAddress(walletState.smartWalletAddress)
       ? (getAddress(walletState.smartWalletAddress) as Address)
       : undefined;
-  const ownerIndex = await resolveCoinbaseSmartAccountOwnerIndex(
+  const ownerIndex = await resolveCoinbaseSmartAccountOwnerIndexForPublicKey({
     client,
-    walletState
-  );
+    publicKey: credentialCandidate.publicKey,
+    smartWalletAddress: walletState.smartWalletAddress
+  });
   const owner = toWebAuthnAccount({
-    credential: getFundingCredential(walletState),
+    credential: {
+      id: credentialCandidate.id,
+      publicKey: credentialCandidate.publicKey
+    },
     getFn: createPasskeyRequestFn(
-      walletState.passkeyAuthenticatorAttachment,
-      walletState.passkeyUserVerification
+      credentialCandidate.authenticatorAttachment,
+      credentialCandidate.userVerification
     ),
-    rpId: walletState.passkeyRpId ?? undefined
+    rpId: credentialCandidate.rpId ?? undefined
   });
   const account = await toCoinbaseSmartAccount({
     address: accountAddress,
@@ -114,7 +169,35 @@ const createSmartAccount = async (
             })
         };
 
-  return { account: indexedAccount, client, ownerIndex };
+  return { account: indexedAccount, client, credentialCandidate, ownerIndex };
+};
+
+const createSmartAccountCandidates = async (
+  policy: ConnectionPolicy,
+  walletState: WalletState
+) => {
+  const candidates = getFundingCredentialCandidates(walletState);
+  const accounts = [];
+  const rejectedReasons: string[] = [];
+
+  for (const candidate of candidates) {
+    try {
+      accounts.push(await createSmartAccount(policy, walletState, candidate));
+    } catch (error) {
+      rejectedReasons.push(
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+  }
+
+  if (accounts.length === 0) {
+    throw new Error(
+      rejectedReasons[0] ??
+        "No saved passkey owner is usable for this smart account."
+    );
+  }
+
+  return accounts;
 };
 
 export const deriveSmartWalletAddressFromPasskey = async (
@@ -181,43 +264,60 @@ export const sendSmartWalletEthPayment = async ({
       throw new Error("Configure an ERC-4337 bundler before sending.");
     }
 
-    const { account, client } = await createSmartAccount(policy, walletState);
-    const paymasterClient = policy.paymasterUrl.trim()
-      ? createPaymasterClient({
-          transport: http(policy.paymasterUrl.trim())
-        })
-      : null;
-    const bundlerClient = createBundlerClient({
-      account,
-      client,
-      paymaster: paymasterClient ?? undefined,
-      transport: http(policy.bundlerUrl.trim()),
-      userOperation: {
-        estimateFeesPerGas: () =>
-          estimateVisibleUserOperationFees({
-            bundlerUrl: policy.bundlerUrl,
-            fallbackEstimator: client
-          })
-      }
-    });
     const to = await resolvePublicRecipient(policy, recipient);
-    const userOperationHash = await bundlerClient.sendUserOperation({
-      account,
-      calls: [
-        {
-          to,
-          value: parseEther(amount.trim())
-        }
-      ]
-    });
-    const receipt = await bundlerClient.waitForUserOperationReceipt({
-      hash: userOperationHash
-    });
+    const accounts = await createSmartAccountCandidates(policy, walletState);
+    const passkeyLookupErrors: unknown[] = [];
 
-    return {
-      userOperationHash,
-      transactionHash: receipt.receipt.transactionHash
-    };
+    for (const { account, client } of accounts) {
+      try {
+        const paymasterClient = policy.paymasterUrl.trim()
+          ? createPaymasterClient({
+              transport: http(policy.paymasterUrl.trim())
+            })
+          : null;
+        const bundlerClient = createBundlerClient({
+          account,
+          client,
+          paymaster: paymasterClient ?? undefined,
+          transport: http(policy.bundlerUrl.trim()),
+          userOperation: {
+            estimateFeesPerGas: () =>
+              estimateVisibleUserOperationFees({
+                bundlerUrl: policy.bundlerUrl,
+                fallbackEstimator: client
+              })
+          }
+        });
+        const userOperationHash = await bundlerClient.sendUserOperation({
+          account,
+          calls: [
+            {
+              to,
+              value: parseEther(amount.trim())
+            }
+          ]
+        });
+        const receipt = await bundlerClient.waitForUserOperationReceipt({
+          hash: userOperationHash
+        });
+
+        return {
+          userOperationHash,
+          transactionHash: receipt.receipt.transactionHash
+        };
+      } catch (error) {
+        if (!isPasskeyLookupError(error)) {
+          throw error;
+        }
+
+        passkeyLookupErrors.push(error);
+      }
+    }
+
+    throw (
+      passkeyLookupErrors.at(-1) ??
+      new Error("No saved passkey was available for signing.")
+    );
   } catch (error) {
     throw explainPasskeyLookupError(error, walletState);
   }
@@ -249,37 +349,54 @@ export const sendSmartWalletCalls = async ({
       throw new Error("No smart-wallet calls were prepared.");
     }
 
-    const { account, client } = await createSmartAccount(policy, walletState);
-    const paymasterClient = policy.paymasterUrl.trim()
-      ? createPaymasterClient({
-          transport: http(policy.paymasterUrl.trim())
-        })
-      : null;
-    const bundlerClient = createBundlerClient({
-      account,
-      client,
-      paymaster: paymasterClient ?? undefined,
-      transport: http(policy.bundlerUrl.trim()),
-      userOperation: {
-        estimateFeesPerGas: () =>
-          estimateVisibleUserOperationFees({
-            bundlerUrl: policy.bundlerUrl,
-            fallbackEstimator: client
-          })
-      }
-    });
-    const userOperationHash = await bundlerClient.sendUserOperation({
-      account,
-      calls
-    });
-    const receipt = await bundlerClient.waitForUserOperationReceipt({
-      hash: userOperationHash
-    });
+    const accounts = await createSmartAccountCandidates(policy, walletState);
+    const passkeyLookupErrors: unknown[] = [];
 
-    return {
-      userOperationHash,
-      transactionHash: receipt.receipt.transactionHash
-    };
+    for (const { account, client } of accounts) {
+      try {
+        const paymasterClient = policy.paymasterUrl.trim()
+          ? createPaymasterClient({
+              transport: http(policy.paymasterUrl.trim())
+            })
+          : null;
+        const bundlerClient = createBundlerClient({
+          account,
+          client,
+          paymaster: paymasterClient ?? undefined,
+          transport: http(policy.bundlerUrl.trim()),
+          userOperation: {
+            estimateFeesPerGas: () =>
+              estimateVisibleUserOperationFees({
+                bundlerUrl: policy.bundlerUrl,
+                fallbackEstimator: client
+              })
+          }
+        });
+        const userOperationHash = await bundlerClient.sendUserOperation({
+          account,
+          calls
+        });
+        const receipt = await bundlerClient.waitForUserOperationReceipt({
+          hash: userOperationHash
+        });
+
+        return {
+          userOperationHash,
+          transactionHash: receipt.receipt.transactionHash
+        };
+      } catch (error) {
+        if (!isPasskeyLookupError(error)) {
+          throw error;
+        }
+
+        passkeyLookupErrors.push(error);
+      }
+    }
+
+    throw (
+      passkeyLookupErrors.at(-1) ??
+      new Error("No saved passkey was available for signing.")
+    );
   } catch (error) {
     throw explainPasskeyLookupError(error, walletState);
   }

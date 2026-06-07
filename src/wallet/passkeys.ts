@@ -452,7 +452,31 @@ export const createPasskeyRequestFn = (
         }
       };
 
-      return navigator.credentials.get(relaxedOptions);
+      try {
+        return await navigator.credentials.get(relaxedOptions);
+      } catch (relaxedError) {
+        if (!isMissingPasskeyCredentialError(relaxedError)) {
+          throw relaxedError;
+        }
+
+        if (!relaxedOptions.publicKey) {
+          throw relaxedError;
+        }
+
+        const {
+          allowCredentials: _allowCredentials,
+          ...discoverablePublicKey
+        } = relaxedOptions.publicKey;
+
+        // If the credential id cached in local metadata is stale, a discoverable
+        // passkey for the same RP ID can still be present in the platform
+        // provider. This does not recover private key material; it only lets the
+        // authenticator choose a local passkey instead of failing on one stale id.
+        return navigator.credentials.get({
+          ...relaxedOptions,
+          publicKey: discoverablePublicKey
+        });
+      }
     }
   };
 };

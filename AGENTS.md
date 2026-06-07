@@ -331,9 +331,15 @@ avoids requiring GitHub workflow scope.
 - Passkey enrollment is wired through browser WebAuthn in `src/wallet/passkeys.ts`.
   `src/wallet/smartAccountAdapter.ts` uses Viem's Coinbase Smart Wallet support
   to derive a real passkey-backed ERC-4337 funding address and submit public ETH
-  user operations through explicit RPC/bundler endpoints. Kohaku's upstream
-  `pq-account` source is still not published as an npm package or wired as the
-  default adapter.
+  user operations through explicit RPC/bundler endpoints. It resolves deployed
+  Coinbase Smart Wallet owner indexes from the on-chain owner list, so migrated
+  or re-enrolled passkeys do not need to be owner slot 0. Bindle stores multiple
+  public passkey owner records in local wallet metadata and tries saved
+  candidates when signing; a WebAuthn "no passkeys available" error means the
+  browser/authenticator could not find matching local credential material for
+  the requested RP ID, not that Bindle has access to or lost private key
+  material. Kohaku's upstream `pq-account` source is still not published as an
+  npm package or wired as the default adapter.
 - Do not force `internal` WebAuthn transport hints for platform passkeys.
   Synced phone/computer passkeys may otherwise show "no passkeys available"
   during smart-wallet signing. Bindle only hints USB/NFC/BLE for explicit
