@@ -68,11 +68,34 @@ const readGitCommit = () => {
   return "unknown";
 };
 
+const readGitCommitTime = (commit) => {
+  if (process.env.BINDLE_BUILD_TIME) {
+    return process.env.BINDLE_BUILD_TIME;
+  }
+
+  if (!/^[0-9a-f]{7,40}$/i.test(commit)) {
+    return new Date().toISOString();
+  }
+
+  const result = spawnSync("git", ["show", "-s", "--format=%cI", commit], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+
+  const commitTime = result.stdout?.trim();
+  if (result.status === 0 && commitTime) {
+    return commitTime;
+  }
+
+  return new Date().toISOString();
+};
+
+const buildCommit = readGitCommit();
+
 const env = {
   ...process.env,
-  BINDLE_BUILD_COMMIT: readGitCommit(),
-  BINDLE_BUILD_TIME:
-    process.env.BINDLE_BUILD_TIME ?? new Date().toISOString()
+  BINDLE_BUILD_COMMIT: buildCommit,
+  BINDLE_BUILD_TIME: readGitCommitTime(buildCommit)
 };
 
 const result = spawnSync("pnpm", ["run", "build:app"], {

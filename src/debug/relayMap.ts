@@ -38,7 +38,7 @@ export type WakuBroadcasterMapSnapshot = {
   network: "ethereum-mainnet";
   status: RelayMapStatus;
   elapsedMs: number;
-  transport: "kohaku-waku" | "railgun-community-waku" | "unavailable";
+  transport: "kohaku-waku" | "unavailable";
   pubsubTopic: string | null;
   wakuPeerCount: number | null;
   requiredProtocols: {

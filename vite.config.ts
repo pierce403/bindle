@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -74,8 +75,30 @@ const readGitCommit = (): string => {
 };
 
 const buildCommit = readGitCommit();
-const buildTime =
-  process.env.BINDLE_BUILD_TIME ?? new Date().toISOString();
+
+const readGitCommitTime = (commit: string): string => {
+  if (process.env.BINDLE_BUILD_TIME) {
+    return process.env.BINDLE_BUILD_TIME;
+  }
+
+  if (!/^[0-9a-f]{7,40}$/i.test(commit)) {
+    return new Date().toISOString();
+  }
+
+  const result = spawnSync("git", ["show", "-s", "--format=%cI", commit], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+
+  const commitTime = result.stdout.trim();
+  if (result.status === 0 && commitTime) {
+    return commitTime;
+  }
+
+  return new Date().toISOString();
+};
+
+const buildTime = readGitCommitTime(buildCommit);
 
 const buildInfoPlugin = (): Plugin => ({
   name: "bindle-build-info",

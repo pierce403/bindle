@@ -134,16 +134,18 @@ pnpm test:e2e
 pnpm build
 ```
 
-For GitHub Pages branch publishing, rebuild and copy the production output into
-`docs` before committing:
+For GitHub Pages branch publishing, `pnpm build` writes the production output
+directly into `docs` before committing:
 
 ```bash
 pnpm build
-cp -R dist/. docs/
 ```
 
 `pnpm build` is now the normal local production build path and does not require
-a third-party security-scanner account or API token.
+a third-party security-scanner account or API token. Build metadata defaults to
+the current git commit timestamp so repeat builds of the same commit do not
+churn hashed assets; set `BINDLE_BUILD_TIME` explicitly when you need a
+deployment-time label.
 
 pnpm supply-chain hardening lives in `pnpm-workspace.yaml`. `ignoreDepScripts`
 is enabled so dependency `preinstall`, `install`, and `postinstall` scripts do

@@ -84,7 +84,7 @@ Important directories:
   `public/logo.png`, `public/favicon-16.png`, `public/favicon-32.png`, and
   `public/icons/`: PWA installability assets.
 - `docs/`: committed production build served by GitHub Pages.
-- `dist/`: local build output; ignored by git.
+- `dist/`: ignored local scratch output if a one-off command writes there.
 - `scripts/generate-logo-source.mjs`: dependency-free raster compositor for the
   rose paisley bandana logo source.
 - `scripts/generate-pwa-icons.mjs`: dependency-free PWA icon generator.
@@ -186,9 +186,12 @@ Update GitHub Pages output after source changes:
 ```bash
 pnpm icons
 pnpm build
-rm -rf docs/assets
-cp -R dist/. docs/
 ```
+
+`pnpm build` writes directly to `docs`. Build metadata defaults to the current
+git commit timestamp so repeat builds of the same commit do not churn hashed
+assets; set `BINDLE_BUILD_TIME` explicitly only when a deployment-time label is
+intended.
 
 Commit and push:
 
