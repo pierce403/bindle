@@ -1856,6 +1856,17 @@ function WalletApp() {
           }
         });
 
+        const intent = { origin: "railgun-private" as const };
+        if (intent.origin === "railgun-private") {
+          if (
+            !preparedPay.privateOperation ||
+            preparedPay.privateOperation.submitter !== "waku-railgun-broadcaster" ||
+            preparedPay.submissionMode !== "railgun-waku-broadcaster"
+          ) {
+            throw new Error("Private Pay cannot be submitted through the public smart wallet.");
+          }
+        }
+
         if (!preparedPay.privateOperation) {
           throw new Error("Private operation preparation failed.");
         }

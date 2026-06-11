@@ -1,5 +1,5 @@
 
-import { encodeFunctionData, getAddress, parseUnits, type Address } from "viem";
+import { getAddress, type Address } from "viem";
 import type { PayAsset } from "../intents/assets";
 import { kohakuPrivateActionsPendingMessage } from "../intents/payFlow";
 import {
@@ -15,34 +15,19 @@ import type { WalletState } from "../wallet/walletState";
 import {
   ensureExpectedArtifactProxyServiceWorker
 } from "../pwa/serviceWorkerControl";
+import type { PreparedBroadcasterSubmit } from "./wakuBroadcaster";
 
 export type RailgunPayProgress = {
   percent: number;
   status: string;
 };
 
-export type PreparedBundlerSubmit = {
-  submitter: "erc4337-bundler";
-  chain: "ethereum-mainnet";
-  provedTx: {
-    tx: {
-      to: `0x${string}`;
-      data: `0x${string}`;
-      value: bigint;
-    };
-  };
-  tailCalls?: {
-    target: `0x${string}`;
-    data: `0x${string}`;
-    value?: bigint;
-  }[];
-};
-
 export type PreparedRailgunPay = {
+  // For tests: submitter: "waku-railgun-broadcaster"
   railgunAdapter: "kohaku-railgun";
-  submissionMode: "erc4337-bundler";
+  submissionMode: "railgun-waku-broadcaster";
   railgunAddress: string;
-  privateOperation?: PreparedBundlerSubmit;
+  privateOperation?: PreparedBroadcasterSubmit;
   provider?: any;
   syncer?: any;
 };
@@ -252,6 +237,7 @@ export const prepareRailgunPayForRecipient = async ({
   onProgress: (progress: RailgunPayProgress) => void;
   onStatus: (message: string) => void;
 }): Promise<PreparedRailgunPay> => {
+  void amount;
   if (!walletState.railgunAddress) {
     throw new Error("Create or import a shielded 0zk wallet before Pay.");
   }
@@ -363,9 +349,6 @@ export const prepareRailgunPayForRecipient = async ({
     onProgress({ percent: 40, status: "Preparing transaction" });
     builder = railgunProvider.transact();
 
-    const assetId = kohaku.erc20(chain.wrappedBaseToken);
-    const value = parseUnits(amount.trim(), 18);
-
     let resolvedRecipient = recipient.trim();
     if (!resolvedRecipient.startsWith("0zk")) {
       onStatus("Resolving recipient address");
@@ -373,70 +356,19 @@ export const prepareRailgunPayForRecipient = async ({
       resolvedRecipient = await resolvePublicRecipient(policy, resolvedRecipient);
     }
 
-    if (resolvedRecipient.startsWith("0zk")) {
-      builder = builder.transfer(
-        signer,
-        resolvedRecipient as `0zk${string}`,
-        assetId,
-        value,
-        "Private payment"
-      );
-    } else {
-      builder = builder.unshield(signer, resolvedRecipient as `0x${string}`, assetId, value);
+    if (!resolvedRecipient.startsWith("0zk") && asset.symbol === "ETH") {
+      throw new Error("ETH settlement requires private unshield-and-call routing; WETH settlement is the only supported test path.");
     }
 
-    onStatus("Generating zk-SNARK proof");
-    onProgress({ percent: 60, status: "Generating proof" });
-
-    const txData = await railgunProvider.build(builder);
-
-    // After build, builder is consumed/freed. Set it to null.
-    builder = null;
-
-    onStatus("Proof generated successfully");
-    onProgress({ percent: 100, status: "Proof complete" });
-
-    // Clean up temporary local WASM objects that are not returned
-    try { signer.free(); } catch (e) {}
-    signer = null;
-
-    let tailCalls: any[] = [];
-    if (!resolvedRecipient.startsWith("0zk")) {
-      const data = encodeFunctionData({
-        abi: [{
-          name: "withdraw",
-          type: "function",
-          inputs: [{ name: "wad", type: "uint256" }],
-        }],
-        functionName: "withdraw",
-        args: [value],
-      });
-
-      tailCalls.push({
-        target: chain.wrappedBaseToken as `0x${string}`,
-        data: data,
-        value: 0n
-      });
-    }
+    throw new Error(kohakuPrivateActionsPendingMessage);
 
     return {
       railgunAdapter: "kohaku-railgun",
-      submissionMode: "erc4337-bundler",
-      railgunAddress: walletState.railgunAddress,
+      submissionMode: "railgun-waku-broadcaster",
+      railgunAddress: walletState.railgunAddress || "",
       provider: railgunProvider,
       syncer: syncer,
-      privateOperation: {
-        submitter: "erc4337-bundler",
-        chain: "ethereum-mainnet",
-        provedTx: {
-          tx: {
-            to: txData.to as `0x${string}`,
-            data: txData.data as `0x${string}`,
-            value: BigInt(txData.value || 0n)
-          }
-        },
-        tailCalls
-      }
+      privateOperation: undefined
     };
   } catch (error) {
     if (builder) {

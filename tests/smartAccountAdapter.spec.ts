@@ -9,7 +9,7 @@ import {
 } from "../src/wallet/transactionOrigin";
 import { emptyWalletState } from "../src/wallet/walletState";
 
-test("sendSmartWalletCalls allows railgun-private origins and proceeds to check funding passkey", async () => {
+test("sendSmartWalletCalls rejects railgun-private origins and fails immediately", async () => {
   await expect(
     sendSmartWalletCalls({
       calls: [
@@ -25,7 +25,7 @@ test("sendSmartWalletCalls allows railgun-private origins and proceeds to check 
       },
       walletState: emptyWalletState
     })
-  ).rejects.toThrow(/Create a funding passkey first/);
+  ).rejects.toThrow("Private Pay cannot be submitted through the public smart wallet.");
 });
 
 test("funding credential candidates keep active and saved passkey owners", () => {

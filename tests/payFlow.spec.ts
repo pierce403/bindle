@@ -34,24 +34,24 @@ test("Private Pay accepts private or ephemeral change dispositions", () => {
   expect(ephemeralPrivatePayChangeMessage).toMatch(/ephemeral settlement account/i);
 });
 
-test("Pay is disabled when bundler is not configured", () => {
+test("Pay is disabled when Waku Broadcaster is not configured", () => {
   const readiness = getRailgunBroadcasterReadiness({
     ...defaultConnectionPolicy,
-    bundlerUrl: ""
+    broadcasterUrl: ""
   });
 
   expect(readiness.ready).toBe(false);
   expect(readiness.status).toBe("off");
-  expect(readiness.message).toBe("Configure an ERC-4337 bundler before shielded pay.");
+  expect(readiness.message).toBe("Configure a Waku Broadcaster before shielded pay.");
 });
 
-test("Pay is enabled when bundler is configured", () => {
+test("Pay is enabled when Waku Broadcaster is configured", () => {
   const readiness = getRailgunBroadcasterReadiness({
     ...defaultConnectionPolicy,
-    bundlerUrl: "https://public.pimlico.io/v2/1/rpc"
+    broadcasterUrl: "mock://simulated-broadcaster"
   });
 
   expect(readiness.ready).toBe(true);
   expect(readiness.status).toBe("configured");
-  expect(readiness.message).toMatch(/Bundler configured/i);
+  expect(readiness.message).toMatch(/Waku Broadcaster configured/i);
 });

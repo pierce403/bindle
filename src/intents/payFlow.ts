@@ -86,13 +86,13 @@ export const getRailgunBroadcasterReadiness = (
       ? policy.railgunBroadcasterCustomFeeTokenAddress.trim() || "custom token"
       : policy.railgunBroadcasterFeeToken;
 
-  const bundlerUrl = policy.bundlerUrl.trim();
+  const broadcasterUrl = policy.broadcasterUrl.trim();
 
-  if (!bundlerUrl) {
+  if (!broadcasterUrl) {
     return {
       ready: false,
       status: "off",
-      message: "Configure an ERC-4337 bundler before shielded pay.",
+      message: "Configure a Waku Broadcaster before shielded pay.",
       feeToken,
       fee: "unquoted",
       wakuStatus: "off"
@@ -102,10 +102,10 @@ export const getRailgunBroadcasterReadiness = (
   return {
     ready: true,
     status: "configured",
-    message: "ERC-4337 Bundler configured. Private Pay will submit via EIP-7702 user operations.",
+    message: "Waku Broadcaster configured. Private Pay will submit via Waku relayers.",
     feeToken,
     fee: "paid from 0zk balance",
-    wakuStatus: "off"
+    wakuStatus: "on"
   };
 };
 
