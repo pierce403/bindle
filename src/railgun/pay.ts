@@ -264,8 +264,8 @@ export const prepareRailgunPayForRecipient = async ({
     throw new Error("Configure an ERC-4337 bundler before shielded pay.");
   }
 
-  onStatus("Validating artifact download origin policy");
-  validateKohakuRailgunArtifactPolicy(policy);
+  onStatus("Ensuring RAILGUN artifact service worker proxy is ready");
+  await ensureKohakuRailgunArtifactPolicyReady(policy);
 
   onStatus("Unlocking local RAILGUN keys");
   const unlockedWallet = await unlockEncryptedRailgunWallet();
