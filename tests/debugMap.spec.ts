@@ -54,6 +54,9 @@ test("Privacy Max preset keeps Waku discovery off unless user scans", () => {
 test("Waku map reports unavailable without fake broadcasters when policy cannot start Waku", async () => {
   const snapshot = await scanWakuBroadcasterMap({
     ...defaultConnectionPolicy,
+    wakuEnabled: true,
+    railgunBroadcasterEnabled: true,
+    railgunBroadcasterMode: "waku-public-network",
     railgunBroadcasterDirectPeers: []
   });
 

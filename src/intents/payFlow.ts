@@ -76,8 +76,7 @@ export const classifyPayTransactionOrigin = (legs: PayLeg[]): TxOrigin =>
 export const payPrivacyLabel = (_legs: PayLeg[]): PayPrivacyLabel =>
   "Private Pay";
 
-const normalizedBroadcasterMode = (policy: ConnectionPolicy) =>
-  policy.railgunBroadcasterMode ?? "off";
+
 
 export const getRailgunBroadcasterReadiness = (
   policy: ConnectionPolicy
@@ -87,91 +86,26 @@ export const getRailgunBroadcasterReadiness = (
       ? policy.railgunBroadcasterCustomFeeTokenAddress.trim() || "custom token"
       : policy.railgunBroadcasterFeeToken;
 
-  if (
-    normalizedBroadcasterMode(policy) === "off" ||
-    !policy.railgunBroadcasterEnabled
-  ) {
+  const bundlerUrl = policy.bundlerUrl.trim();
+
+  if (!bundlerUrl) {
     return {
       ready: false,
       status: "off",
-      message: privatePayBroadcasterRequiredMessage,
-      feeToken,
-      fee: "unquoted",
-      wakuStatus: policy.wakuEnabled ? "enabled" : "off"
-    };
-  }
-
-  if (policy.broadcasterUrl === "mock://simulated-broadcaster") {
-    return {
-      ready: true,
-      status: "configured",
-      message:
-        "Simulated Diagnostic Broadcaster configured. zk-SNARK proof generation will run, and transaction submission will be simulated locally.",
-      feeToken,
-      fee: "0 per gas",
-      wakuStatus: policy.wakuEnabled ? "enabled (simulation)" : "disabled (simulation)"
-    };
-  }
-
-  if (!policy.wakuEnabled) {
-    return {
-      ready: false,
-      status: "not-connected",
-      message: privatePayBroadcasterRequiredMessage,
+      message: "Configure an ERC-4337 bundler before shielded pay.",
       feeToken,
       fee: "unquoted",
       wakuStatus: "off"
     };
   }
 
-  if (!policy.broadcasterUrl.trim()) {
-    return {
-      ready: false,
-      status: "not-selected",
-      message: privatePayBroadcasterRequiredMessage,
-      feeToken,
-      fee: "unquoted",
-      wakuStatus: "enabled"
-    };
-  }
-
-  if (
-    policy.railgunBroadcasterMode !== "waku-public-network" &&
-    policy.railgunBroadcasterMode !== "custom-waku"
-  ) {
-    return {
-      ready: false,
-      status: "not-selected",
-      message: privatePayBroadcasterRequiredMessage,
-      feeToken,
-      fee: "unquoted",
-      wakuStatus: "enabled"
-    };
-  }
-
-  if (
-    !policy.railgunBroadcasterPubSubTopic.trim() ||
-    policy.railgunBroadcasterDirectPeers.length === 0
-  ) {
-    return {
-      ready: false,
-      status: "not-selected",
-      message:
-        "Configure a visible RAILGUN Waku pubsub topic plus at least one direct peer before Private Pay.",
-      feeToken,
-      fee: "unquoted",
-      wakuStatus: "enabled"
-    };
-  }
-
   return {
     ready: true,
     status: "configured",
-    message:
-      "RAILGUN Broadcaster configured. Waku discovery, fee quote, and encrypted submission will run during Private Pay.",
+    message: "ERC-4337 Bundler configured. Private Pay will submit via EIP-7702 user operations.",
     feeToken,
-    fee: "unquoted",
-    wakuStatus: "enabled"
+    fee: "paid from 0zk balance",
+    wakuStatus: "off"
   };
 };
 

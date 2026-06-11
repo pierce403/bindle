@@ -207,8 +207,8 @@ export const endpointPresets: Record<EndpointPresetId, EndpointPreset> = {
         "https://rail-squid.squids.live/squid-railgun-ethereum-v2/v/v1/graphql",
       railgunArtifactUrl: BINDLE_RAILGUN_ARTIFACT_BASE_PATH,
       broadcasterUrl: RAILGUN_PUBLIC_WAKU_BROADCASTER_NETWORK,
-      railgunBroadcasterMode: "waku-public-network",
-      railgunBroadcasterEnabled: true,
+      railgunBroadcasterMode: "off",
+      railgunBroadcasterEnabled: false,
       railgunBroadcasterFeeToken: "WETH",
       railgunBroadcasterPubSubTopic:
         RAILGUN_PUBLIC_WAKU_BROADCASTER_PUBSUB_TOPIC,
@@ -218,7 +218,7 @@ export const endpointPresets: Record<EndpointPresetId, EndpointPreset> = {
         RAILGUN_PUBLIC_WAKU_BROADCASTER_DIRECT_PEERS,
       bundlerUrl: "https://public.pimlico.io/v2/1/rpc",
       priceQuoteUrl: UNISWAP_V4_QUOTE_SOURCE,
-      wakuEnabled: true
+      wakuEnabled: false
     }
   },
   "privacy-max": {

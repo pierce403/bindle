@@ -24,7 +24,6 @@ import {
   classifyPayTransactionOrigin,
   ephemeralPrivatePayChangeMessage,
   getRailgunBroadcasterReadiness,
-  kohakuPrivateActionsPendingMessage,
   privatePayLegs,
   type RailgunBroadcasterReadiness
 } from "./intents/payFlow";
@@ -60,12 +59,7 @@ import {
   upsertRelaysFromWakuSnapshot
 } from "./railgun/relayRegistry";
 import { prepareRailgunPayForRecipient, type RailgunPayProgress } from "./railgun/pay";
-import {
-  refreshAndSelectRailgunBroadcasterForPrivateAction
-} from "./railgun/broadcasterSelection";
-import {
-  submitRailgunWakuBroadcasterTransaction
-} from "./railgun/wakuBroadcaster";
+
 import {
   fetchShieldedEthBalance,
   type ShieldedEthBalance
@@ -1803,25 +1797,7 @@ function WalletApp() {
 
     try {
       if (activeAction === "send") {
-        setPayStatus("Selecting Waku broadcaster...");
-        setPayProofProgress({
-          percent: 25,
-          status: "Selecting Waku broadcaster"
-        });
-
-        const selectResult = await refreshAndSelectRailgunBroadcasterForPrivateAction({
-          policy,
-          registry: relayRegistry,
-          preferredFeeToken: policy.railgunBroadcasterFeeToken,
-          onStatus: (msg) => {
-            setPayStatus(msg);
-          }
-        });
-
-        setRelayRegistry(selectResult.registry);
-        relayRegistryRef.current = selectResult.registry;
-
-        setPayStatus("Generating zk-SNARK proof...");
+        setPayStatus("Generating zk-SNARK proof and preparing user operation...");
         setPayProofProgress({
           percent: 40,
           status: "Generating zk-SNARK proof"
@@ -1843,29 +1819,32 @@ function WalletApp() {
           },
           onStatus: (msg) => {
             setPayStatus(msg);
-          },
-          broadcaster: selectResult.selectedBroadcaster
-        });
-
-        if (!preparedPay.privateOperation) {
-          throw new Error(kohakuPrivateActionsPendingMessage);
-        }
-
-        setPayStatus("Submitting private transaction via Waku broadcaster...");
-        setPayProofProgress({
-          percent: 90,
-          status: "Submitting private transaction"
-        });
-
-        const result = await submitRailgunWakuBroadcasterTransaction({
-          prepared: preparedPay.privateOperation,
-          policy,
-          onStatus: (msg) => {
-            setPayStatus(msg);
           }
         });
 
-        const txHash = result.transactionHash || "pending";
+        if (!preparedPay.privateOperation) {
+          throw new Error("Private operation preparation failed.");
+        }
+
+        setPayStatus("Signing and submitting User Operation to bundler...");
+        setPayProofProgress({
+          percent: 90,
+          status: "Submitting to bundler"
+        });
+
+        const { signableUserOp, delegatingSignerPrivateKey } = preparedPay.privateOperation;
+        const { loadKohakuRailgunBrowserModule } = await import("./railgun/kohakuRailgunModule");
+        const kohaku = await loadKohakuRailgunBrowserModule();
+        const delegatingSigner = kohaku.Signer.privateKey(delegatingSignerPrivateKey);
+        const bundler = kohaku.Bundler.pimlico(policy.bundlerUrl.trim());
+
+        const signedUserOp = await signableUserOp.sign(delegatingSigner);
+        const userOpHash = await bundler.sendUserOperation(signedUserOp);
+
+        setPayStatus(`User operation submitted: ${userOpHash}. Waiting for transaction...`);
+        const receipt = await bundler.waitForReceipt(userOpHash);
+        const txHash = receipt.receipt.transactionHash || "pending";
+
         setPayStatus(`Submitted: ${txHash}`);
         setPayProofProgress({
           percent: 100,
@@ -1876,7 +1855,7 @@ function WalletApp() {
           level: "info",
           source: "pay",
           message: `Private send submitted: ${txHash}`,
-          detail: `Recipient: ${draft.recipient}\nAmount: $${draft.amount} (~${convertedAmountEth} ETH)\nSubmitted via: waku-broadcaster`
+          detail: `Recipient: ${draft.recipient}\nAmount: $${draft.amount} (~${convertedAmountEth} ETH)\nUserOp Hash: ${userOpHash}\nTx Hash: ${txHash}\nSubmitted via: bundler-relayer`
         });
       } else {
         if (classifyPayTransactionOrigin(privatePayLegs) !== "railgun-private") {
@@ -1884,27 +1863,12 @@ function WalletApp() {
           return;
         }
 
-        const selectResult = await refreshAndSelectRailgunBroadcasterForPrivateAction({
-          policy,
-          registry: relayRegistry,
-          preferredFeeToken: policy.railgunBroadcasterFeeToken,
-          onStatus: (msg) => {
-            setPayStatus(msg);
-          }
-        });
-
-        setRelayRegistry(selectResult.registry);
-        relayRegistryRef.current = selectResult.registry;
-
         const paySwapRoutePlan = getPaySwapRoutePlan(asset);
-        const gasLimit = 1_000_000n;
-        const totalFee = (BigInt(selectResult.selectedBroadcaster.tokenFee.perUnitGas) * gasLimit) / 1_000_000_000_000_000_000n;
-
         const readinessLines = [
-          "✅ RPC and Waku discovery endpoints checked",
-          `✅ Waku broadcaster selected: ${selectResult.selectedRelay.identifier || selectResult.selectedRelay.railgunAddress.slice(0, 14)}`,
+          "✅ RPC and ERC-4337 bundler checked",
           "✅ zk-SNARK proof generation ready",
-          `✅ Broadcaster fee: ${totalFee.toString()} base units in ${policy.railgunBroadcasterFeeToken}`
+          `✅ Relayer: ERC-4337 bundler (${policy.bundlerUrl.trim()})`,
+          `✅ Fee token: ${policy.railgunBroadcasterFeeToken}`
         ];
 
         try {
@@ -1942,7 +1906,7 @@ function WalletApp() {
           kind: "warning",
           title: "Private Pay readiness checked",
           message:
-            "Waku broadcaster is selected. Proof generation and Waku relay submission are fully ready for private payments."
+            "ERC-4337 bundler checked. Proof generation and bundler-relayed private actions are fully ready for private payments."
         });
       }
     } catch (error) {

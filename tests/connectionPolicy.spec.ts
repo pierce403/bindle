@@ -41,9 +41,9 @@ test("default user mode has a visible sane preset selected", () => {
     RAILGUN_PUBLIC_WAKU_BROADCASTER_NETWORK
   );
   expect(defaultConnectionPolicy.railgunBroadcasterMode).toBe(
-    "waku-public-network"
+    "off"
   );
-  expect(defaultConnectionPolicy.railgunBroadcasterEnabled).toBe(true);
+  expect(defaultConnectionPolicy.railgunBroadcasterEnabled).toBe(false);
   expect(defaultConnectionPolicy.railgunBroadcasterFeeToken).toBe("WETH");
   expect(defaultConnectionPolicy.railgunBroadcasterPubSubTopic).toBe(
     RAILGUN_PUBLIC_WAKU_BROADCASTER_PUBSUB_TOPIC
@@ -55,7 +55,7 @@ test("default user mode has a visible sane preset selected", () => {
     RAILGUN_PUBLIC_WAKU_BROADCASTER_DIRECT_PEERS
   );
   expect(defaultConnectionPolicy.autoStartToolkit).toBe(true);
-  expect(defaultConnectionPolicy.wakuEnabled).toBe(true);
+  expect(defaultConnectionPolicy.wakuEnabled).toBe(false);
 });
 
 test("privacy max preset clears hosted endpoints", () => {
@@ -138,12 +138,12 @@ test("outbound summary exposes every endpoint class", () => {
       expect.objectContaining({
         id: "railgun-broadcaster",
         source: "default",
-        value: expect.stringContaining(RAILGUN_PUBLIC_WAKU_BROADCASTER_NETWORK)
+        value: "off"
       }),
       expect.objectContaining({
         id: "waku",
-        source: "default",
-        value: "enabled"
+        source: "off",
+        value: "off"
       })
     ])
   );

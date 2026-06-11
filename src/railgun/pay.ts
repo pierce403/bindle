@@ -1,4 +1,5 @@
-import { parseUnits } from "viem";
+
+import { encodeFunctionData, getAddress, parseUnits, type Address } from "viem";
 import type { PayAsset } from "../intents/assets";
 import { kohakuPrivateActionsPendingMessage } from "../intents/payFlow";
 import {
@@ -11,20 +12,58 @@ import { loadKohakuRailgunBrowserModule } from "./kohakuRailgunModule";
 import { createVisibleRailgunUtxoSyncer } from "./utxoSyncer";
 import { unlockEncryptedRailgunWallet } from "./railgunWallet";
 import type { WalletState } from "../wallet/walletState";
-import type { FreshRailgunBroadcasterSelection } from "./broadcasterSelection";
-import type { PreparedBroadcasterSubmit, SelectedRailgunBroadcaster } from "./wakuBroadcaster";
 
 export type RailgunPayProgress = {
   percent: number;
   status: string;
 };
 
+export type PreparedBundlerSubmit = {
+  submitter: "erc4337-bundler";
+  chain: "ethereum-mainnet";
+  signableUserOp: any;
+  delegatingSignerPrivateKey: `0x${string}`;
+};
+
 export type PreparedRailgunPay = {
   railgunAdapter: "kohaku-railgun";
-  submissionMode: "disabled-pending-kohaku-broadcaster";
+  submissionMode: "erc4337-bundler";
   railgunAddress: string;
-  freshBroadcasterSelection?: FreshRailgunBroadcasterSelection;
-  privateOperation?: PreparedBroadcasterSubmit;
+  privateOperation?: PreparedBundlerSubmit;
+};
+
+const mainnetUsdcAddress = getAddress(
+  "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+) as Address;
+const UNISWAP_V4_WETH_ADDRESS = getAddress(
+  "0xC02aaA39b223FE8D0A0e5C4F27ead9083C756Cc2"
+) as Address;
+
+export const resolveRailgunBroadcasterFeeTokenAddress = (
+  policy: Pick<
+    ConnectionPolicy,
+    "railgunBroadcasterFeeToken" | "railgunBroadcasterCustomFeeTokenAddress"
+  >
+): Address => {
+  if (policy.railgunBroadcasterFeeToken === "USDC") {
+    return mainnetUsdcAddress;
+  }
+
+  if (policy.railgunBroadcasterFeeToken === "WETH") {
+    return UNISWAP_V4_WETH_ADDRESS;
+  }
+
+  if (policy.railgunBroadcasterFeeToken === "custom") {
+    const value = policy.railgunBroadcasterCustomFeeTokenAddress.trim();
+
+    if (!value) {
+      throw new Error("Configure a custom broadcaster fee token address.");
+    }
+
+    return getAddress(value) as Address;
+  }
+
+  return UNISWAP_V4_WETH_ADDRESS;
 };
 
 const bindleArtifactProxyVersion = "railgun-artifacts-v1";
@@ -160,11 +199,7 @@ export const grossUpUnshieldAmount = ({
   desiredPublicAmount: bigint;
   unshieldFeeBps: number;
 }): bigint => {
-  if (desiredPublicAmount <= 0n) {
-    throw new Error("Desired Pay unshield amount must be greater than zero.");
-  }
-
-  if (unshieldFeeBps <= 0) {
+  if (unshieldFeeBps === 0) {
     return desiredPublicAmount;
   }
 
@@ -183,8 +218,7 @@ export const prepareRailgunPayForRecipient = async ({
   recipient,
   walletState,
   onProgress,
-  onStatus,
-  broadcaster
+  onStatus
 }: {
   amount: string;
   asset: PayAsset;
@@ -193,7 +227,6 @@ export const prepareRailgunPayForRecipient = async ({
   walletState: WalletState;
   onProgress: (progress: RailgunPayProgress) => void;
   onStatus: (message: string) => void;
-  broadcaster?: SelectedRailgunBroadcaster | null;
 }): Promise<PreparedRailgunPay> => {
   if (!walletState.railgunAddress) {
     throw new Error("Create or import a shielded 0zk wallet before Pay.");
@@ -224,6 +257,11 @@ export const prepareRailgunPayForRecipient = async ({
   const ethereumRpcUrl = policy.ethereumRpcUrl.trim();
   if (!ethereumRpcUrl) {
     throw new Error("Configure an Ethereum RPC endpoint before shielded pay.");
+  }
+
+  const bundlerUrl = policy.bundlerUrl.trim();
+  if (!bundlerUrl) {
+    throw new Error("Configure an ERC-4337 bundler before shielded pay.");
   }
 
   onStatus("Validating artifact download origin policy");
@@ -318,56 +356,55 @@ export const prepareRailgunPayForRecipient = async ({
       builder.unshield(signer, resolvedRecipient as `0x${string}`, assetId, value);
     }
 
-    if (broadcaster) {
-      const feeTokenAddress = broadcaster.tokenFee.token;
-      const feeAssetId = kohaku.erc20(feeTokenAddress);
-      const gasLimit = 1_000_000n;
-      const totalFee = (BigInt(broadcaster.tokenFee.perUnitGas) * gasLimit) / 1_000_000_000_000_000_000n;
+    onStatus("Resolving fee token address");
+    const feeTokenAddress = resolveRailgunBroadcasterFeeTokenAddress(policy);
 
-      if (totalFee > 0n) {
-        onStatus(`Adding broadcaster fee of ${totalFee.toString()} base units`);
-        builder.transfer(
-          signer,
-          broadcaster.tokenFee.recipient,
-          feeAssetId,
-          totalFee,
-          "Broadcaster fee"
-        );
-      }
+    onStatus("Instantiating Pimlico bundler and delegating signer");
+    const bundler = kohaku.Bundler.pimlico(bundlerUrl);
+    const delegatingSigner = kohaku.Signer.privateKey(unlockedWallet.spendingKey);
+
+    let tailCalls: any[] = [];
+    if (!resolvedRecipient.startsWith("0zk")) {
+      const data = encodeFunctionData({
+        abi: [{
+          name: "withdraw",
+          type: "function",
+          inputs: [{ name: "wad", type: "uint256" }],
+        }],
+        functionName: "withdraw",
+        args: [value],
+      });
+
+      tailCalls.push({
+        target: chain.wrappedBaseToken as `0x${string}`,
+        data: data
+      });
     }
 
-    onStatus("Generating zk-SNARK proof (this may take a moment)");
+    onStatus("Preparing User Operation and generating zk-SNARK proof");
     onProgress({ percent: 60, status: "Generating proof" });
 
-    const txData = await railgunProvider.build(builder);
+    const signableUserOp = await railgunProvider.prepareUserOp(
+      builder,
+      bundler,
+      delegatingSigner.address,
+      signer,
+      feeTokenAddress,
+      tailCalls
+    );
 
-    onStatus("Proof generated successfully");
+    onStatus("Proof and User Operation generated successfully");
     onProgress({ percent: 100, status: "Proof complete" });
 
     return {
       railgunAdapter: "kohaku-railgun",
-      submissionMode: "disabled-pending-kohaku-broadcaster",
+      submissionMode: "erc4337-bundler",
       railgunAddress: walletState.railgunAddress,
       privateOperation: {
-        submitter: "waku-railgun-broadcaster",
+        submitter: "erc4337-bundler",
         chain: "ethereum-mainnet",
-        provedTx: {
-          tx: txData,
-          fee: undefined,
-          minGasPrice: 0n,
-          free: () => {},
-          [Symbol.dispose]: () => {}
-        } as any,
-        broadcaster: broadcaster
-          ? {
-              raw: broadcaster.raw,
-              address: broadcaster.address,
-              railgunAddress: broadcaster.railgunAddress,
-              tokenFee: {
-                feesID: broadcaster.tokenFee.feesID
-              }
-            }
-          : (null as any)
+        signableUserOp,
+        delegatingSignerPrivateKey: unlockedWallet.spendingKey
       }
     };
   } finally {

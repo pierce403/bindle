@@ -5,14 +5,9 @@ import {
   ephemeralPrivatePayChangeMessage,
   getRailgunBroadcasterReadiness,
   privatePayChangeRequiredMessage,
-  privatePayBroadcasterRequiredMessage,
   privatePayLegs
 } from "../src/intents/payFlow";
 import { defaultConnectionPolicy } from "../src/privacy/connectionPolicy";
-import {
-  assertRailgunPrivateSubmitter,
-  submitterForRailgunPrivateOrigin
-} from "../src/railgun/broadcaster";
 
 test("Private Pay classifies as railgun-private", () => {
   expect(classifyPayTransactionOrigin(privatePayLegs)).toBe(
@@ -39,53 +34,24 @@ test("Private Pay accepts private or ephemeral change dispositions", () => {
   expect(ephemeralPrivatePayChangeMessage).toMatch(/ephemeral settlement account/i);
 });
 
-test("Pay is disabled when broadcaster mode is off", () => {
+test("Pay is disabled when bundler is not configured", () => {
   const readiness = getRailgunBroadcasterReadiness({
     ...defaultConnectionPolicy,
-    railgunBroadcasterMode: "off",
-    railgunBroadcasterEnabled: false,
-    broadcasterUrl: "",
-    wakuEnabled: false
+    bundlerUrl: ""
   });
 
   expect(readiness.ready).toBe(false);
   expect(readiness.status).toBe("off");
-  expect(readiness.message).toBe(privatePayBroadcasterRequiredMessage);
-  expect(readiness.feeToken).toBe("WETH");
-  expect(readiness.fee).toBe("unquoted");
+  expect(readiness.message).toBe("Configure an ERC-4337 bundler before shielded pay.");
 });
 
-test("Pay is disabled when no broadcaster is selected", () => {
+test("Pay is enabled when bundler is configured", () => {
   const readiness = getRailgunBroadcasterReadiness({
     ...defaultConnectionPolicy,
-    railgunBroadcasterMode: "waku-public-network",
-    railgunBroadcasterEnabled: true,
-    broadcasterUrl: "",
-    wakuEnabled: true
+    bundlerUrl: "https://public.pimlico.io/v2/1/rpc"
   });
-
-  expect(readiness.ready).toBe(false);
-  expect(readiness.status).toBe("not-selected");
-  expect(readiness.message).toBe(privatePayBroadcasterRequiredMessage);
-});
-
-test("default public Waku broadcaster is configured for Private Pay", () => {
-  const readiness = getRailgunBroadcasterReadiness(defaultConnectionPolicy);
 
   expect(readiness.ready).toBe(true);
   expect(readiness.status).toBe("configured");
-  expect(readiness.message).toMatch(/discovery, fee quote, and encrypted submission/i);
-});
-
-test("railgun-private origin requires Waku RAILGUN broadcaster submitter", () => {
-  expect(submitterForRailgunPrivateOrigin()).toBe("waku-railgun-broadcaster");
-  expect(() =>
-    assertRailgunPrivateSubmitter("waku-railgun-broadcaster")
-  ).not.toThrow();
-  expect(() => assertRailgunPrivateSubmitter("public-smart-wallet")).toThrow(
-    /Waku RAILGUN broadcaster/
-  );
-  expect(() => assertRailgunPrivateSubmitter("pimlico-bundler")).toThrow(
-    /Waku RAILGUN broadcaster/
-  );
+  expect(readiness.message).toMatch(/Bundler configured/i);
 });

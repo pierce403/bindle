@@ -808,21 +808,18 @@ export function WalletActionPanel({
                 </div>
                 <div>
                   <strong>Private submission</strong>
-                  <span>Kohaku broadcaster pending</span>
+                  <span>ERC-4337 Bundler</span>
                 </div>
                 <div>
-                  <strong>Broadcaster/Waku</strong>
-                  <span>
-                    {privatePayReadiness.status}; Waku{" "}
-                    {privatePayReadiness.wakuStatus}
-                  </span>
+                  <strong>Bundler status</strong>
+                  <span>{privatePayReadiness.status}</span>
                 </div>
                 <div>
-                  <strong>Broadcaster fee token</strong>
+                  <strong>Relay fee token</strong>
                   <span>{privatePayReadiness.feeToken}</span>
                 </div>
                 <div>
-                  <strong>Broadcaster fee</strong>
+                  <strong>Relay fee</strong>
                   <span>{privatePayReadiness.fee}</span>
                 </div>
                 <div>

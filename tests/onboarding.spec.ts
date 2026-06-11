@@ -106,16 +106,16 @@ test.describe("passkey-first onboarding", () => {
       "RAILGUN 0zk"
     );
     await expect(page.getByLabel("Review pay route")).toContainText(
-      "Kohaku broadcaster pending"
+      "ERC-4337 Bundler"
     );
     await expect(page.getByLabel("Review pay route")).toContainText(
-      "Broadcaster fee token"
+      "Relay fee token"
     );
     await expect(page.getByLabel("Review pay route")).toContainText("USDC");
     await expect(page.getByLabel("Review pay route")).toContainText(
-      "Broadcaster fee"
+      "Relay fee"
     );
-    await expect(page.getByLabel("Review pay route")).toContainText("unquoted");
+    await expect(page.getByLabel("Review pay route")).toContainText("paid from 0zk balance");
     await expect(page.getByLabel("Review pay route")).toContainText(
       "Public settlement"
     );
@@ -133,7 +133,7 @@ test.describe("passkey-first onboarding", () => {
     );
     await expect(page.getByLabel("Review pay route")).toContainText("Blocked");
     await expect(page.getByLabel("Review pay route")).toContainText(
-      "configured; Waku enabled"
+      "configured"
     );
     await expect(page.getByLabel("Review pay route")).toContainText(
       "Create or import a shielded 0zk wallet."
