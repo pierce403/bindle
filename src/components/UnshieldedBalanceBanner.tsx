@@ -68,7 +68,7 @@ export function UnshieldedBalanceBanner({
   return (
     <section className="unshielded-banner" aria-label="Unshielded ETH balance">
       <div className="unshielded-copy">
-        <ShieldAlert size={27} aria-hidden="true" />
+        <ShieldAlert size={20} aria-hidden="true" />
         <div>
           <strong>Unshielded ETH</strong>
           <span>{balance ?? "not synced"}</span>

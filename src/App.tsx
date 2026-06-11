@@ -598,6 +598,21 @@ function WalletApp() {
     providerMode: policy.providerMode
   });
   const canShield = shieldReadiness.ready && !isSubmittingShield;
+  const isUnshieldedLessThanADollar = (() => {
+    if (publicBalance.status !== "ready") {
+      return false;
+    }
+    if (publicBalanceWei === null || publicBalanceWei === 0n) {
+      return true;
+    }
+    const price = visibleShieldedBalance?.price;
+    if (price) {
+      const usdScaled = (publicBalanceWei * price.answer) / 10n ** 18n;
+      const oneDollarScaled = 10n ** BigInt(price.decimals);
+      return usdScaled < oneDollarScaled;
+    }
+    return publicBalanceWei < 300_000_000_000_000n;
+  })();
   const shieldDisclosure =
     publicBalance.status === "ready"
       ? shieldReadiness.ready
@@ -606,6 +621,7 @@ function WalletApp() {
           ? "Shield blocked: replace the incompatible local 0zk wallet before shielding."
         : `Shield blocked: ${summarizeMissingRequirements(shieldReadiness)}.`
       : null;
+
   const shieldedStatus =
     shieldedBalance.status === "ready"
       ? `${shieldedBalance.balance.formattedEth} shielded`
@@ -2722,23 +2738,25 @@ function WalletApp() {
               onSyncShielded={() => void syncShieldedBalance()}
             />
 
-            <UnshieldedBalanceBanner
-              balance={knownPublicBalance}
-              balanceWei={publicBalanceWei}
-              canShield={canShield}
-              canSync={canSyncPublicBalance}
-              isSyncing={publicBalance.status === "syncing"}
-              isShielding={isSubmittingShield}
-              railgunAddress={walletState.railgunAddress}
-              syncDisclosure={
-                canSyncPublicBalance ? publicBalanceEndpointSummary : null
-              }
-              shieldDisclosure={shieldDisclosure}
-              shieldEndpointDisclosures={shieldEndpointDisclosure}
-              shieldStatus={shieldStatus}
-              onSync={() => void syncPublicBalance()}
-              onShield={(request) => void submitShield(request)}
-            />
+            {!isUnshieldedLessThanADollar ? (
+              <UnshieldedBalanceBanner
+                balance={knownPublicBalance}
+                balanceWei={publicBalanceWei}
+                canShield={canShield}
+                canSync={canSyncPublicBalance}
+                isSyncing={publicBalance.status === "syncing"}
+                isShielding={isSubmittingShield}
+                railgunAddress={walletState.railgunAddress}
+                syncDisclosure={
+                  canSyncPublicBalance ? publicBalanceEndpointSummary : null
+                }
+                shieldDisclosure={shieldDisclosure}
+                shieldEndpointDisclosures={shieldEndpointDisclosure}
+                shieldStatus={shieldStatus}
+                onSync={() => void syncPublicBalance()}
+                onShield={(request) => void submitShield(request)}
+              />
+            ) : null}
 
             {activeAction ? (
               <WalletActionPanel
