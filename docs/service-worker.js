@@ -1,6 +1,6 @@
-const CACHE_NAME = "bindle-shell-f71b6beb1382ff351f45958c2085a8b0d339ddc1-dirty";
-const ARTIFACT_CACHE_NAME = "bindle-railgun-artifacts-v2";
-const ARTIFACT_PROXY_VERSION = "railgun-artifacts-v2";
+const CACHE_NAME = "bindle-shell-8e878ef1c0f82046bcee7658e13973ad409c07cf-dirty";
+const ARTIFACT_CACHE_NAME = "bindle-railgun-artifacts-v3";
+const ARTIFACT_PROXY_VERSION = "railgun-artifacts-v3";
 const KOHAKU_RAILGUN_ARTIFACT_ORIGIN = "https://github.com";
 const KOHAKU_RAILGUN_ARTIFACT_PATH_PREFIX =
   "/Robert-MacWha/privacy-protocol-artifacts/raw/refs/heads/main/artifacts/";
@@ -132,7 +132,8 @@ const respondWithLocalRailgunArtifact = async (localUrl) => {
       headers.set("content-type", "application/octet-stream");
     }
 
-    const decompressedStream = response.body.pipeThrough(new DecompressionStream("gzip"));
+    const blob = await response.blob();
+    const decompressedStream = blob.stream().pipeThrough(new DecompressionStream("gzip"));
     return new Response(decompressedStream, {
       status: response.status,
       statusText: response.statusText,

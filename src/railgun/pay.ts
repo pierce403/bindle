@@ -68,7 +68,7 @@ export const resolveRailgunBroadcasterFeeTokenAddress = (
   return UNISWAP_V4_WETH_ADDRESS;
 };
 
-const bindleArtifactProxyVersion = "railgun-artifacts-v2";
+const bindleArtifactProxyVersion = "railgun-artifacts-v3";
 
 const normalizeArtifactBaseUrl = (value: string): string => {
   const trimmed = value.trim();
