@@ -221,7 +221,9 @@ type ShieldedBalanceState =
   | { status: "ready"; balance: ShieldedEthBalance }
   | { status: "error"; message: string };
 
-type AppNoticeAction = { kind: "open-connections"; label: string };
+type AppNoticeAction =
+  | { kind: "open-connections"; label: string }
+  | { kind: "refresh-artifact-cache"; label: string };
 
 type AppNotice = {
   kind: "error" | "warning";
@@ -1116,8 +1118,35 @@ function WalletApp() {
     setPolicy(saveConnectionPolicy(nextPolicy));
   };
 
+  const handleRefreshArtifactCache = async () => {
+    try {
+      if ("serviceWorker" in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const reg of registrations) {
+          await reg.unregister();
+        }
+      }
+      if ("caches" in window) {
+        const keys = await caches.keys();
+        for (const key of keys) {
+          if (key.startsWith("bindle-railgun-artifacts-") || key.startsWith("bindle-shell-")) {
+            await caches.delete(key);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Purging cache failed:", err);
+    } finally {
+      window.location.reload();
+    }
+  };
+
   const handleNoticeAction = () => {
-    setActiveTab("nodes");
+    if (appNotice?.action?.kind === "refresh-artifact-cache") {
+      handleRefreshArtifactCache();
+    } else {
+      setActiveTab("nodes");
+    }
     setAppNotice(null);
   };
 
@@ -1934,10 +1963,21 @@ function WalletApp() {
           ].join("\n")
         )
       );
+      const errMessage = error instanceof Error ? error.message : String(error);
+      const isArtifactProxyError =
+        errMessage.includes("artifact proxy") ||
+        errMessage.includes("expected railgun-artifacts-v") ||
+        errMessage.includes("transformed or truncated bytes") ||
+        errMessage.includes("Artifact loader error") ||
+        errMessage.includes("Decompression error");
+
       setAppNotice({
-        kind: "warning",
-        title: "Private action failed",
-        message: error instanceof Error ? error.message : String(error)
+        kind: "error",
+        title: isArtifactProxyError ? "RAILGUN artifact cache error" : "Private action failed",
+        message: errMessage,
+        action: isArtifactProxyError
+          ? { kind: "refresh-artifact-cache", label: "Refresh RAILGUN artifact cache" }
+          : undefined
       });
     } finally {
       setIsSubmittingPay(false);

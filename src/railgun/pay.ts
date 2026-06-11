@@ -68,7 +68,7 @@ export const resolveRailgunBroadcasterFeeTokenAddress = (
   return UNISWAP_V4_WETH_ADDRESS;
 };
 
-const bindleArtifactProxyVersion = "railgun-artifacts-v3";
+const bindleArtifactProxyVersion = "railgun-artifacts-v4";
 
 const normalizeArtifactBaseUrl = (value: string): string => {
   const trimmed = value.trim();
@@ -143,6 +143,12 @@ const waitForServiceWorkerController = async (): Promise<ServiceWorker> => {
   });
 };
 
+const sha256Hex = async (arrayBuffer: ArrayBuffer): Promise<string> => {
+  const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+};
+
 export const ensureKohakuRailgunArtifactPolicyReady = async (
   policy: Pick<ConnectionPolicy, "railgunArtifactUrl">
 ): Promise<void> => {
@@ -190,6 +196,38 @@ export const ensureKohakuRailgunArtifactPolicyReady = async (
   if (version !== bindleArtifactProxyVersion) {
     throw new Error(
       `Bindle's artifact proxy service worker is ${version}, expected ${bindleArtifactProxyVersion}. Reopen or reload the PWA before Pay.`
+    );
+  }
+
+  // --- Artifact proxy self-test (Phase 5) ---
+  try {
+    const manifestResponse = await fetch("/railgun-artifacts/manifest.json");
+    if (!manifestResponse.ok) {
+      throw new Error(`Manifest status ${manifestResponse.status.toString()}`);
+    }
+    const manifest = await manifestResponse.json();
+    const testFile = "railgun/01x01/matrices.bin.br";
+    const entry = manifest.files.find((f: any) => f.path === testFile);
+    if (!entry) {
+      throw new Error(`Test file ${testFile} not found in manifest.`);
+    }
+
+    // Fetch through the same hardcoded Kohaku URL that Rust would request
+    const targetUrl = `https://github.com/Robert-MacWha/privacy-protocol-artifacts/raw/refs/heads/main/artifacts/${testFile}`;
+    const testFetch = await fetch(targetUrl);
+    if (!testFetch.ok) {
+      throw new Error(`Fetch status ${testFetch.status.toString()}`);
+    }
+
+    const bytes = await testFetch.arrayBuffer();
+    const hash = await sha256Hex(bytes);
+
+    if (bytes.byteLength !== entry.localSize || hash !== entry.sha256) {
+      throw new Error("Validation mismatch.");
+    }
+  } catch (err: any) {
+    throw new Error(
+      `RAILGUN artifact proxy returned transformed or truncated bytes. Reload/reinstall PWA to refresh service worker. Detail: ${err.message}`
     );
   }
 };

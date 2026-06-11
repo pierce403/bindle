@@ -114,6 +114,18 @@ const env = {
   BINDLE_BUILD_TIME: readGitCommitTime(buildCommit)
 };
 
+const verifyResult = spawnSync("pnpm", ["run", "artifacts:verify"], {
+  env,
+  stdio: "inherit"
+});
+
+if (verifyResult.error) {
+  throw verifyResult.error;
+}
+if (verifyResult.status !== 0) {
+  process.exit(verifyResult.status ?? 1);
+}
+
 const result = spawnSync("pnpm", ["run", "build:app"], {
   env,
   stdio: "inherit"
@@ -129,7 +141,7 @@ if (result.status === 0) {
     console.log(`Busting PWA service worker cache using commit: ${buildCommit}`);
     let swContent = readFileSync(swPath, "utf8");
     swContent = swContent.replace(
-      'const CACHE_NAME = "bindle-shell-v12";',
+      'const CACHE_NAME = "bindle-shell-v13";',
       `const CACHE_NAME = "bindle-shell-${buildCommit}";`
     );
     writeFileSync(swPath, swContent, "utf8");

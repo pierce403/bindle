@@ -9,6 +9,7 @@
   "scripts": {
     "preinstall": "node scripts/require-pnpm.mjs",
     "artifacts:railgun": "node scripts/mirror-railgun-artifacts.mjs",
+    "artifacts:verify": "node scripts/verify-railgun-artifacts.mjs",
     "dev": "vite --host 127.0.0.1",
     "build": "node scripts/build.mjs",
     "build:app": "tsc -b && vite build",
