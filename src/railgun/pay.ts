@@ -306,6 +306,11 @@ export const prepareRailgunPayForRecipient = async ({
 
   let syncer: any = null;
   let railgunProvider: any = null;
+  let builder: any = null;
+  let signer: any = null;
+  let bundler: any = null;
+  let delegatingSigner: any = null;
+
   try {
     onStatus("Creating RAILGUN UTXO syncer");
     syncer = await createVisibleRailgunUtxoSyncer({
@@ -322,7 +327,7 @@ export const prepareRailgunPayForRecipient = async ({
       .withUtxoSyncer(syncer)
       .build();
 
-    const signer = kohaku.RailgunSigner.privateKey(
+    signer = kohaku.RailgunSigner.privateKey(
       unlockedWallet.spendingKey,
       unlockedWallet.viewingKey,
       unlockedWallet.chainId
@@ -337,7 +342,7 @@ export const prepareRailgunPayForRecipient = async ({
 
     onStatus("Preparing private transaction");
     onProgress({ percent: 40, status: "Preparing transaction" });
-    const builder = railgunProvider.transact();
+    builder = railgunProvider.transact();
 
     const assetId = kohaku.erc20(chain.wrappedBaseToken);
     const value = parseUnits(amount.trim(), 18);
@@ -350,7 +355,7 @@ export const prepareRailgunPayForRecipient = async ({
     }
 
     if (resolvedRecipient.startsWith("0zk")) {
-      builder.transfer(
+      builder = builder.transfer(
         signer,
         resolvedRecipient as `0zk${string}`,
         assetId,
@@ -358,15 +363,15 @@ export const prepareRailgunPayForRecipient = async ({
         "Private payment"
       );
     } else {
-      builder.unshield(signer, resolvedRecipient as `0x${string}`, assetId, value);
+      builder = builder.unshield(signer, resolvedRecipient as `0x${string}`, assetId, value);
     }
 
     onStatus("Resolving fee token address");
     const feeTokenAddress = resolveRailgunBroadcasterFeeTokenAddress(policy);
 
     onStatus("Instantiating Pimlico bundler and delegating signer");
-    const bundler = kohaku.Bundler.pimlico(bundlerUrl);
-    const delegatingSigner = kohaku.Signer.privateKey(unlockedWallet.spendingKey);
+    bundler = kohaku.Bundler.pimlico(bundlerUrl);
+    delegatingSigner = kohaku.Signer.privateKey(unlockedWallet.spendingKey);
 
     let tailCalls: any[] = [];
     if (!resolvedRecipient.startsWith("0zk")) {
@@ -398,8 +403,19 @@ export const prepareRailgunPayForRecipient = async ({
       tailCalls
     );
 
+    // After prepareUserOp, builder is consumed/freed. Set it to null.
+    builder = null;
+
     onStatus("Proof and User Operation generated successfully");
     onProgress({ percent: 100, status: "Proof complete" });
+
+    // Clean up temporary local WASM objects that are not returned
+    try { signer.free(); } catch (e) {}
+    signer = null;
+    try { bundler.free(); } catch (e) {}
+    bundler = null;
+    try { delegatingSigner.free(); } catch (e) {}
+    delegatingSigner = null;
 
     return {
       railgunAdapter: "kohaku-railgun",
@@ -415,15 +431,23 @@ export const prepareRailgunPayForRecipient = async ({
       }
     };
   } catch (error) {
+    if (builder) {
+      try { builder.free(); } catch (e) {}
+    }
+    if (signer) {
+      try { signer.free(); } catch (e) {}
+    }
+    if (bundler) {
+      try { bundler.free(); } catch (e) {}
+    }
+    if (delegatingSigner) {
+      try { delegatingSigner.free(); } catch (e) {}
+    }
     if (railgunProvider) {
-      try {
-        railgunProvider.free();
-      } catch (e) {}
+      try { railgunProvider.free(); } catch (e) {}
     }
     if (syncer) {
-      try {
-        syncer.free();
-      } catch (e) {}
+      try { syncer.free(); } catch (e) {}
     }
     throw error;
   }

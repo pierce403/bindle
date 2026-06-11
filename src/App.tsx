@@ -1796,6 +1796,8 @@ function WalletApp() {
     setAppNotice(null);
 
     let preparedPay: any = null;
+    let localSigner: any = null;
+    let localBundler: any = null;
     try {
       if (activeAction === "send") {
         setPayStatus("Generating zk-SNARK proof and preparing user operation...");
@@ -1836,10 +1838,11 @@ function WalletApp() {
         const { signableUserOp, delegatingSignerPrivateKey } = preparedPay.privateOperation;
         const { loadKohakuRailgunBrowserModule } = await import("./railgun/kohakuRailgunModule");
         const kohaku = await loadKohakuRailgunBrowserModule();
-        const delegatingSigner = kohaku.Signer.privateKey(delegatingSignerPrivateKey);
+        localSigner = kohaku.Signer.privateKey(delegatingSignerPrivateKey);
         const bundler = kohaku.Bundler.pimlico(policy.bundlerUrl.trim());
+        localBundler = bundler;
 
-        const signedUserOp = await signableUserOp.sign(delegatingSigner);
+        const signedUserOp = await signableUserOp.sign(localSigner);
         const userOpHash = await bundler.sendUserOperation(signedUserOp);
 
         setPayStatus(`User operation submitted: ${userOpHash}. Waiting for transaction...`);
@@ -1935,6 +1938,16 @@ function WalletApp() {
       });
     } finally {
       setIsSubmittingPay(false);
+      if (localSigner) {
+        try {
+          localSigner.free();
+        } catch (e) {}
+      }
+      if (localBundler) {
+        try {
+          localBundler.free();
+        } catch (e) {}
+      }
       if (preparedPay) {
         if (preparedPay.provider) {
           try {
@@ -1944,6 +1957,11 @@ function WalletApp() {
         if (preparedPay.syncer) {
           try {
             preparedPay.syncer.free();
+          } catch (e) {}
+        }
+        if (preparedPay.privateOperation?.signableUserOp) {
+          try {
+            preparedPay.privateOperation.signableUserOp.free();
           } catch (e) {}
         }
       }
