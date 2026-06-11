@@ -84,34 +84,34 @@ const localRailgunArtifactUrl = (requestUrl) => {
 
 const respondWithLocalRailgunArtifact = async (localUrl) => {
   const cache = await caches.open(ARTIFACT_CACHE_NAME);
-  const cachedResponse = await cache.match(localUrl.href);
+  let response = await cache.match(localUrl.href);
 
-  if (cachedResponse) {
-    return cachedResponse;
+  if (!response) {
+    response = await fetch(localUrl.href, {
+      cache: "force-cache",
+      credentials: "same-origin"
+    });
+
+    if (response.ok) {
+      await cache.put(localUrl.href, response.clone());
+    }
   }
 
-  const response = await fetch(localUrl.href, {
-    cache: "force-cache",
-    credentials: "same-origin"
-  });
-
-  if (response.ok) {
+  if (response && response.ok) {
     const headers = new Headers(response.headers);
-    headers.set("content-encoding", "br");
+    headers.delete("content-encoding");
     if (localUrl.pathname.endsWith(".wasm.br") || localUrl.pathname.endsWith("/wasm.br")) {
       headers.set("content-type", "application/wasm");
     } else {
       headers.set("content-type", "application/octet-stream");
     }
 
-    const decompressedResponse = new Response(response.body, {
+    const decompressedStream = response.body.pipeThrough(new DecompressionStream("gzip"));
+    return new Response(decompressedStream, {
       status: response.status,
       statusText: response.statusText,
       headers
     });
-
-    await cache.put(localUrl.href, decompressedResponse.clone());
-    return decompressedResponse;
   }
 
   return response;

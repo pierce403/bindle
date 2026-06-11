@@ -251,16 +251,17 @@ test("fresh selector rejects unavailable or expired broadcaster fees", async () 
   ).rejects.toThrow(/fresh compatible fee with available wallets/i);
 });
 
-test("Private Pay readiness uses smart wallet direct submission", () => {
+test("Private Pay readiness uses Waku broadcaster relay submission", () => {
   const appSource = readFileSync(resolve("src/App.tsx"), "utf8");
   const submitPayStart = appSource.indexOf("const submitPay = async () =>");
   const submitPayEnd = appSource.indexOf("const submitShield = async", submitPayStart);
   const submitPaySource = appSource.slice(submitPayStart, submitPayEnd);
 
   expect(submitPayStart).toBeGreaterThan(-1);
-  expect(submitPaySource).toContain("sendSmartWalletCalls");
+  expect(submitPaySource).toContain("refreshAndSelectRailgunBroadcasterForPrivateAction");
   expect(submitPaySource).toContain("prepareRailgunPayForRecipient");
-  expect(submitPaySource).not.toContain("refreshAndSelectRailgunBroadcasterForPrivateAction");
+  expect(submitPaySource).toContain("submitRailgunWakuBroadcasterTransaction");
+  expect(submitPaySource).not.toContain("sendSmartWalletCalls");
 });
 
 test("Private Pay final submit requires fresh broadcaster selection metadata", async () => {

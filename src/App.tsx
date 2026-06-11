@@ -61,6 +61,12 @@ import {
 } from "./railgun/relayRegistry";
 import { prepareRailgunPayForRecipient, type RailgunPayProgress } from "./railgun/pay";
 import {
+  refreshAndSelectRailgunBroadcasterForPrivateAction
+} from "./railgun/broadcasterSelection";
+import {
+  submitRailgunWakuBroadcasterTransaction
+} from "./railgun/wakuBroadcaster";
+import {
   fetchShieldedEthBalance,
   type ShieldedEthBalance
 } from "./railgun/shieldedBalance";
@@ -1797,6 +1803,24 @@ function WalletApp() {
 
     try {
       if (activeAction === "send") {
+        setPayStatus("Selecting Waku broadcaster...");
+        setPayProofProgress({
+          percent: 25,
+          status: "Selecting Waku broadcaster"
+        });
+
+        const selectResult = await refreshAndSelectRailgunBroadcasterForPrivateAction({
+          policy,
+          registry: relayRegistry,
+          preferredFeeToken: policy.railgunBroadcasterFeeToken,
+          onStatus: (msg) => {
+            setPayStatus(msg);
+          }
+        });
+
+        setRelayRegistry(selectResult.registry);
+        relayRegistryRef.current = selectResult.registry;
+
         setPayStatus("Generating zk-SNARK proof...");
         setPayProofProgress({
           percent: 40,
@@ -1820,31 +1844,25 @@ function WalletApp() {
           onStatus: (msg) => {
             setPayStatus(msg);
           },
-          broadcaster: null
+          broadcaster: selectResult.selectedBroadcaster
         });
 
         if (!preparedPay.privateOperation) {
           throw new Error(kohakuPrivateActionsPendingMessage);
         }
 
-        setPayStatus("Submitting private transaction via public smart wallet...");
+        setPayStatus("Submitting private transaction via Waku broadcaster...");
         setPayProofProgress({
           percent: 90,
           status: "Submitting private transaction"
         });
 
-        const call = {
-          to: preparedPay.privateOperation.provedTx.tx.to,
-          data: preparedPay.privateOperation.provedTx.tx.data,
-          value: BigInt(preparedPay.privateOperation.provedTx.tx.value || 0n),
-          origin: "railgun-private" as const
-        };
-
-        const result = await sendSmartWalletCalls({
-          calls: [call],
-          origin: "railgun-private",
+        const result = await submitRailgunWakuBroadcasterTransaction({
+          prepared: preparedPay.privateOperation,
           policy,
-          walletState
+          onStatus: (msg) => {
+            setPayStatus(msg);
+          }
         });
 
         const txHash = result.transactionHash || "pending";
@@ -1858,7 +1876,7 @@ function WalletApp() {
           level: "info",
           source: "pay",
           message: `Private send submitted: ${txHash}`,
-          detail: `Recipient: ${draft.recipient}\nAmount: $${draft.amount} (~${convertedAmountEth} ETH)\nSubmitted via: public-smart-wallet`
+          detail: `Recipient: ${draft.recipient}\nAmount: $${draft.amount} (~${convertedAmountEth} ETH)\nSubmitted via: waku-broadcaster`
         });
       } else {
         if (classifyPayTransactionOrigin(privatePayLegs) !== "railgun-private") {
@@ -1866,12 +1884,27 @@ function WalletApp() {
           return;
         }
 
+        const selectResult = await refreshAndSelectRailgunBroadcasterForPrivateAction({
+          policy,
+          registry: relayRegistry,
+          preferredFeeToken: policy.railgunBroadcasterFeeToken,
+          onStatus: (msg) => {
+            setPayStatus(msg);
+          }
+        });
+
+        setRelayRegistry(selectResult.registry);
+        relayRegistryRef.current = selectResult.registry;
+
         const paySwapRoutePlan = getPaySwapRoutePlan(asset);
+        const gasLimit = 1_000_000n;
+        const totalFee = (BigInt(selectResult.selectedBroadcaster.tokenFee.perUnitGas) * gasLimit) / 1_000_000_000_000_000_000n;
+
         const readinessLines = [
-          "✅ RPC and bundler endpoints checked",
-          "✅ Public smart-wallet direct submission enabled",
+          "✅ RPC and Waku discovery endpoints checked",
+          `✅ Waku broadcaster selected: ${selectResult.selectedRelay.identifier || selectResult.selectedRelay.railgunAddress.slice(0, 14)}`,
           "✅ zk-SNARK proof generation ready",
-          "✅ No broadcaster fee required"
+          `✅ Broadcaster fee: ${totalFee.toString()} base units in ${policy.railgunBroadcasterFeeToken}`
         ];
 
         try {
@@ -1909,7 +1942,7 @@ function WalletApp() {
           kind: "warning",
           title: "Private Pay readiness checked",
           message:
-            "Smart wallet direct submission is working. Proof generation and submission are fully ready for private payments."
+            "Waku broadcaster is selected. Proof generation and Waku relay submission are fully ready for private payments."
         });
       }
     } catch (error) {

@@ -1,6 +1,7 @@
 import { mkdir, rename, stat, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { brotliDecompressSync, gzipSync } from "node:zlib";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outputRoot = resolve(repoRoot, "public", "railgun-artifacts");
@@ -39,8 +40,8 @@ const mirrorFile = async (file) => {
   const destination = resolve(outputRoot, relativePath);
   const existingSize = await fileSize(destination);
 
-  if (existingSize === file.size) {
-    console.log(`unchanged ${relativePath}`);
+  if (existingSize !== null) {
+    console.log(`already mirrored ${relativePath}`);
     return;
   }
 
@@ -64,8 +65,11 @@ const mirrorFile = async (file) => {
     );
   }
 
+  const decompressed = brotliDecompressSync(bytes);
+  const gzipped = gzipSync(decompressed, { level: 9 });
+
   await mkdir(dirname(destination), { recursive: true });
-  await writeFile(destination, bytes);
+  await writeFile(destination, gzipped);
 };
 
 const main = async () => {
