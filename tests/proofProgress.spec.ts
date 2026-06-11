@@ -85,3 +85,35 @@ test("send proof progress exposes honest stages", () => {
   );
 });
 
+test("proof stage calculates correct inline percent and keeps submit waiting", () => {
+  const progress = buildSendProofProgress({
+    intentReady: true,
+    endpointsReady: true,
+    proofReady: false,
+    submitting: true,
+    missingEndpointLabels: [],
+    proofPercent: 60 // 50% through the proof step [40, 80]
+  });
+
+  const proofStage = progress.stages.find(s => s.id === "proof");
+  const submitStage = progress.stages.find(s => s.id === "submit");
+
+  expect(proofStage?.percent).toBe(50);
+  expect(proofStage?.status).toBe("active");
+  expect(submitStage?.status).toBe("waiting");
+});
+
+test("submit stage becomes complete when proofPercent reaches 100", () => {
+  const progress = buildSendProofProgress({
+    intentReady: true,
+    endpointsReady: true,
+    proofReady: true,
+    submitting: false,
+    missingEndpointLabels: [],
+    proofPercent: 100
+  });
+
+  const submitStage = progress.stages.find(s => s.id === "submit");
+  expect(submitStage?.status).toBe("complete");
+});
+

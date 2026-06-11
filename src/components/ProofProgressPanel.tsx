@@ -53,6 +53,18 @@ export function ProofProgressPanel({ progress }: ProofProgressPanelProps) {
             <div>
               <strong>{stage.label}</strong>
               <span>{stage.detail}</span>
+              {stage.percent !== undefined ? (
+                <div
+                  className="proof-stage-progress-track"
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={stage.percent}
+                  aria-label={`${stage.label} progress`}
+                >
+                  <div style={{ width: `${stage.percent}%` }} />
+                </div>
+              ) : null}
             </div>
           </li>
         ))}

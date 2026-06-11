@@ -5,6 +5,7 @@ export type ProofProgressStage = {
   label: string;
   detail: string;
   status: ProofStageStatus;
+  percent?: number;
 };
 
 export type ProofProgressSnapshot = {
@@ -77,15 +78,16 @@ export const buildPayProofProgress = ({
         : routeReady
           ? (proofStatus ?? "Generating RAILGUN unshield proof")
           : "Waiting for RAILGUN unshield proof generation",
-      status: proofReady ? "complete" : routeReady ? "active" : "waiting"
+      status: proofReady ? "complete" : routeReady ? "active" : "waiting",
+      percent: routeReady && !proofReady ? Math.round(Math.max(0, Math.min(100, ((proofPercent - 40) / 40) * 100))) : undefined
     },
     {
       id: "submit",
       label: "Submit",
-      detail: submitting
+      detail: submitting && proofReady
         ? "Submitting transaction"
         : "Submission stays disabled until proof and route are complete",
-      status: submitting ? "active" : proofReady ? "waiting" : "waiting"
+      status: proofPercent >= 100 ? "complete" : submitting && proofReady ? "active" : "waiting"
     }
   ];
   const completeStages = stages.filter((stage) => stage.status === "complete");
@@ -145,15 +147,16 @@ export const buildSendProofProgress = ({
         : endpointsReady
           ? (proofStatus ?? "Generating RAILGUN proof")
           : "Waiting for RAILGUN proof generation",
-      status: proofReady ? "complete" : endpointsReady ? "active" : "waiting"
+      status: proofReady ? "complete" : endpointsReady ? "active" : "waiting",
+      percent: endpointsReady && !proofReady ? Math.round(Math.max(0, Math.min(100, ((proofPercent - 40) / 40) * 100))) : undefined
     },
     {
       id: "submit",
       label: "Submit",
-      detail: submitting
+      detail: submitting && proofReady
         ? "Submitting transaction"
         : "Submission stays disabled until proof is complete",
-      status: submitting ? "active" : proofReady ? "waiting" : "waiting"
+      status: proofPercent >= 100 ? "complete" : submitting && proofReady ? "active" : "waiting"
     }
   ];
   const completeStages = stages.filter((stage) => stage.status === "complete");
