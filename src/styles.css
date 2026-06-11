@@ -2370,6 +2370,14 @@ button:disabled {
     box-shadow: none;
   }
 
+  .bottom-nav {
+    bottom: calc(18px + var(--mobile-nav-gutter));
+  }
+
+  .app-content {
+    padding-bottom: calc(96px + var(--mobile-nav-gutter));
+  }
+
 }
 
 @media (max-width: 420px) {
@@ -2389,6 +2397,16 @@ button:disabled {
 
   .phone-frame {
     padding: 14px 14px calc(14px + var(--mobile-nav-gutter));
+  }
+
+  .bottom-nav {
+    bottom: calc(14px + var(--mobile-nav-gutter));
+    left: 14px;
+    right: 14px;
+  }
+
+  .app-content {
+    padding-bottom: calc(90px + var(--mobile-nav-gutter));
   }
 
   .balance-display h1 {
