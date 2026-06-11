@@ -1,4 +1,4 @@
-import { Copy, Eye, MoreHorizontal } from "lucide-react";
+import { Copy, MoreHorizontal, RotateCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { parseEther } from "viem";
 import { ActivityFeed, type ActivityItem } from "./components/ActivityFeed";
@@ -2540,6 +2540,27 @@ function WalletApp() {
       });
   };
 
+  const handleHardRefresh = async () => {
+    try {
+      if ("serviceWorker" in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const reg of registrations) {
+          await reg.unregister();
+        }
+      }
+      if ("caches" in window) {
+        const keys = await caches.keys();
+        for (const key of keys) {
+          await caches.delete(key);
+        }
+      }
+    } catch (err) {
+      console.error("Hard refresh clear failed:", err);
+    } finally {
+      window.location.reload();
+    }
+  };
+
   const noticeAction = appNotice?.action;
 
   return (
@@ -2560,8 +2581,13 @@ function WalletApp() {
           </div>
 
           <div className="header-actions">
-            <button className="icon-button ghost" type="button" title="Hide balance">
-              <Eye size={21} aria-hidden="true" />
+            <button
+              className="icon-button ghost"
+              type="button"
+              title="Hard refresh"
+              onClick={handleHardRefresh}
+            >
+              <RotateCw size={19} aria-hidden="true" />
             </button>
             <button className="icon-button ghost" type="button" title="More">
               <MoreHorizontal size={22} aria-hidden="true" />
