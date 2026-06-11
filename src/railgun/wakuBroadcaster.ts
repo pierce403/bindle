@@ -19,7 +19,8 @@ import {
   parseRailgunWakuFeeMessage,
   selectBestRawRailgunBroadcasterTokenAd,
   type RailgunBroadcasterFeeAd,
-  type RailgunBroadcasterTokenAd
+  type RailgunBroadcasterTokenAd,
+  RAILGUN_MAINNET_WAKU_FEES_TOPIC
 } from "./wakuFeeAds";
 
 const mainnetUsdcAddress = getAddress(
@@ -246,7 +247,7 @@ class BindleWakuNodeAdapter implements WakuAdapter {
 
         if (decoded) {
           const message = makeWakuMessage(decoded);
-          this.observeFeeAd(message);
+          this.enqueue(message);
           messages.push(message);
         }
       }
@@ -442,6 +443,11 @@ export const ensureRailgunWakuBroadcasterTransport = async ({
     );
     manager.start();
     onStatus("RAILGUN Waku broadcaster manager started.");
+
+    onStatus("Retrieving historical RAILGUN Waku broadcaster fee ads...");
+    await adapter.retrieveHistorical(RAILGUN_MAINNET_WAKU_FEES_TOPIC).catch((e) => {
+      console.warn("Failed to retrieve historical Waku fee ads:", e);
+    });
 
     return {
       policyKey,
