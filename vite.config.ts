@@ -73,11 +73,25 @@ const readGitCommit = (): string => {
   return "unknown";
 };
 
-const buildCommit = readGitCommit();
+const isGitDirty = (): boolean => {
+  try {
+    const result = spawnSync("git", ["status", "--porcelain"], {
+      cwd: repoRoot,
+      encoding: "utf8"
+    });
+    return result.status === 0 && result.stdout.trim().length > 0;
+  } catch {
+    return false;
+  }
+};
 
 const readGitCommitTime = (commit: string): string => {
   if (process.env.BINDLE_BUILD_TIME) {
     return process.env.BINDLE_BUILD_TIME;
+  }
+
+  if (isGitDirty()) {
+    return new Date().toISOString();
   }
 
   if (!/^[0-9a-f]{7,40}$/i.test(commit)) {
@@ -97,6 +111,7 @@ const readGitCommitTime = (commit: string): string => {
   return new Date().toISOString();
 };
 
+const buildCommit = readGitCommit() + (isGitDirty() ? "-dirty" : "");
 const buildTime = readGitCommitTime(buildCommit);
 
 const buildInfoPlugin = (): Plugin => ({

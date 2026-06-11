@@ -68,9 +68,25 @@ const readGitCommit = () => {
   return "unknown";
 };
 
+const isGitDirty = () => {
+  try {
+    const result = spawnSync("git", ["status", "--porcelain"], {
+      cwd: repoRoot,
+      encoding: "utf8"
+    });
+    return result.status === 0 && result.stdout?.trim().length > 0;
+  } catch {
+    return false;
+  }
+};
+
 const readGitCommitTime = (commit) => {
   if (process.env.BINDLE_BUILD_TIME) {
     return process.env.BINDLE_BUILD_TIME;
+  }
+
+  if (isGitDirty()) {
+    return new Date().toISOString();
   }
 
   if (!/^[0-9a-f]{7,40}$/i.test(commit)) {
@@ -90,7 +106,7 @@ const readGitCommitTime = (commit) => {
   return new Date().toISOString();
 };
 
-const buildCommit = readGitCommit();
+const buildCommit = readGitCommit() + (isGitDirty() ? "-dirty" : "");
 
 const env = {
   ...process.env,
