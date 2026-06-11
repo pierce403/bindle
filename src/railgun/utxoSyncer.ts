@@ -11,7 +11,27 @@ type KohakuUtxoSyncerModule = {
 const normalizeEndpoint = (value: string): string =>
   value.trim().replace(/\/+$/, "");
 
-export const createVisibleRailgunUtxoSyncer = ({
+const checkSyncIndexerHealthy = async (url: string): Promise<boolean> => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), 2500);
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({ query: "{ __typename }" }),
+      signal: controller.signal
+    });
+    clearTimeout(id);
+    return response.ok;
+  } catch (error) {
+    clearTimeout(id);
+    return false;
+  }
+};
+
+export const createVisibleRailgunUtxoSyncer = async ({
   chain,
   kohaku,
   policy,
@@ -23,12 +43,12 @@ export const createVisibleRailgunUtxoSyncer = ({
   policy: ConnectionPolicy;
   provider: Eip1193Provider;
   onStatus?: (message: string) => void;
-}): UtxoSyncerInstance => {
-  const rpcSyncer = kohaku.UtxoSyncer.rpc(chain, provider, 10n);
+}): Promise<UtxoSyncerInstance> => {
+  const rpcSyncer = kohaku.UtxoSyncer.rpc(chain, provider, 500n);
   const configuredSyncUrl = policy.railgunSyncUrl.trim();
 
   if (!configuredSyncUrl) {
-    onStatus?.("Using RPC-only RAILGUN note sync");
+    onStatus?.("Using RPC-only RAILGUN note sync (batch size: 500)");
     return rpcSyncer;
   }
 
@@ -41,7 +61,15 @@ export const createVisibleRailgunUtxoSyncer = ({
     );
   }
 
-  onStatus?.("Using visible RAILGUN Subsquid sync indexer with RPC fallback");
+  onStatus?.("Checking RAILGUN Subsquid sync indexer health...");
+  const isHealthy = await checkSyncIndexerHealthy(configuredSyncUrl);
+
+  if (!isHealthy) {
+    onStatus?.("RAILGUN Subsquid indexer is unresponsive. Falling back to RPC-only note sync (batch size: 500)");
+    return rpcSyncer;
+  }
+
+  onStatus?.("Using visible RAILGUN Subsquid sync indexer with RPC fallback (batch size: 500)");
   return kohaku.UtxoSyncer.chained([
     kohaku.UtxoSyncer.subsquid(chain),
     rpcSyncer
