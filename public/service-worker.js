@@ -1,6 +1,6 @@
 const CACHE_NAME = "bindle-shell-v12";
-const ARTIFACT_CACHE_NAME = "bindle-railgun-artifacts-v1";
-const ARTIFACT_PROXY_VERSION = "railgun-artifacts-v1";
+const ARTIFACT_CACHE_NAME = "bindle-railgun-artifacts-v2";
+const ARTIFACT_PROXY_VERSION = "railgun-artifacts-v2";
 const KOHAKU_RAILGUN_ARTIFACT_ORIGIN = "https://github.com";
 const KOHAKU_RAILGUN_ARTIFACT_PATH_PREFIX =
   "/Robert-MacWha/privacy-protocol-artifacts/raw/refs/heads/main/artifacts/";
@@ -87,13 +87,39 @@ const respondWithLocalRailgunArtifact = async (localUrl) => {
   let response = await cache.match(localUrl.href);
 
   if (!response) {
-    response = await fetch(localUrl.href, {
-      cache: "force-cache",
-      credentials: "same-origin"
-    });
+    try {
+      const fetchedResponse = await fetch(localUrl.href, {
+        credentials: "same-origin"
+      });
 
-    if (response.ok) {
-      await cache.put(localUrl.href, response.clone());
+      if (fetchedResponse.ok) {
+        // Read the entire body as a blob before caching. This guarantees we don't
+        // cache a truncated/corrupted stream on interrupted connection.
+        const blob = await fetchedResponse.blob();
+        const headers = new Headers(fetchedResponse.headers);
+
+        await cache.put(
+          localUrl.href,
+          new Response(blob, {
+            status: fetchedResponse.status,
+            statusText: fetchedResponse.statusText,
+            headers
+          })
+        );
+
+        response = new Response(blob, {
+          status: fetchedResponse.status,
+          statusText: fetchedResponse.statusText,
+          headers
+        });
+      } else {
+        response = fetchedResponse;
+      }
+    } catch (error) {
+      return new Response(`Network error fetching artifact: ${error.message}`, {
+        status: 489,
+        statusText: "Network Error"
+      });
     }
   }
 

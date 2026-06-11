@@ -1782,6 +1782,11 @@ function WalletApp() {
       return;
     }
 
+    const convertedAmountEth = usdToEthString(draft.amount.trim(), visibleShieldedBalance?.price ?? null);
+    const amountDetail = asset.symbol === "ETH"
+      ? `$${draft.amount.trim()} (~${convertedAmountEth} ETH)`
+      : `$${draft.amount.trim()} ${asset.symbol}`;
+
     if (!walletState.railgunAddress) {
       setPayStatus("Create or import a shielded 0zk wallet before Pay.");
       return;
@@ -1805,8 +1810,6 @@ function WalletApp() {
           percent: 40,
           status: "Generating zk-SNARK proof"
         });
-
-        const convertedAmountEth = usdToEthString(draft.amount, visibleShieldedBalance?.price ?? null);
 
         preparedPay = await prepareRailgunPayForRecipient({
           amount: convertedAmountEth,
@@ -1900,7 +1903,7 @@ function WalletApp() {
           message: "Private Pay readiness checked",
           detail: [
             `Recipient: ${draft.recipient.trim()}`,
-            `Amount: ${draft.amount.trim()} ${asset.symbol}`,
+            `Amount: ${amountDetail}`,
             `Railgun address: ${walletState.railgunAddress}`,
             `Derivation provider: ${walletState.railgunDerivationProvider ?? "unknown"}`,
             readinessLines.join("\n")
@@ -1926,7 +1929,7 @@ function WalletApp() {
           "pay",
           [
             `Recipient: ${draft.recipient.trim()}`,
-            `Amount: ${draft.amount.trim()} ${asset.symbol}`,
+            `Amount: ${amountDetail}`,
             `Railgun address: ${walletState.railgunAddress}`
           ].join("\n")
         )
