@@ -59,6 +59,7 @@ import {
   upsertRelaysFromWakuSnapshot
 } from "./railgun/relayRegistry";
 import { prepareRailgunPayForRecipient, type RailgunPayProgress } from "./railgun/pay";
+import { ArtifactProxyReloadRequiredError } from "./pwa/serviceWorkerControl";
 
 import {
   fetchShieldedEthBalance,
@@ -1964,19 +1965,39 @@ function WalletApp() {
         )
       );
       const errMessage = error instanceof Error ? error.message : String(error);
+
+      if (error instanceof ArtifactProxyReloadRequiredError || (error && (error as any).name === "ArtifactProxyReloadRequiredError")) {
+        setAppNotice({
+          kind: "warning",
+          title: "Updating RAILGUN proof artifact cache",
+          message: "The RAILGUN artifact proxy was reset to apply updates. Bindle will reload in a moment to complete activation."
+        });
+        sessionStorage.setItem("bindle.artifactProxyRepairAttempted.v4", "true");
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+        return;
+      }
+
       const isArtifactProxyError =
         errMessage.includes("artifact proxy") ||
         errMessage.includes("expected railgun-artifacts-v") ||
         errMessage.includes("transformed or truncated bytes") ||
         errMessage.includes("Artifact loader error") ||
-        errMessage.includes("Decompression error");
+        errMessage.includes("Decompression error") ||
+        errMessage.includes("ArtifactProxyReloadRequiredError");
+
+      const hasAttemptedRepair = sessionStorage.getItem("bindle.artifactProxyRepairAttempted.v4") === "true";
 
       setAppNotice({
         kind: "error",
         title: isArtifactProxyError ? "RAILGUN artifact cache error" : "Private action failed",
         message: errMessage,
         action: isArtifactProxyError
-          ? { kind: "refresh-artifact-cache", label: "Refresh RAILGUN artifact cache" }
+          ? {
+              kind: "refresh-artifact-cache",
+              label: hasAttemptedRepair ? "Reset artifact cache" : "Refresh RAILGUN artifact cache"
+            }
           : undefined
       });
     } finally {

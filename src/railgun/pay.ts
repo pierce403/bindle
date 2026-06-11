@@ -12,6 +12,9 @@ import { loadKohakuRailgunBrowserModule } from "./kohakuRailgunModule";
 import { createVisibleRailgunUtxoSyncer } from "./utxoSyncer";
 import { unlockEncryptedRailgunWallet } from "./railgunWallet";
 import type { WalletState } from "../wallet/walletState";
+import {
+  ensureExpectedArtifactProxyServiceWorker
+} from "../pwa/serviceWorkerControl";
 
 export type RailgunPayProgress = {
   percent: number;
@@ -97,52 +100,6 @@ export const validateKohakuRailgunArtifactPolicy = (
   }
 };
 
-const waitForServiceWorkerController = async (): Promise<ServiceWorker> => {
-  if (!("serviceWorker" in navigator)) {
-    throw new Error(
-      "Bindle-hosted RAILGUN proving artifacts require the installed PWA service worker."
-    );
-  }
-
-  await navigator.serviceWorker.ready;
-
-  if (navigator.serviceWorker.controller) {
-    return navigator.serviceWorker.controller;
-  }
-
-  return new Promise((resolve, reject) => {
-    const timeout = window.setTimeout(() => {
-      navigator.serviceWorker.removeEventListener(
-        "controllerchange",
-        handleControllerChange
-      );
-      reject(
-        new Error(
-          "Bindle's artifact proxy service worker is not controlling this page yet. Reopen or reload the PWA before Pay."
-        )
-      );
-    }, 5_000);
-
-    const handleControllerChange = () => {
-      if (!navigator.serviceWorker.controller) {
-        return;
-      }
-
-      window.clearTimeout(timeout);
-      navigator.serviceWorker.removeEventListener(
-        "controllerchange",
-        handleControllerChange
-      );
-      resolve(navigator.serviceWorker.controller);
-    };
-
-    navigator.serviceWorker.addEventListener(
-      "controllerchange",
-      handleControllerChange
-    );
-  });
-};
-
 const sha256Hex = async (arrayBuffer: ArrayBuffer): Promise<string> => {
   const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -150,7 +107,8 @@ const sha256Hex = async (arrayBuffer: ArrayBuffer): Promise<string> => {
 };
 
 export const ensureKohakuRailgunArtifactPolicyReady = async (
-  policy: Pick<ConnectionPolicy, "railgunArtifactUrl">
+  policy: Pick<ConnectionPolicy, "railgunArtifactUrl">,
+  onStatus?: (message: string) => void
 ): Promise<void> => {
   validateKohakuRailgunArtifactPolicy(policy);
 
@@ -158,76 +116,92 @@ export const ensureKohakuRailgunArtifactPolicyReady = async (
     return;
   }
 
-  const controller = await waitForServiceWorkerController();
-  const version = await new Promise<string>((resolve, reject) => {
-    const channel = new MessageChannel();
-    const timeout = window.setTimeout(() => {
-      reject(
-        new Error(
-          "Bindle's artifact proxy service worker did not confirm RAILGUN artifact support. Reopen or reload the PWA before Pay."
-        )
-      );
-    }, 5_000);
+  const log = onStatus || ((msg) => console.log(`[Artifact Proxy] ${msg}`));
 
-    channel.port1.onmessage = (event: MessageEvent) => {
-      window.clearTimeout(timeout);
-      const data = event.data as { type?: string; version?: string };
-
-      if (data.type !== "BINDLE_ARTIFACT_PROXY_READY" || !data.version) {
-        reject(
-          new Error(
-            "Bindle's artifact proxy service worker returned an invalid readiness response."
-          )
-        );
-        return;
-      }
-
-      resolve(data.version);
-    };
-
-    controller.postMessage(
-      {
-        type: "BINDLE_ARTIFACT_PROXY_READY"
-      },
-      [channel.port2]
-    );
+  log("Checking and updating RAILGUN artifact proxy service worker");
+  const status = await ensureExpectedArtifactProxyServiceWorker({
+    expectedVersion: bindleArtifactProxyVersion,
+    onStatus: log
   });
 
-  if (version !== bindleArtifactProxyVersion) {
+  if (!status.ok) {
+    const diagStr = JSON.stringify(status, null, 2);
     throw new Error(
-      `Bindle's artifact proxy service worker is ${version}, expected ${bindleArtifactProxyVersion}. Reopen or reload the PWA before Pay.`
+      `Bindle's artifact proxy service worker is wrong or failed to upgrade. expected ${bindleArtifactProxyVersion}, got ${status.controllerVersion}.\n\nDiagnostics:\n${diagStr}`
     );
   }
 
-  // --- Artifact proxy self-test (Phase 5) ---
+  // --- Artifact proxy self-test (Phase 7) ---
+  log("Running RAILGUN artifact proxy self-test");
+  const testFile = "railgun/01x01/matrices.bin.br";
+  const manifestUrl = "/railgun-artifacts/manifest.json";
+  let manifest: any = null;
+  let entry: any = null;
+
   try {
-    const manifestResponse = await fetch("/railgun-artifacts/manifest.json");
+    const manifestResponse = await fetch(manifestUrl);
     if (!manifestResponse.ok) {
-      throw new Error(`Manifest status ${manifestResponse.status.toString()}`);
+      throw new Error(`Manifest fetch failed with status ${manifestResponse.status.toString()}`);
     }
-    const manifest = await manifestResponse.json();
-    const testFile = "railgun/01x01/matrices.bin.br";
-    const entry = manifest.files.find((f: any) => f.path === testFile);
+    manifest = await manifestResponse.json();
+    entry = manifest.files?.find((f: any) => f.path === testFile);
     if (!entry) {
       throw new Error(`Test file ${testFile} not found in manifest.`);
     }
-
-    // Fetch through the same hardcoded Kohaku URL that Rust would request
-    const targetUrl = `https://github.com/Robert-MacWha/privacy-protocol-artifacts/raw/refs/heads/main/artifacts/${testFile}`;
-    const testFetch = await fetch(targetUrl);
-    if (!testFetch.ok) {
-      throw new Error(`Fetch status ${testFetch.status.toString()}`);
-    }
-
-    const bytes = await testFetch.arrayBuffer();
-    const hash = await sha256Hex(bytes);
-
-    if (bytes.byteLength !== entry.localSize || hash !== entry.sha256) {
-      throw new Error("Validation mismatch.");
-    }
   } catch (err: any) {
     throw new Error(
-      `RAILGUN artifact proxy returned transformed or truncated bytes. Reload/reinstall PWA to refresh service worker. Detail: ${err.message}`
+      `RAILGUN artifact proxy self-test error: unable to load manifest. Detail: ${err.message}`
+    );
+  }
+
+  const targetUrl = `https://github.com/Robert-MacWha/privacy-protocol-artifacts/raw/refs/heads/main/artifacts/${testFile}`;
+  let responseStatus = 0;
+  let responseHeaders: Record<string, string> = {};
+  let bytes: ArrayBuffer | null = null;
+  let actualSize = 0;
+  let actualHash = "";
+
+  try {
+    const testFetch = await fetch(targetUrl);
+    responseStatus = testFetch.status;
+    testFetch.headers.forEach((value, key) => {
+      responseHeaders[key] = value;
+    });
+
+    if (!testFetch.ok) {
+      throw new Error(`Fetch failed with status ${testFetch.status.toString()}`);
+    }
+
+    bytes = await testFetch.arrayBuffer();
+    actualSize = bytes.byteLength;
+    actualHash = await sha256Hex(bytes);
+
+    if (actualSize !== entry.localSize || actualHash !== entry.sha256) {
+      throw new Error("Byte validation failed. Size mismatch or Hash mismatch.");
+    }
+  } catch (err: any) {
+    const selfTestDiagnostics = {
+      manifestUrl,
+      manifestGeneratedAt: manifest?.generatedAt ?? "unknown",
+      sourceTreeSha: manifest?.sourceTreeSha ?? "unknown",
+      testFilePath: testFile,
+      localPath: entry?.localPath ?? "unknown",
+      expectedLocalSize: entry?.localSize ?? 0,
+      actualByteLength: actualSize,
+      expectedSha256: entry?.sha256 ?? "unknown",
+      actualSha256: actualHash,
+      fetchedUrl: targetUrl,
+      responseStatus,
+      importantHeaders: {
+        "content-type": responseHeaders["content-type"] ?? "missing",
+        "content-encoding": responseHeaders["content-encoding"] ?? "missing",
+        "content-length": responseHeaders["content-length"] ?? "missing",
+        "x-bindle-artifact-proxy-version": responseHeaders["x-bindle-artifact-proxy-version"] ?? "missing"
+      }
+    };
+    console.error("Artifact self-test failed diagnostics:", selfTestDiagnostics);
+    throw new Error(
+      `RAILGUN artifact proxy self-test failed. The service worker returned transformed, decompressed, or truncated bytes instead of the exact raw Brotli bytes.\n\nDiagnostics:\n${JSON.stringify(selfTestDiagnostics, null, 2)}\n\nReload or reinstall PWA to refresh service worker.`
     );
   }
 };
@@ -305,7 +279,7 @@ export const prepareRailgunPayForRecipient = async ({
   }
 
   onStatus("Ensuring RAILGUN artifact service worker proxy is ready");
-  await ensureKohakuRailgunArtifactPolicyReady(policy);
+  await ensureKohakuRailgunArtifactPolicyReady(policy, onStatus);
 
   onStatus("Unlocking local RAILGUN keys");
   const unlockedWallet = await unlockEncryptedRailgunWallet();

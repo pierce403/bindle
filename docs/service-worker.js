@@ -1,4 +1,4 @@
-const CACHE_NAME = "bindle-shell-3fe81d08d61cbc651c39d6e8f28cdfbce250b78d-dirty";
+const CACHE_NAME = "bindle-shell-b2b63c705dcd90268414e90ec22128ad96f55b3d-dirty";
 const ARTIFACT_CACHE_NAME = "bindle-railgun-artifacts-v4";
 const ARTIFACT_PROXY_VERSION = "railgun-artifacts-v4";
 const KOHAKU_RAILGUN_ARTIFACT_ORIGIN = "https://github.com";
@@ -21,10 +21,23 @@ const APP_SHELL = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then((cache) => {
+      const cachePromises = APP_SHELL.map((url) => {
+        return fetch(url)
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(`Status ${response.status.toString()}`);
+            }
+            return cache.put(url, response);
+          })
+          .catch((err) => {
+            console.warn(`Non-critical shell asset failed to cache: ${url}`, err);
+          });
+      });
+      return Promise.allSettled(cachePromises).then(() => {
+        return self.skipWaiting();
+      });
+    })
   );
 });
 
@@ -57,26 +70,102 @@ self.addEventListener("activate", (event) => {
         )
       )
       .then(() => self.clients.claim())
+      .then(() => self.clients.matchAll())
+      .then((clients) => {
+        for (const client of clients) {
+          client.postMessage({
+            type: "BINDLE_SERVICE_WORKER_ACTIVATED",
+            version: ARTIFACT_PROXY_VERSION
+          });
+        }
+      })
   );
 });
 
 self.addEventListener("message", (event) => {
-  if (event.data?.type !== "BINDLE_ARTIFACT_PROXY_READY") {
-    return;
-  }
+  const type = event.data?.type;
+  if (!type) return;
 
-  const response = {
-    type: "BINDLE_ARTIFACT_PROXY_READY",
-    version: ARTIFACT_PROXY_VERSION
+  const reply = (payload) => {
+    const messagePort = event.ports?.[0];
+    if (messagePort) {
+      messagePort.postMessage(payload);
+    } else {
+      event.source?.postMessage(payload);
+    }
   };
-  const messagePort = event.ports?.[0];
 
-  if (messagePort) {
-    messagePort.postMessage(response);
+  if (type === "BINDLE_ARTIFACT_PROXY_READY") {
+    reply({
+      type: "BINDLE_ARTIFACT_PROXY_READY",
+      version: ARTIFACT_PROXY_VERSION,
+      cacheName: CACHE_NAME,
+      artifactCacheName: ARTIFACT_CACHE_NAME,
+      scriptURL: self.registration?.active?.scriptURL ?? self.location.href
+    });
     return;
   }
 
-  event.source?.postMessage(response);
+  if (type === "BINDLE_SKIP_WAITING") {
+    self.skipWaiting();
+    reply({
+      type: "BINDLE_SKIP_WAITING_ACK",
+      version: ARTIFACT_PROXY_VERSION
+    });
+    return;
+  }
+
+  if (type === "BINDLE_CLEAR_ARTIFACT_CACHES") {
+    event.waitUntil(
+      caches.keys().then((keys) => {
+        const targets = keys.filter((key) => key.startsWith("bindle-railgun-artifacts-"));
+        return Promise.all(targets.map((key) => caches.delete(key))).then(() => {
+          reply({
+            type: "BINDLE_CLEAR_ARTIFACT_CACHES_ACK",
+            deletedCaches: targets
+          });
+        });
+      })
+    );
+    return;
+  }
+
+  if (type === "BINDLE_CLEAR_BINDLE_CACHES") {
+    event.waitUntil(
+      caches.keys().then((keys) => {
+        const targets = keys.filter(
+          (key) => key.startsWith("bindle-shell-") || key.startsWith("bindle-railgun-artifacts-")
+        );
+        return Promise.all(targets.map((key) => caches.delete(key))).then(() => {
+          reply({
+            type: "BINDLE_CLEAR_BINDLE_CACHES_ACK",
+            deletedCaches: targets
+          });
+        });
+      })
+    );
+    return;
+  }
+
+  if (type === "BINDLE_SW_DIAGNOSTICS") {
+    event.waitUntil(
+      Promise.all([
+        caches.keys(),
+        self.clients.matchAll().then((clients) => clients.length)
+      ]).then(([keys, clientsCount]) => {
+        reply({
+          type: "BINDLE_SW_DIAGNOSTICS_RESPONSE",
+          artifactProxyVersion: ARTIFACT_PROXY_VERSION,
+          cacheName: CACHE_NAME,
+          artifactCacheName: ARTIFACT_CACHE_NAME,
+          cacheKeys: keys,
+          manifestLoaded: manifestPromise !== null,
+          clientsCount: clientsCount
+        });
+      })
+    );
+    return;
+  }
 });
 
 const localRailgunArtifactUrl = (requestUrl) => {
