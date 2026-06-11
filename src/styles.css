@@ -2283,6 +2283,46 @@ button:disabled {
   gap: 8px;
 }
 
+.connection-audit-details {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--text-soft);
+}
+
+.connection-audit-details summary {
+  cursor: pointer;
+  color: var(--muted);
+  user-select: none;
+  font-weight: 600;
+  outline: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.connection-audit-details summary:hover {
+  color: var(--accent);
+}
+
+.connection-audit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+
+.audit-action-badge {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-raised));
+  color: var(--text-soft);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.65rem;
+  font-weight: 500;
+}
+
 @media (max-width: 860px) {
   .app-shell {
     grid-template-columns: minmax(320px, 430px);

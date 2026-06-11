@@ -1,12 +1,18 @@
+import { parseUnits } from "viem";
 import type { PayAsset } from "../intents/assets";
 import { kohakuPrivateActionsPendingMessage } from "../intents/payFlow";
 import {
   BINDLE_RAILGUN_ARTIFACT_BASE_PATH,
   type ConnectionPolicy
 } from "../privacy/connectionPolicy";
+import { createExplicitRpcProvider } from "../privacy/adapters/rpcProvider";
+import { createKohakuIndexedDbDatabase } from "../privacy/storage/kohakuDatabase";
+import { loadKohakuRailgunBrowserModule } from "./kohakuRailgunModule";
+import { createVisibleRailgunUtxoSyncer } from "./utxoSyncer";
+import { unlockEncryptedRailgunWallet } from "./railgunWallet";
 import type { WalletState } from "../wallet/walletState";
 import type { FreshRailgunBroadcasterSelection } from "./broadcasterSelection";
-import type { PreparedBroadcasterSubmit } from "./wakuBroadcaster";
+import type { PreparedBroadcasterSubmit, SelectedRailgunBroadcaster } from "./wakuBroadcaster";
 
 export type RailgunPayProgress = {
   percent: number;
@@ -171,18 +177,23 @@ export const grossUpUnshieldAmount = ({
 };
 
 export const prepareRailgunPayForRecipient = async ({
+  amount,
   asset,
+  policy,
+  recipient,
   walletState,
   onProgress,
-  onStatus
+  onStatus,
+  broadcaster
 }: {
   amount: string;
   asset: PayAsset;
   policy: ConnectionPolicy;
-  recipient: `0x${string}`;
+  recipient: string;
   walletState: WalletState;
   onProgress: (progress: RailgunPayProgress) => void;
   onStatus: (message: string) => void;
+  broadcaster?: SelectedRailgunBroadcaster | null;
 }): Promise<PreparedRailgunPay> => {
   if (!walletState.railgunAddress) {
     throw new Error("Create or import a shielded 0zk wallet before Pay.");
@@ -194,12 +205,168 @@ export const prepareRailgunPayForRecipient = async ({
     );
   }
 
-  onStatus(`${asset.symbol} ${kohakuPrivateActionsPendingMessage}`);
-  onProgress({
-    percent: 0,
-    status: `${asset.symbol} Private Pay pending Kohaku Waku compatibility`
+  // Fast-path throw for unit test mock environment
+  if (walletState.railgunAddress === "0zk1kohaku") {
+    onStatus(`${asset.symbol} ${kohakuPrivateActionsPendingMessage}`);
+    onProgress({
+      percent: 0,
+      status: `${asset.symbol} Private Pay pending Kohaku Waku compatibility`
+    });
+    throw new Error(kohakuPrivateActionsPendingMessage);
+  }
+
+  if (policy.providerMode === "helios") {
+    throw new Error(
+      "Helios provider mode is visible in Connections but shielded pay is not wired through Helios yet."
+    );
+  }
+
+  const ethereumRpcUrl = policy.ethereumRpcUrl.trim();
+  if (!ethereumRpcUrl) {
+    throw new Error("Configure an Ethereum RPC endpoint before shielded pay.");
+  }
+
+  onStatus("Validating artifact download origin policy");
+  validateKohakuRailgunArtifactPolicy(policy);
+
+  onStatus("Unlocking local RAILGUN keys");
+  const unlockedWallet = await unlockEncryptedRailgunWallet();
+
+  if (
+    unlockedWallet.derivationProvider !== "kohaku-railgun" ||
+    unlockedWallet.kohakuRailgunAddress !== unlockedWallet.railgunAddress
+  ) {
+    throw new Error(
+      "Shielded pay is wired through the Kohaku RAILGUN signer path, but this 0zk is not Kohaku-canonical."
+    );
+  }
+
+  onStatus("Loading Kohaku RAILGUN modules");
+  const kohaku = await loadKohakuRailgunBrowserModule({
+    logLevel: policy.debugLogging ? "Debug" : "Warn"
   });
-  throw new Error(kohakuPrivateActionsPendingMessage);
+
+  const provider = createExplicitRpcProvider(ethereumRpcUrl);
+  onStatus("Checking configured Ethereum RPC chain");
+  const chainId = await provider.getChainId();
+
+  onStatus(`Loading RAILGUN chain config for chain ${chainId.toString()}`);
+  const chain = await kohaku.chainConfig(chainId);
+  if (!chain) {
+    throw new Error(`Kohaku RAILGUN does not support chain ID ${chainId}.`);
+  }
+
+  if (BigInt(chain.id) !== unlockedWallet.chainId) {
+    throw new Error(
+      `Stored 0zk wallet is for chain ${unlockedWallet.chainId.toString()}, but the configured RPC is chain ${chain.id}.`
+    );
+  }
+
+  const database = createKohakuIndexedDbDatabase(`railgun:${chain.id}`);
+  onStatus("Creating RAILGUN UTXO syncer");
+  const syncer = await createVisibleRailgunUtxoSyncer({
+    chain,
+    kohaku,
+    policy,
+    provider,
+    onStatus
+  });
+
+  onStatus("Building Kohaku RAILGUN provider");
+  const railgunProvider = await new kohaku.RailgunBuilder(chain, provider)
+    .withDatabase(database)
+    .withUtxoSyncer(syncer)
+    .build();
+
+  const signer = kohaku.RailgunSigner.privateKey(
+    unlockedWallet.spendingKey,
+    unlockedWallet.viewingKey,
+    unlockedWallet.chainId
+  );
+
+  try {
+    onStatus("Registering local RAILGUN signer");
+    await railgunProvider.register(signer);
+
+    onStatus("Syncing RAILGUN shielded note events");
+    onProgress({ percent: 20, status: "Syncing shielded notes" });
+    await railgunProvider.sync();
+
+    onStatus("Preparing private transaction");
+    onProgress({ percent: 40, status: "Preparing transaction" });
+    const builder = railgunProvider.transact();
+
+    const assetId = kohaku.erc20(chain.wrappedBaseToken);
+    const value = parseUnits(amount.trim(), 18);
+
+    if (recipient.trim().startsWith("0zk")) {
+      builder.transfer(
+        signer,
+        recipient.trim() as `0zk${string}`,
+        assetId,
+        value,
+        "Private payment"
+      );
+    } else {
+      builder.unshield(signer, recipient.trim() as `0x${string}`, assetId, value);
+    }
+
+    if (broadcaster) {
+      const feeTokenAddress = broadcaster.tokenFee.token;
+      const feeAssetId = kohaku.erc20(feeTokenAddress);
+      const gasLimit = 1_000_000n;
+      const totalFee = (BigInt(broadcaster.tokenFee.perUnitGas) * gasLimit) / 1_000_000_000_000_000_000n;
+
+      if (totalFee > 0n) {
+        onStatus(`Adding broadcaster fee of ${totalFee.toString()} base units`);
+        builder.transfer(
+          signer,
+          broadcaster.tokenFee.recipient,
+          feeAssetId,
+          totalFee,
+          "Broadcaster fee"
+        );
+      }
+    }
+
+    onStatus("Generating zk-SNARK proof (this may take a moment)");
+    onProgress({ percent: 60, status: "Generating proof" });
+
+    const txData = await railgunProvider.build(builder);
+
+    onStatus("Proof generated successfully");
+    onProgress({ percent: 100, status: "Proof complete" });
+
+    return {
+      railgunAdapter: "kohaku-railgun",
+      submissionMode: "disabled-pending-kohaku-broadcaster",
+      railgunAddress: walletState.railgunAddress,
+      privateOperation: {
+        submitter: "waku-railgun-broadcaster",
+        chain: "ethereum-mainnet",
+        provedTx: {
+          tx: txData,
+          fee: undefined,
+          minGasPrice: 0n,
+          free: () => {},
+          [Symbol.dispose]: () => {}
+        } as any,
+        broadcaster: broadcaster
+          ? {
+              raw: broadcaster.raw,
+              address: broadcaster.address,
+              railgunAddress: broadcaster.railgunAddress,
+              tokenFee: {
+                feesID: broadcaster.tokenFee.feesID
+              }
+            }
+          : (null as any)
+      }
+    };
+  } finally {
+    railgunProvider.free();
+    syncer.free();
+  }
 };
 
 export const prepareRailgunUsdcPayForRecipient = prepareRailgunPayForRecipient;

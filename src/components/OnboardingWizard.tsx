@@ -80,6 +80,7 @@ export function OnboardingWizard({
   const [copiedShieldedAddress, setCopiedShieldedAddress] = useState(false);
   const [copiedRecoveryPhrase, setCopiedRecoveryPhrase] = useState(false);
   const [importRecoveryPhrase, setImportRecoveryPhrase] = useState("");
+  const [showImport, setShowImport] = useState(false);
   const [createdRecoveryPhrase, setCreatedRecoveryPhrase] = useState<
     string | null
   >(null);
@@ -348,28 +349,48 @@ export function OnboardingWizard({
                 </button>
               </div>
 
-              <div className="wallet-secret-card">
-                <strong>Import shielded wallet</strong>
-                <label className="field">
-                  <span>Recovery phrase</span>
-                  <textarea
-                    value={importRecoveryPhrase}
-                    onChange={(event) =>
-                      setImportRecoveryPhrase(event.currentTarget.value)
-                    }
-                    placeholder="existing BIP-39 phrase"
-                  />
-                </label>
+              {!showImport ? (
                 <button
                   className="secondary-action wide"
                   type="button"
-                  disabled={!canImportRailgunWallet}
-                  onClick={() => void importShieldedWallet()}
+                  onClick={() => setShowImport(true)}
                 >
                   <LockKeyhole size={18} aria-hidden="true" />
-                  {isImportingRailgunWallet ? "Importing" : "Import existing"}
+                  Or recover / import existing wallet
                 </button>
-              </div>
+              ) : (
+                <div className="wallet-secret-card">
+                  <strong>Import shielded wallet</strong>
+                  <label className="field">
+                    <span>Recovery phrase</span>
+                    <textarea
+                      value={importRecoveryPhrase}
+                      onChange={(event) =>
+                        setImportRecoveryPhrase(event.currentTarget.value)
+                      }
+                      placeholder="existing BIP-39 phrase"
+                    />
+                  </label>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button
+                      className="secondary-action wide"
+                      type="button"
+                      disabled={!canImportRailgunWallet}
+                      onClick={() => void importShieldedWallet()}
+                    >
+                      <LockKeyhole size={18} aria-hidden="true" />
+                      {isImportingRailgunWallet ? "Importing" : "Import existing"}
+                    </button>
+                    <button
+                      className="secondary-action"
+                      type="button"
+                      onClick={() => setShowImport(false)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </>

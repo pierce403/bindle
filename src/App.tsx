@@ -59,7 +59,8 @@ import {
   selectedRailgunRelay,
   upsertRelaysFromWakuSnapshot
 } from "./railgun/relayRegistry";
-import type { RailgunPayProgress } from "./railgun/pay";
+import { prepareRailgunPayForRecipient, type RailgunPayProgress } from "./railgun/pay";
+import { sendRailgunBroadcasterTransaction } from "./railgun/broadcaster";
 import {
   fetchShieldedEthBalance,
   type ShieldedEthBalance
@@ -1801,17 +1802,10 @@ function WalletApp() {
       return;
     }
 
-    if (classifyPayTransactionOrigin(privatePayLegs) !== "railgun-private") {
-      setPayStatus("Private Pay route origin is not railgun-private.");
-      return;
-    }
-
-    const paySwapRoutePlan = getPaySwapRoutePlan(asset);
-
     setIsSubmittingPay(true);
     setPayStatus("Refreshing RAILGUN Waku broadcaster ads.");
     setPayProofProgress({
-      percent: 40,
+      percent: 20,
       status: "Refreshing fresh Waku broadcaster ads"
     });
     setAppNotice(null);
@@ -1844,59 +1838,121 @@ function WalletApp() {
         wakuStatus: `fresh ${freshSelection.snapshot.status}`
       });
 
-      const readinessLines = [
-        "✅ Fresh Waku ads checked",
-        `✅ Compatible broadcaster selected: ${
-          freshSelection.selectedRelay.identifier ??
-          freshSelection.selectedRelay.railgunAddress
-        }`,
-        `✅ Broadcaster fee token: ${freshSelection.selectedBroadcaster.tokenFee.token}`,
-        `✅ Broadcaster fee quote: ${freshSelection.selectedBroadcaster.tokenFee.perUnitGas} per gas`,
-        "✅ Public smart-wallet fallback disabled for private source leg",
-        "❌ Kohaku proved private operation not built yet"
-      ];
+      if (activeAction === "send") {
+        setPayStatus("Generating zk-SNARK proof...");
+        setPayProofProgress({
+          percent: 40,
+          status: "Generating zk-SNARK proof"
+        });
 
-      try {
-        const changeDisposition =
-          paySwapRoutePlan?.changeDisposition ?? "unknown";
+        const preparedPay = await prepareRailgunPayForRecipient({
+          amount: draft.amount,
+          asset,
+          policy,
+          recipient: draft.recipient,
+          walletState,
+          onProgress: (progress) => {
+            setPayProofProgress({
+              percent: 40 + Math.floor(progress.percent * 0.4),
+              status: progress.status
+            });
+          },
+          onStatus: (msg) => {
+            setPayStatus(msg);
+          },
+          broadcaster: freshSelection.selectedBroadcaster
+        });
 
-        assertPrivatePayChangeDisposition(changeDisposition);
-        readinessLines.push(
-          changeDisposition === "private-change-to-0zk"
-            ? "✅ Change routing returns to 0zk"
-            : `✅ ${ephemeralPrivatePayChangeMessage}`
-        );
-      } catch {
-        readinessLines.push("❌ Unsafe change routing is blocked");
+        if (!preparedPay.privateOperation) {
+          throw new Error(kohakuPrivateActionsPendingMessage);
+        }
+
+        setPayStatus("Submitting private transaction via Waku relayer...");
+        setPayProofProgress({
+          percent: 90,
+          status: "Submitting private transaction"
+        });
+
+        const result = await sendRailgunBroadcasterTransaction({
+          prepared: preparedPay.privateOperation,
+          policy,
+          onStatus: (msg) => setPayStatus(msg)
+        });
+
+        const txHash = result.transactionHash || "pending";
+        setPayStatus(`Submitted: ${txHash}`);
+        setPayProofProgress({
+          percent: 100,
+          status: `Submitted: ${txHash}`
+        });
+
+        recordDebugEvent({
+          level: "info",
+          source: "pay",
+          message: `Private send submitted: ${txHash}`,
+          detail: `Recipient: ${draft.recipient}\nAmount: ${draft.amount} ETH\nBroadcaster: ${freshSelection.selectedBroadcaster.railgunAddress}`
+        });
+      } else {
+        if (classifyPayTransactionOrigin(privatePayLegs) !== "railgun-private") {
+          setPayStatus("Private Pay route origin is not railgun-private.");
+          return;
+        }
+
+        const paySwapRoutePlan = getPaySwapRoutePlan(asset);
+        const readinessLines = [
+          "✅ Fresh Waku ads checked",
+          `✅ Compatible broadcaster selected: ${
+            freshSelection.selectedRelay.identifier ??
+            freshSelection.selectedRelay.railgunAddress
+          }`,
+          `✅ Broadcaster fee token: ${freshSelection.selectedBroadcaster.tokenFee.token}`,
+          `✅ Broadcaster fee quote: ${freshSelection.selectedBroadcaster.tokenFee.perUnitGas} per gas`,
+          "✅ Public smart-wallet fallback disabled for private source leg",
+          "❌ Kohaku proved private operation not built yet"
+        ];
+
+        try {
+          const changeDisposition =
+            paySwapRoutePlan?.changeDisposition ?? "unknown";
+
+          assertPrivatePayChangeDisposition(changeDisposition);
+          readinessLines.push(
+            changeDisposition === "private-change-to-0zk"
+              ? "✅ Change routing returns to 0zk"
+              : `✅ ${ephemeralPrivatePayChangeMessage}`
+          );
+        } catch {
+          readinessLines.push("❌ Unsafe change routing is blocked");
+        }
+
+        setPayProofProgress({
+          percent: 60,
+          status: readinessLines.join("\n")
+        });
+        setPayStatus(readinessLines.join("\n"));
+        recordDebugEvent({
+          level: "warning",
+          source: "pay",
+          message: "Private Pay readiness checked; final submit still disabled",
+          detail: [
+            `Recipient: ${draft.recipient.trim()}`,
+            `Amount: ${draft.amount.trim()} ${asset.symbol}`,
+            `Railgun address: ${walletState.railgunAddress}`,
+            `Derivation provider: ${walletState.railgunDerivationProvider ?? "unknown"}`,
+            `Broadcaster: ${freshSelection.selectedBroadcaster.railgunAddress}`,
+            `Fee token: ${freshSelection.selectedBroadcaster.tokenFee.token}`,
+            `Fee per gas: ${freshSelection.selectedBroadcaster.tokenFee.perUnitGas}`,
+            readinessLines.join("\n"),
+            kohakuPrivateActionsPendingMessage
+          ].join("\n")
+        });
+        setAppNotice({
+          kind: "warning",
+          title: "Private Pay readiness checked",
+          message:
+            "Fresh Waku broadcaster selection is working, but live Pay remains disabled until Kohaku private operation building and selectable Waku submission are wired."
+        });
       }
-
-      setPayProofProgress({
-        percent: 60,
-        status: readinessLines.join("\n")
-      });
-      setPayStatus(readinessLines.join("\n"));
-      recordDebugEvent({
-        level: "warning",
-        source: "pay",
-        message: "Private Pay readiness checked; final submit still disabled",
-        detail: [
-          `Recipient: ${draft.recipient.trim()}`,
-          `Amount: ${draft.amount.trim()} ${asset.symbol}`,
-          `Railgun address: ${walletState.railgunAddress}`,
-          `Derivation provider: ${walletState.railgunDerivationProvider ?? "unknown"}`,
-          `Broadcaster: ${freshSelection.selectedBroadcaster.railgunAddress}`,
-          `Fee token: ${freshSelection.selectedBroadcaster.tokenFee.token}`,
-          `Fee per gas: ${freshSelection.selectedBroadcaster.tokenFee.perUnitGas}`,
-          readinessLines.join("\n"),
-          kohakuPrivateActionsPendingMessage
-        ].join("\n")
-      });
-      setAppNotice({
-        kind: "warning",
-        title: "Private Pay readiness checked",
-        message:
-          "Fresh Waku broadcaster selection is working, but live Pay remains disabled until Kohaku private operation building and selectable Waku submission are wired."
-      });
     } catch (error) {
       setFreshPrivatePayReadiness(null);
       setPayProofProgress({
@@ -1912,15 +1968,14 @@ function WalletApp() {
             `Recipient: ${draft.recipient.trim()}`,
             `Amount: ${draft.amount.trim()} ${asset.symbol}`,
             `Railgun address: ${walletState.railgunAddress}`,
-            "Private Pay did not fall back to the public smart wallet."
+            "Private action did not fall back to the public smart wallet."
           ].join("\n")
         )
       );
       setAppNotice({
         kind: "warning",
-        title: "Private Pay blocked",
-        message:
-          "Bindle could not select a fresh compatible RAILGUN Waku broadcaster. It did not fall back to public smart-wallet submission."
+        title: "Private action failed",
+        message: error instanceof Error ? error.message : String(error)
       });
     } finally {
       setIsSubmittingPay(false);

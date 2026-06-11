@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   buildPayProofProgress,
+  buildSendProofProgress,
   normalizeRailgunProofProgress
 } from "../src/railgun/proofProgress";
 
@@ -63,3 +64,24 @@ test("pay proof progress includes live proof callback progress", () => {
     ])
   );
 });
+
+test("send proof progress exposes honest stages", () => {
+  const progress = buildSendProofProgress({
+    intentReady: true,
+    endpointsReady: true,
+    proofReady: false,
+    submitting: false,
+    missingEndpointLabels: []
+  });
+
+  expect(progress.percent).toBe(50);
+  expect(progress.stages).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ id: "intent", status: "complete" }),
+      expect.objectContaining({ id: "endpoints", status: "complete" }),
+      expect.objectContaining({ id: "proof", status: "active" }),
+      expect.objectContaining({ id: "submit", status: "waiting" })
+    ])
+  );
+});
+

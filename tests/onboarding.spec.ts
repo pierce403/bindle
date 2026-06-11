@@ -356,6 +356,8 @@ test.describe("passkey-first onboarding", () => {
 
     await page.goto("/");
 
+    await page.getByRole("button", { name: "Or recover / import existing wallet" }).click();
+
     await page
       .getByLabel("Recovery phrase")
       .fill(

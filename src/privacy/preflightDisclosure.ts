@@ -134,3 +134,30 @@ export const buildEndpointDisclosure = (
       required: requirements[control.id] === "required"
     }));
 };
+
+export const actionLabels: Record<IntendedWalletAction, string> = {
+  "start-toolkit": "Start toolkit",
+  "passkey-enroll": "Passkey enroll",
+  "create-smart-wallet": "Create smart wallet",
+  "public-balance-sync": "Public balance sync",
+  "shielded-balance-sync": "Shielded balance sync",
+  "send-review": "Send review",
+  "pay-review": "Pay review",
+  "public-smart-payment": "Public smart payment",
+  "private-send": "Private send",
+  "unshield-review": "Unshield review",
+  "shield-sweep": "Shield sweep"
+};
+
+export const getActionsUsingEndpoint = (
+  endpointId: OutboundClass
+): string[] => {
+  const actions: string[] = [];
+  for (const [actionKey, requirements] of Object.entries(actionEndpointRequirements)) {
+    if (requirements && endpointId in requirements) {
+      actions.push(actionLabels[actionKey as IntendedWalletAction]);
+    }
+  }
+  return actions;
+};
+

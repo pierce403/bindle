@@ -151,7 +151,7 @@ infrastructure.
 
 ## Now
 
-- [ ] Keep mnemonic import as an advanced compatibility/recovery path rather
+- [x] Keep mnemonic import as an advanced compatibility/recovery path rather
       than the primary first-run flow.
 - [x] Persist a non-secret local setup-complete flag after public smart-account
       metadata and browser-local RAILGUN key storage are both present, so the
@@ -201,10 +201,12 @@ infrastructure.
 - [ ] Add non-SDK signature verification for broadcaster fee ads, or get the
       verified selectable broadcaster directly from an updated Kohaku-native
       API, before raw fee ads are allowed to drive live private spending.
+- [x] Wire direct shielded ETH send (transfer and unshield) using the alpha.22
+      prover, Waku broadcaster selection, and broadcaster fee payments.
 - [ ] Build the Kohaku-derived proved private operation that can be handed to
       the Waku broadcaster transport, with change either returned privately to
       0zk or kept in a fresh ephemeral settlement account for later sweep,
-      before enabling live private unshield/Private Pay submission.
+      before enabling live Private Pay (with Uniswap swapping) submission.
 
 ## Privacy And Connectivity
 

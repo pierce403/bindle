@@ -103,3 +103,72 @@ export const buildPayProofProgress = ({
     stages
   };
 };
+
+export const buildSendProofProgress = ({
+  intentReady,
+  endpointsReady,
+  proofReady,
+  submitting,
+  missingEndpointLabels,
+  proofPercent = 0,
+  proofStatus
+}: {
+  intentReady: boolean;
+  endpointsReady: boolean;
+  proofReady: boolean;
+  submitting: boolean;
+  missingEndpointLabels: string[];
+  proofPercent?: number;
+  proofStatus?: string;
+}): ProofProgressSnapshot => {
+  const normalizedProofPercent = clampPercent(proofPercent);
+  const stages: ProofProgressStage[] = [
+    {
+      id: "intent",
+      label: "Intent",
+      detail: intentReady ? "Amount and recipient look valid" : "Waiting for valid details",
+      status: intentReady ? "complete" : "active"
+    },
+    {
+      id: "endpoints",
+      label: "Endpoints",
+      detail: endpointsReady
+        ? "Required endpoints are visible and configured"
+        : `Missing ${missingEndpointLabels.join(", ")}`,
+      status: endpointsReady ? "complete" : "blocked"
+    },
+    {
+      id: "proof",
+      label: "Proof",
+      detail: proofReady
+        ? "RAILGUN proof generated"
+        : endpointsReady
+          ? (proofStatus ?? "Generating RAILGUN proof")
+          : "Waiting for RAILGUN proof generation",
+      status: proofReady ? "complete" : endpointsReady ? "active" : "waiting"
+    },
+    {
+      id: "submit",
+      label: "Submit",
+      detail: submitting
+        ? "Submitting transaction"
+        : "Submission stays disabled until proof is complete",
+      status: submitting ? "active" : proofReady ? "waiting" : "waiting"
+    }
+  ];
+  const completeStages = stages.filter((stage) => stage.status === "complete");
+  const blockedStage = stages.find((stage) => stage.status === "blocked");
+  const activeProofProgress =
+    stages.find((stage) => stage.id === "proof")?.status === "active"
+      ? normalizedProofPercent / 100
+      : 0;
+
+  return {
+    percent: clampPercent(
+      ((completeStages.length + activeProofProgress) / stages.length) * 100
+    ),
+    status: blockedStage ? blockedStage.detail : stages.find((stage) => stage.status === "active")?.detail ?? "Ready",
+    stages
+  };
+};
+

@@ -13,7 +13,7 @@ import {
   type RailgunBroadcasterFeeToken,
   type RailgunBroadcasterMode
 } from "../privacy/connectionPolicy";
-import { buildEndpointDisclosure } from "../privacy/preflightDisclosure";
+import { buildEndpointDisclosure, getActionsUsingEndpoint } from "../privacy/preflightDisclosure";
 import { privacyToolkitOptions } from "../privacy/toolkit";
 
 type PrivacySwitchboardProps = {
@@ -532,18 +532,37 @@ export function PrivacySwitchboard({
       </label>
 
       <div className="connection-list">
-        {controls.map((control) => (
-          <div className="connection-item" key={control.id}>
-            <div className={`status-dot ${control.mode}`} />
-            <div>
-              <strong>{control.label}</strong>
-              <span>{control.value}</span>
+        {controls.map((control) => {
+          const actions = getActionsUsingEndpoint(control.id);
+          return (
+            <div className="connection-item" key={control.id}>
+              <div className={`status-dot ${control.mode}`} />
+              <div>
+                <strong>{control.label}</strong>
+                <span>{control.value}</span>
+                {actions.length > 0 ? (
+                  <details className="connection-audit-details">
+                    <summary>Show actions ({actions.length})</summary>
+                    <div className="connection-audit-actions">
+                      {actions.map((act) => (
+                        <div key={act} className="audit-action-badge">
+                          {act}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                ) : (
+                  <div className="connection-audit-details">
+                    <small className="audit-label">No actions use this endpoint</small>
+                  </div>
+                )}
+              </div>
+              <span className={`source-badge ${control.source}`}>
+                {control.source}
+              </span>
             </div>
-            <span className={`source-badge ${control.source}`}>
-              {control.source}
-            </span>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="preflight-card" aria-label="Start toolkit preflight">

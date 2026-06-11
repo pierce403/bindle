@@ -33,7 +33,7 @@ import {
 } from "../intents/swapRouting";
 import { isValidDecimalAmount, isValidRecipientShape } from "../intents/validation";
 import type { EndpointDisclosure } from "../privacy/preflightDisclosure";
-import { buildPayProofProgress } from "../railgun/proofProgress";
+import { buildPayProofProgress, buildSendProofProgress } from "../railgun/proofProgress";
 import type { WalletState } from "../wallet/walletState";
 import type { WalletAction } from "./BalancePanel";
 import { ProofProgressPanel } from "./ProofProgressPanel";
@@ -195,6 +195,15 @@ export function WalletActionPanel({
       (endpoint) => endpoint.label
     ),
     routeLabel: paySwapRoutePlan?.executionLabel ?? "Route",
+  });
+  const sendProofProgress = buildSendProofProgress({
+    intentReady: canReviewShielded,
+    endpointsReady: requiredEndpointsReady,
+    proofReady: payProofPercent >= 100,
+    submitting: isSubmittingPay,
+    missingEndpointLabels: missingRequiredEndpoints.map(
+      (endpoint) => endpoint.label
+    ),
     proofPercent: payProofPercent,
     proofStatus: payProofStatus || undefined
   });
@@ -929,10 +938,21 @@ export function WalletActionPanel({
             <strong>Amount</strong>
             <span>{draft.amount.trim()} ETH</span>
           </div>
-          <button className="secondary-action wide" type="button" disabled>
+          {isSubmittingPay || payProofPercent > 0 ? (
+            <ProofProgressPanel progress={sendProofProgress} />
+          ) : null}
+          <button
+            className="secondary-action wide"
+            type="button"
+            disabled={!canReviewShielded || isSubmittingPay}
+            onClick={onSubmitPay}
+          >
             <Send size={18} aria-hidden="true" />
-            Private send pending
+            {isSubmittingPay ? "Submitting" : "Submit private send"}
           </button>
+          {payStatus ? (
+            <p className="status-message pay-status-message">{payStatus}</p>
+          ) : null}
         </div>
       ) : null}
 
