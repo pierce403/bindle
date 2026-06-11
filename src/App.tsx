@@ -583,7 +583,7 @@ function WalletApp() {
     providerMode: policy.providerMode
   });
   const canShield = shieldReadiness.ready && !isSubmittingShield;
-  const isUnshieldedLessThanADollar = (() => {
+  const isUnshieldedLessThanMinimum = (() => {
     if (publicBalance.status !== "ready") {
       return false;
     }
@@ -593,10 +593,15 @@ function WalletApp() {
     const price = visibleShieldedBalance?.price;
     if (price) {
       const usdScaled = (publicBalanceWei * price.answer) / 10n ** 18n;
-      const oneDollarScaled = 10n ** BigInt(price.decimals);
-      return usdScaled < oneDollarScaled;
+      const twoDollarsScaled = 2n * (10n ** BigInt(price.decimals));
+      const absoluteMinGasReserveWei = 1_000_000_000_000_000n; // 0.001 ETH
+      const minGasReserveUsdScaled = (absoluteMinGasReserveWei * price.answer) / 10n ** 18n;
+      const minimumUsdScaled = twoDollarsScaled > minGasReserveUsdScaled
+        ? twoDollarsScaled
+        : minGasReserveUsdScaled;
+      return usdScaled < minimumUsdScaled;
     }
-    return publicBalanceWei < 300_000_000_000_000n;
+    return publicBalanceWei < 1_000_000_000_000_000n; // 0.001 ETH (absolute min gas reserve)
   })();
   const shieldDisclosure =
     publicBalance.status === "ready"
@@ -2709,7 +2714,7 @@ function WalletApp() {
               onSyncShielded={() => void syncShieldedBalance()}
             />
 
-            {!isUnshieldedLessThanADollar ? (
+            {!isUnshieldedLessThanMinimum ? (
               <UnshieldedBalanceBanner
                 balance={knownPublicBalance}
                 balanceWei={publicBalanceWei}
