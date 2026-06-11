@@ -299,16 +299,23 @@ export const prepareRailgunPayForRecipient = async ({
     const assetId = kohaku.erc20(chain.wrappedBaseToken);
     const value = parseUnits(amount.trim(), 18);
 
-    if (recipient.trim().startsWith("0zk")) {
+    let resolvedRecipient = recipient.trim();
+    if (!resolvedRecipient.startsWith("0zk")) {
+      onStatus("Resolving recipient address");
+      const { resolvePublicRecipient } = await import("../wallet/smartAccountAdapter");
+      resolvedRecipient = await resolvePublicRecipient(policy, resolvedRecipient);
+    }
+
+    if (resolvedRecipient.startsWith("0zk")) {
       builder.transfer(
         signer,
-        recipient.trim() as `0zk${string}`,
+        resolvedRecipient as `0zk${string}`,
         assetId,
         value,
         "Private payment"
       );
     } else {
-      builder.unshield(signer, recipient.trim() as `0x${string}`, assetId, value);
+      builder.unshield(signer, resolvedRecipient as `0x${string}`, assetId, value);
     }
 
     if (broadcaster) {

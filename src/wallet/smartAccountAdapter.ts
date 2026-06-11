@@ -264,7 +264,7 @@ export const resolvePublicRecipient = async (
   }
 
   throw new Error(
-    "Public smart-wallet payments currently require a 0x address or .eth name."
+    "Recipient must be a valid 0x address or .eth name."
   );
 };
 
