@@ -1,8 +1,8 @@
 import {
-  ArrowDownToLine,
   ArrowRight,
   ArrowUpFromLine,
   AlertTriangle,
+  Check,
   Copy,
   LockKeyhole,
   QrCode,
@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import QRCode from "qrcode";
 import { getPayAsset, searchPayAssets } from "../intents/assets";
 import {
   describePaySettlement,
@@ -97,6 +98,43 @@ type WalletActionPanelProps = {
   onRouteChange: (intent: RoutedIntent) => void;
 };
 
+type AddressQrCodeProps = {
+  address: string;
+};
+
+function AddressQrCode({ address }: AddressQrCodeProps) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    if (!canvasRef.current || !address) {
+      return;
+    }
+    QRCode.toCanvas(
+      canvasRef.current,
+      address,
+      {
+        width: 176,
+        margin: 0,
+        color: {
+          dark: "#000000",
+          light: "#ffffff"
+        }
+      },
+      (error) => {
+        if (error) {
+          console.error("Failed to generate QR code:", error);
+        }
+      }
+    );
+  }, [address]);
+
+  return (
+    <div className="qr-code-wrapper">
+      <canvas ref={canvasRef} />
+    </div>
+  );
+}
+
 export function WalletActionPanel({
   action,
   draft,
@@ -127,6 +165,7 @@ export function WalletActionPanel({
     "shielded"
   );
   const [sendMode, setSendMode] = useState<"shielded" | "public">("shielded");
+  const [copied, setCopied] = useState(false);
   const [reviewingPayment, setReviewingPayment] = useState(false);
   const [assetQuery, setAssetQuery] = useState("");
   const [paymentRequestOpen, setPaymentRequestOpen] = useState(false);
@@ -258,6 +297,7 @@ export function WalletActionPanel({
     setReviewingPayment(false);
     setPaymentRequestOpen(false);
     setPaymentRequestError("");
+    setCopied(false);
     stopQrScanner();
   }, [action]);
 
@@ -357,117 +397,179 @@ export function WalletActionPanel({
 
   const copyAddress = async (address: string) => {
     await navigator.clipboard.writeText(address);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   if (action === "receive") {
-    return (
-      <section className="panel action-panel" aria-labelledby="receive-heading">
-        <div className="section-heading">
-          <div>
-            <h2 id="receive-heading">Receive ETH</h2>
-            <span>Ethereum mainnet</span>
+    const receiveFlow = (
+      <div
+        className="modal-backdrop receive-flow-backdrop"
+        onClick={onCloseAction}
+      >
+        <section
+          className="modal-sheet receive-flow-sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="receive-heading"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="modal-sheet-header">
+            <div>
+              <span>Ethereum mainnet</span>
+              <h2 id="receive-heading">Receive ETH</h2>
+            </div>
+            <button
+              className="icon-button ghost"
+              type="button"
+              aria-label="Close Receive"
+              onClick={onCloseAction}
+            >
+              <X size={20} aria-hidden="true" />
+            </button>
           </div>
-          <ArrowDownToLine size={21} aria-hidden="true" />
-        </div>
 
-        <div className="mode-selector" aria-label="Receive mode">
-          <button
-            type="button"
-            aria-pressed={receiveMode === "shielded"}
-            onClick={() => setReceiveMode("shielded")}
-          >
-            Shielded
-          </button>
-          <button
-            type="button"
-            aria-pressed={receiveMode === "public"}
-            onClick={() => setReceiveMode("public")}
-          >
-            Public
-          </button>
-        </div>
+          <div className="mode-selector" aria-label="Receive mode">
+            <button
+              type="button"
+              aria-pressed={receiveMode === "shielded"}
+              onClick={() => {
+                setCopied(false);
+                setReceiveMode("shielded");
+              }}
+            >
+              Shielded
+            </button>
+            <button
+              type="button"
+              aria-pressed={receiveMode === "public"}
+              onClick={() => {
+                setCopied(false);
+                setReceiveMode("public");
+              }}
+            >
+              Public
+            </button>
+          </div>
 
-        {receiveMode === "shielded" ? (
-          <div className="empty-state compact">
-            <LockKeyhole size={22} aria-hidden="true" />
-            <strong>
-              {walletState.railgunAddress
-                ? "Shielded address ready"
-                : "Shielded address pending"}
-            </strong>
-            <span>
-              {walletState.railgunAddress
-                ? walletState.railgunAddress
-                : "Create or import a shielded RAILGUN wallet in setup."}
-            </span>
-            {walletState.railgunAddress ? (
-              <button
-                className="secondary-action wide"
-                type="button"
-                onClick={() => void copyAddress(walletState.railgunAddress ?? "")}
-              >
-                <Copy size={18} aria-hidden="true" />
-                Copy 0zk address
-              </button>
-            ) : walletState.status === "error" && walletState.lastError ? (
-              <span>{walletState.lastError}</span>
-            ) : null}
-          </div>
-        ) : (
-          <div className="empty-state compact">
-            <LockKeyhole size={22} aria-hidden="true" />
-            <strong>
-              {walletState.smartWalletAddress
-                ? "Funding address ready"
-                : walletState.passkeyPublicKey
-                  ? "Funding address pending"
-                : walletState.passkeyPresent
-                  ? "Funding passkey needed"
-                  : "No public smart wallet yet"}
-            </strong>
-            <span>
-              {walletState.smartWalletAddress
-                ? walletState.smartWalletAddress
-                : walletState.passkeyPublicKey
-                  ? rpcConfigured
-                    ? "Create the funding address, then send ETH to it from another wallet."
-                    : "Configure Ethereum RPC to create the funding address."
-                : walletState.passkeyPresent
-                  ? "Create a funding passkey to derive a public smart-wallet address."
-                  : "Create the passkey-backed smart wallet before receiving public ETH."}
-            </span>
-            {walletState.smartWalletAddress ? (
-              <button
-                className="secondary-action wide"
-                type="button"
-                onClick={() => void copyAddress(walletState.smartWalletAddress ?? "")}
-              >
-                <Copy size={18} aria-hidden="true" />
-                Copy address
-              </button>
-            ) : canCreateFundingAddress ? (
-              <button
-                className="primary-action wide"
-                type="button"
-                onClick={onDeriveSmartWallet}
-              >
-                <LockKeyhole size={18} aria-hidden="true" />
-                Create funding address
-              </button>
-            ) : walletState.passkeyPublicKey ? (
-              <button
-                className="secondary-action wide"
-                type="button"
-                onClick={onOpenConnections}
-              >
-                <LockKeyhole size={18} aria-hidden="true" />
-                Configure RPC
-              </button>
-            ) : null}
-          </div>
-        )}
-      </section>
+          {receiveMode === "shielded" ? (
+            <div className="empty-state compact">
+              <LockKeyhole size={22} aria-hidden="true" />
+              <strong>
+                {walletState.railgunAddress
+                  ? "Shielded address ready"
+                  : "Shielded address pending"}
+              </strong>
+              
+              {walletState.railgunAddress ? (
+                <>
+                  <AddressQrCode address={walletState.railgunAddress} />
+                  <div className="address-display-container">
+                    <div className="address-text-box">{walletState.railgunAddress}</div>
+                    <button
+                      className="secondary-action wide"
+                      type="button"
+                      onClick={() => void copyAddress(walletState.railgunAddress ?? "")}
+                    >
+                      {copied ? (
+                        <>
+                          <Check size={18} aria-hidden="true" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={18} aria-hidden="true" />
+                          Copy 0zk address
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <span>Create or import a shielded RAILGUN wallet in setup.</span>
+              )}
+              {walletState.status === "error" && walletState.lastError ? (
+                <span>{walletState.lastError}</span>
+              ) : null}
+            </div>
+          ) : (
+            <div className="empty-state compact">
+              <LockKeyhole size={22} aria-hidden="true" />
+              <strong>
+                {walletState.smartWalletAddress
+                  ? "Funding address ready"
+                  : walletState.passkeyPublicKey
+                    ? "Funding address pending"
+                    : walletState.passkeyPresent
+                      ? "Funding passkey needed"
+                      : "No public smart wallet yet"}
+              </strong>
+
+              {walletState.smartWalletAddress ? (
+                <>
+                  <AddressQrCode address={walletState.smartWalletAddress} />
+                  <div className="address-display-container">
+                    <div className="address-text-box">{walletState.smartWalletAddress}</div>
+                    <button
+                      className="secondary-action wide"
+                      type="button"
+                      onClick={() => void copyAddress(walletState.smartWalletAddress ?? "")}
+                    >
+                      {copied ? (
+                        <>
+                          <Check size={18} aria-hidden="true" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={18} aria-hidden="true" />
+                          Copy address
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span>
+                    {walletState.passkeyPublicKey
+                      ? rpcConfigured
+                        ? "Create the funding address, then send ETH to it from another wallet."
+                        : "Configure Ethereum RPC to create the funding address."
+                      : walletState.passkeyPresent
+                        ? "Create a funding passkey to derive a public smart-wallet address."
+                        : "Create the passkey-backed smart wallet before receiving public ETH."}
+                  </span>
+                  {canCreateFundingAddress ? (
+                    <button
+                      className="primary-action wide"
+                      type="button"
+                      onClick={onDeriveSmartWallet}
+                    >
+                      <LockKeyhole size={18} aria-hidden="true" />
+                      Create funding address
+                    </button>
+                  ) : walletState.passkeyPublicKey ? (
+                    <button
+                      className="secondary-action wide"
+                      type="button"
+                      onClick={onOpenConnections}
+                    >
+                      <LockKeyhole size={18} aria-hidden="true" />
+                      Configure RPC
+                    </button>
+                  ) : null}
+                </>
+              )}
+            </div>
+          )}
+        </section>
+      </div>
     );
+
+    return modalPortalTarget
+      ? createPortal(receiveFlow, modalPortalTarget)
+      : receiveFlow;
   }
 
   if (action === "pay") {

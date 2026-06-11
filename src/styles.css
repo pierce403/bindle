@@ -2420,3 +2420,55 @@ button:disabled {
     justify-content: space-between;
   }
 }
+
+.receive-flow-backdrop {
+  z-index: 80;
+  align-items: center;
+}
+
+.receive-flow-sheet {
+  width: min(100%, 430px);
+  padding-bottom: max(18px, env(safe-area-inset-bottom));
+}
+
+.qr-code-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 16px auto;
+  padding: 12px;
+  background: #ffffff; /* White background for scannability */
+  border-radius: 14px;
+  width: 200px;
+  height: 200px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.qr-code-wrapper canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.address-display-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.address-text-box {
+  word-break: break-all;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.8rem;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: var(--text);
+  text-align: center;
+  user-select: all;
+  line-height: 1.45;
+}
