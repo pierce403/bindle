@@ -1,6 +1,5 @@
 import {
   ArrowRight,
-  ArrowUpFromLine,
   AlertTriangle,
   Check,
   Copy,
@@ -269,7 +268,7 @@ export function WalletActionPanel({
   const payRouteReady = payRouteBlockers.length === 0;
 
   useEffect(() => {
-    setModalPortalTarget(document.querySelector(".app-shell"));
+    setModalPortalTarget(document.querySelector(".app-content"));
   }, []);
 
   const updateDraft = (nextDraft: IntentDraft) => {
@@ -325,6 +324,33 @@ export function WalletActionPanel({
     return true;
   };
 
+  const applyScannedRecipient = (rawValue: string) => {
+    const value = rawValue.trim();
+    if (isValidRecipientShape(value)) {
+      updateDraft({ ...draft, recipient: value });
+      return true;
+    }
+
+    const parsed = parsePaymentRequest(value);
+    if (parsed.ok) {
+      updateDraft({
+        ...draft,
+        recipient: parsed.request.recipient,
+        amount: parsed.request.amount || draft.amount,
+        note: parsed.request.note || draft.note
+      });
+      return true;
+    }
+
+    const cleanPrefix = value.replace(/^(bindle:pay\?to=|bindle:|ethereum:)/i, "");
+    if (isValidRecipientShape(cleanPrefix)) {
+      updateDraft({ ...draft, recipient: cleanPrefix });
+      return true;
+    }
+
+    return false;
+  };
+
   const scanPaymentQr = async () => {
     setPaymentRequestError("");
 
@@ -365,9 +391,15 @@ export function WalletActionPanel({
           const results = await detector.detect(videoRef.current);
           const rawValue = results[0]?.rawValue;
 
-          if (rawValue && applyPaymentRequest(rawValue)) {
-            stopQrScanner();
-            return;
+          if (rawValue) {
+            const success =
+              action === "pay"
+                ? applyPaymentRequest(rawValue)
+                : applyScannedRecipient(rawValue);
+            if (success) {
+              stopQrScanner();
+              return;
+            }
           }
         } catch (error) {
           stopQrScanner();
@@ -900,181 +932,231 @@ export function WalletActionPanel({
     );
   }
 
-  return (
-    <section className="panel action-panel" aria-labelledby="send-heading">
-      <div className="section-heading">
-        <div>
-          <h2 id="send-heading">Send ETH</h2>
-          <span>
-            {sendMode === "shielded" ? "Railgun shielded ETH" : "Public ETH"}
-          </span>
-        </div>
-        <ArrowUpFromLine size={21} aria-hidden="true" />
-      </div>
-
-      <div className="mode-selector" aria-label="Send mode">
-        <button
-          type="button"
-          aria-pressed={sendMode === "shielded"}
-          onClick={() => {
-            setReviewingPayment(false);
-            setSendMode("shielded");
-          }}
+  if (action === "send") {
+    const sendFlow = (
+      <div
+        className="modal-backdrop send-flow-backdrop"
+        onClick={onCloseAction}
+      >
+        <section
+          className="modal-sheet send-flow-sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="send-heading"
+          onClick={(event) => event.stopPropagation()}
         >
-          Shielded
-        </button>
-        <button
-          type="button"
-          aria-pressed={sendMode === "public"}
-          onClick={() => {
-            setReviewingPayment(false);
-            setSendMode("public");
-          }}
-        >
-          Public
-        </button>
-      </div>
-
-      <div className="amount-entry single-asset">
-        <input
-          aria-label="Amount"
-          inputMode="decimal"
-          value={draft.amount}
-          placeholder="0.00"
-          onChange={(event) =>
-            updateDraft({ ...draft, amount: event.currentTarget.value })
-          }
-        />
-        <span>ETH</span>
-      </div>
-
-      <label className="field">
-        <span>To</span>
-        <input
-          value={draft.recipient}
-          onChange={(event) =>
-            updateDraft({ ...draft, recipient: event.currentTarget.value })
-          }
-          placeholder="0zk, 0x, or .eth"
-        />
-      </label>
-
-      <label className="field">
-        <span>Note</span>
-        <input
-          value={draft.note}
-          onChange={(event) =>
-            updateDraft({ ...draft, note: event.currentTarget.value })
-          }
-          placeholder="optional"
-        />
-      </label>
-
-      <div className="route-card">
-        <div>
-          <span>Route</span>
-          <strong>{hasRecipient ? routedIntent.route.name : "pending"}</strong>
-        </div>
-        <Shuffle size={19} aria-hidden="true" />
-        <div>
-          <span>Action</span>
-          <strong>{hasRecipient ? routedIntent.privateLeg.action : "pending"}</strong>
-        </div>
-      </div>
-
-      <div className="preflight-card" aria-label="Endpoint preflight">
-        <span>Could contact</span>
-        {endpointDisclosures.map((endpoint) => (
-          <div className="preflight-row" key={endpoint.id}>
-            <strong>{endpoint.label}</strong>
-            <span>
-              {endpoint.configured
-                ? `${endpoint.source}: ${endpoint.value}`
-                : endpoint.required
-                  ? "required, not connected"
-                  : "off"}
-            </span>
+          <div className="modal-sheet-header">
+            <div>
+              <span>
+                {sendMode === "shielded" ? "Railgun shielded ETH" : "Public ETH"}
+              </span>
+              <h2 id="send-heading">Send ETH</h2>
+            </div>
+            <button
+              className="icon-button ghost"
+              type="button"
+              aria-label="Close Send"
+              onClick={onCloseAction}
+            >
+              <X size={20} aria-hidden="true" />
+            </button>
           </div>
-        ))}
-      </div>
 
-      {reviewingPayment && sendMode === "public" ? (
-        <div className="review-card" aria-label="Review public payment">
-          <span>Review public payment</span>
-          <div>
-            <strong>From</strong>
-            <span>{walletState.smartWalletAddress}</span>
+          <div className="mode-selector" aria-label="Send mode">
+            <button
+              type="button"
+              aria-pressed={sendMode === "shielded"}
+              onClick={() => {
+                setReviewingPayment(false);
+                setSendMode("shielded");
+              }}
+            >
+              Shielded
+            </button>
+            <button
+              type="button"
+              aria-pressed={sendMode === "public"}
+              onClick={() => {
+                setReviewingPayment(false);
+                setSendMode("public");
+              }}
+            >
+              Public
+            </button>
           </div>
-          <div>
-            <strong>To</strong>
-            <span>{draft.recipient.trim()}</span>
+
+          <div className="pay-tools">
+            <button
+              className="secondary-action"
+              type="button"
+              onClick={() => void scanPaymentQr()}
+            >
+              <QrCode size={17} aria-hidden="true" />
+              Scan QR
+            </button>
           </div>
-          <div>
-            <strong>Amount</strong>
-            <span>{draft.amount.trim()} ETH</span>
+
+          {qrScanning ? (
+            <div className="qr-scanner" aria-label="QR scanner">
+              <video ref={videoRef} muted playsInline />
+              <button
+                className="secondary-action wide"
+                type="button"
+                onClick={stopQrScanner}
+              >
+                Cancel scan
+              </button>
+            </div>
+          ) : null}
+
+          <div className="amount-entry single-asset">
+            <input
+              aria-label="Amount"
+              inputMode="decimal"
+              value={draft.amount}
+              placeholder="0.00"
+              onChange={(event) =>
+                updateDraft({ ...draft, amount: event.currentTarget.value })
+              }
+            />
+            <span>ETH</span>
           </div>
+
+          <label className="field">
+            <span>To</span>
+            <input
+              value={draft.recipient}
+              onChange={(event) =>
+                updateDraft({ ...draft, recipient: event.currentTarget.value })
+              }
+              placeholder="0zk, 0x, or .eth"
+            />
+          </label>
+
+          <label className="field">
+            <span>Note</span>
+            <input
+              value={draft.note}
+              onChange={(event) =>
+                updateDraft({ ...draft, note: event.currentTarget.value })
+              }
+              placeholder="optional"
+            />
+          </label>
+
+          <div className="route-card">
+            <div>
+              <span>Route</span>
+              <strong>{hasRecipient ? routedIntent.route.name : "pending"}</strong>
+            </div>
+            <Shuffle size={19} aria-hidden="true" />
+            <div>
+              <span>Action</span>
+              <strong>{hasRecipient ? routedIntent.privateLeg.action : "pending"}</strong>
+            </div>
+          </div>
+
+          <div className="preflight-card" aria-label="Endpoint preflight">
+            <span>Could contact</span>
+            {endpointDisclosures.map((endpoint) => (
+              <div className="preflight-row" key={endpoint.id}>
+                <strong>{endpoint.label}</strong>
+                <span>
+                  {endpoint.configured
+                    ? `${endpoint.source}: ${endpoint.value}`
+                    : endpoint.required
+                      ? "required, not connected"
+                      : "off"}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {reviewingPayment && sendMode === "public" ? (
+            <div className="review-card" aria-label="Review public payment">
+              <span>Review public payment</span>
+              <div>
+                <strong>From</strong>
+                <span>{walletState.smartWalletAddress}</span>
+              </div>
+              <div>
+                <strong>To</strong>
+                <span>{draft.recipient.trim()}</span>
+              </div>
+              <div>
+                <strong>Amount</strong>
+                <span>{draft.amount.trim()} ETH</span>
+              </div>
+              <button
+                className="primary-action wide"
+                type="button"
+                disabled={!canReviewPublic || isSubmittingSmartPayment}
+                onClick={onSubmitSmartPayment}
+              >
+                <Send size={18} aria-hidden="true" />
+                {isSubmittingSmartPayment ? "Submitting" : "Submit public payment"}
+              </button>
+            </div>
+          ) : null}
+
+          {reviewingPayment && sendMode === "shielded" ? (
+            <div className="review-card" aria-label="Review shielded payment">
+              <span>Review shielded payment</span>
+              <div>
+                <strong>From</strong>
+                <span>{walletState.railgunAddress}</span>
+              </div>
+              <div>
+                <strong>To</strong>
+                <span>{draft.recipient.trim()}</span>
+              </div>
+              <div>
+                <strong>Amount</strong>
+                <span>{draft.amount.trim()} ETH</span>
+              </div>
+              {isSubmittingPay || payProofPercent > 0 ? (
+                <ProofProgressPanel progress={sendProofProgress} />
+              ) : null}
+              <button
+                className="secondary-action wide"
+                type="button"
+                disabled={!canReviewShielded || isSubmittingPay}
+                onClick={onSubmitPay}
+              >
+                <Send size={18} aria-hidden="true" />
+                {isSubmittingPay ? "Submitting" : "Submit private send"}
+              </button>
+              {payStatus ? (
+                <p className="status-message pay-status-message">{payStatus}</p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {smartPaymentStatus ? (
+            <p className="status-message">{smartPaymentStatus}</p>
+          ) : null}
+
           <button
             className="primary-action wide"
             type="button"
-            disabled={!canReviewPublic || isSubmittingSmartPayment}
-            onClick={onSubmitSmartPayment}
+            disabled={!canReview}
+            onClick={() => {
+              setReviewingPayment(true);
+            }}
           >
             <Send size={18} aria-hidden="true" />
-            {isSubmittingSmartPayment ? "Submitting" : "Submit public payment"}
+            {sendMode === "public" && hasSmartWallet
+              ? "Review public payment"
+              : "Review"}
           </button>
-        </div>
-      ) : null}
+        </section>
+      </div>
+    );
 
-      {reviewingPayment && sendMode === "shielded" ? (
-        <div className="review-card" aria-label="Review shielded payment">
-          <span>Review shielded payment</span>
-          <div>
-            <strong>From</strong>
-            <span>{walletState.railgunAddress}</span>
-          </div>
-          <div>
-            <strong>To</strong>
-            <span>{draft.recipient.trim()}</span>
-          </div>
-          <div>
-            <strong>Amount</strong>
-            <span>{draft.amount.trim()} ETH</span>
-          </div>
-          {isSubmittingPay || payProofPercent > 0 ? (
-            <ProofProgressPanel progress={sendProofProgress} />
-          ) : null}
-          <button
-            className="secondary-action wide"
-            type="button"
-            disabled={!canReviewShielded || isSubmittingPay}
-            onClick={onSubmitPay}
-          >
-            <Send size={18} aria-hidden="true" />
-            {isSubmittingPay ? "Submitting" : "Submit private send"}
-          </button>
-          {payStatus ? (
-            <p className="status-message pay-status-message">{payStatus}</p>
-          ) : null}
-        </div>
-      ) : null}
+    return modalPortalTarget
+      ? createPortal(sendFlow, modalPortalTarget)
+      : sendFlow;
+  }
 
-      {smartPaymentStatus ? (
-        <p className="status-message">{smartPaymentStatus}</p>
-      ) : null}
-
-      <button
-        className="primary-action wide"
-        type="button"
-        disabled={!canReview}
-        onClick={() => {
-          setReviewingPayment(true);
-        }}
-      >
-        <Send size={18} aria-hidden="true" />
-        {sendMode === "public" && hasSmartWallet
-          ? "Review public payment"
-          : "Review"}
-      </button>
-    </section>
-  );
+  return null;
 }

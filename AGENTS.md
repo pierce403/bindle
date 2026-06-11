@@ -465,6 +465,7 @@ avoids requiring GitHub workflow scope.
   RAILGUN wallet creation with a real `0zk` address, visible default endpoints,
   Privacy max clearing hosted endpoints, and a skipped acceptance spec for the
   future real public-ETH shield sweep.
+- The main wallet screen (`BalancePanel`) has no public smart account or `0zk` addresses to keep it clean and focused. Instead, these addresses and their copy actions are housed inside the Receive modal overlay. Bottom navigation (`.bottom-nav`) is anchored absolutely to the bottom of the `.phone-frame` container, and the content container `.app-content` has a bottom padding of `96px` to keep scrollable elements accessible. In E2E onboarding tests, the Send modal must be closed before clicking navigation tabs to avoid click interception from the backdrop, and tests verifying wallet details must click "Receive" to make the `0zk` address visible.
 
 ## Current Missing Product Work
 

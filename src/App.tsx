@@ -105,10 +105,7 @@ import {
   sendSmartWalletEthPayment
 } from "./wallet/smartAccountAdapter";
 import {
-  fetchSmartAccountDeploymentStatus,
-  initialSmartAccountDeploymentStatus,
-  smartAccountDeploymentLabel,
-  type SmartAccountDeploymentStatus
+  fetchSmartAccountDeploymentStatus
 } from "./wallet/smartAccountDeployment";
 import {
   fetchPublicEthBalance,
@@ -479,10 +476,7 @@ function WalletApp() {
   );
   const [relayWatchStatus, setRelayWatchStatus] = useState("idle");
   const relayRegistryRef = useRef(relayRegistry);
-  const [smartAccountDeployment, setSmartAccountDeployment] =
-    useState<SmartAccountDeploymentStatus>(() =>
-      initialSmartAccountDeploymentStatus(loadWalletState().smartWalletAddress)
-    );
+
   const publicBalanceRequestRef = useRef(0);
   const publicActivityRequestRef = useRef(0);
   const shieldedBalanceRequestRef = useRef(0);
@@ -496,12 +490,6 @@ function WalletApp() {
   const rpcReady = toolkitState === "ready" && policy.ethereumRpcUrl.length > 0;
   const bundlerReady = policy.bundlerUrl.trim().length > 0;
   const rpcConfigured = policy.ethereumRpcUrl.trim().length > 0;
-  const smartWalletStatus = walletState.smartWalletAddress
-    ? "ready"
-    : walletState.passkeyPresent
-      ? "pending"
-      : "not created";
-  const railgunStatus = walletState.railgunAddress ? "ready" : "not created";
   const hasOnboardingWalletShape =
     walletState.smartWalletAddress !== null && walletState.railgunAddress !== null;
   const localWalletProvisioned =
@@ -585,9 +573,6 @@ function WalletApp() {
   const balanceLabel = isShowingCachedShieldedBalance
     ? "Shielded balance (last synced)"
     : "Shielded balance";
-  const smartWalletDeploymentStatus = smartAccountDeploymentLabel(
-    smartAccountDeployment
-  );
   const shieldReadiness = assessShieldReadiness({
     smartWalletAddress: walletState.smartWalletAddress,
     railgunAddress: walletState.railgunAddress,
@@ -675,6 +660,10 @@ function WalletApp() {
   useEffect(() => {
     relayRegistryRef.current = relayRegistry;
   }, [relayRegistry]);
+
+  useEffect(() => {
+    setActiveAction(null);
+  }, [activeTab]);
 
   useEffect(() => {
     if (!relayAutoWatchEnabled) {
@@ -1163,18 +1152,15 @@ function WalletApp() {
     const smartWalletAddress = walletState.smartWalletAddress;
 
     if (!smartWalletAddress) {
-      setSmartAccountDeployment({ status: "missing-wallet" });
       return;
     }
 
     if (!policy.ethereumRpcUrl.trim()) {
-      setSmartAccountDeployment({ status: "missing-rpc" });
       return;
     }
 
     const requestId = smartAccountDeploymentRequestRef.current + 1;
     smartAccountDeploymentRequestRef.current = requestId;
-    setSmartAccountDeployment({ status: "checking" });
     recordDebugEvent({
       level: "info",
       source: "smart-account",
@@ -1189,8 +1175,6 @@ function WalletApp() {
       );
 
       if (smartAccountDeploymentRequestRef.current === requestId) {
-        setSmartAccountDeployment(deployment);
-
         if (
           deployment.status === "deployed" ||
           deployment.status === "counterfactual"
@@ -1211,13 +1195,12 @@ function WalletApp() {
       }
     } catch (error) {
       if (smartAccountDeploymentRequestRef.current === requestId) {
-        const message = messageFromError(
+        messageFromError(
           error,
           "Unable to check smart-account deployment",
           "smart-account",
           `Address: ${smartWalletAddress}\nRPC: ${policy.ethereumRpcUrl.trim()}`
         );
-        setSmartAccountDeployment({ status: "error", message });
       }
     }
   };
@@ -1529,13 +1512,11 @@ function WalletApp() {
 
     if (!smartWalletAddress) {
       publicBalanceAutoSyncKeyRef.current = null;
-      setSmartAccountDeployment({ status: "missing-wallet" });
       return;
     }
 
     if (!ethereumRpcUrl) {
       publicBalanceAutoSyncKeyRef.current = null;
-      setSmartAccountDeployment({ status: "missing-rpc" });
       return;
     }
 
@@ -2047,7 +2028,6 @@ function WalletApp() {
         policy,
         walletState.smartWalletAddress
       );
-      setSmartAccountDeployment(deployment);
 
       if (deployment.status === "counterfactual") {
         setShieldStatus("Deploying public smart account before shield sweep");
@@ -2074,11 +2054,10 @@ function WalletApp() {
             : `Public smart-account deployment user operation submitted: ${deployResult.userOperationHash}`
         });
 
-        const [postDeployment, postDeploymentBalance] = await Promise.all([
-          fetchSmartAccountDeploymentStatus(policy, walletState.smartWalletAddress),
-          fetchPublicEthBalance(policy, walletState.smartWalletAddress)
-        ]);
-        setSmartAccountDeployment(postDeployment);
+        const postDeploymentBalance = await fetchPublicEthBalance(
+          policy,
+          walletState.smartWalletAddress
+        );
         setPublicBalance({ status: "ready", balance: postDeploymentBalance });
         availableBalanceWei = postDeploymentBalance.wei;
       }
@@ -2338,9 +2317,6 @@ function WalletApp() {
       );
       setShieldedBalance(
         nextState.railgunAddress ? { status: "idle" } : { status: "missing-wallet" }
-      );
-      setSmartAccountDeployment(
-        initialSmartAccountDeploymentStatus(nextState.smartWalletAddress)
       );
 
       const passkeyRpId = nextState.passkeyRpId ?? "this site";
@@ -2721,11 +2697,6 @@ function WalletApp() {
               )}
               shieldedStatus={shieldedStatus}
               networkLabel="Ethereum mainnet"
-              smartWalletAddress={walletState.smartWalletAddress}
-              smartWalletStatus={smartWalletStatus}
-              smartWalletDeploymentStatus={smartWalletDeploymentStatus}
-              railgunAddress={walletState.railgunAddress}
-              railgunStatus={railgunStatus}
               canSyncShielded={canSyncShieldedBalance}
               isSyncingShielded={shieldedBalance.status === "syncing"}
               syncShieldedDisclosure={

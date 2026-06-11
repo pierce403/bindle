@@ -2,7 +2,6 @@ import {
   ArrowDownToLine,
   ArrowRight,
   ArrowUpFromLine,
-  Copy,
   Repeat2
 } from "lucide-react";
 
@@ -14,11 +13,6 @@ type BalancePanelProps = {
   networkStatus: string | null;
   shieldedStatus: string;
   networkLabel: string;
-  smartWalletAddress: string | null;
-  smartWalletStatus: string;
-  smartWalletDeploymentStatus: string | null;
-  railgunAddress: string | null;
-  railgunStatus: string;
   canSyncShielded: boolean;
   isSyncingShielded: boolean;
   syncShieldedDisclosure: string | null;
@@ -45,11 +39,6 @@ export function BalancePanel({
   networkStatus,
   shieldedStatus,
   networkLabel,
-  smartWalletAddress,
-  smartWalletStatus,
-  smartWalletDeploymentStatus,
-  railgunAddress,
-  railgunStatus,
   canSyncShielded,
   isSyncingShielded,
   syncShieldedDisclosure,
@@ -57,47 +46,8 @@ export function BalancePanel({
   onActionChange,
   onSyncShielded
 }: BalancePanelProps) {
-  const copyAddress = async (address: string) => {
-    await navigator.clipboard.writeText(address);
-  };
-
   return (
     <section className="balance-panel" aria-labelledby="balance-heading">
-      <div className="wallet-topline">
-        <div className="wallet-address">
-          <div className="wallet-address-label">
-            <span>Public smart account</span>
-            {smartWalletDeploymentStatus ? (
-              <small>{smartWalletDeploymentStatus}</small>
-            ) : null}
-          </div>
-          <strong>{smartWalletAddress ?? smartWalletStatus}</strong>
-          {smartWalletAddress ? (
-            <button
-              className="mini-copy"
-              type="button"
-              title="Copy public smart-wallet address"
-              onClick={() => void copyAddress(smartWalletAddress)}
-            >
-              <Copy size={13} aria-hidden="true" />
-            </button>
-          ) : null}
-        </div>
-        <div className="wallet-address">
-          <span>0zk</span>
-          <strong>{railgunAddress ?? railgunStatus}</strong>
-          {railgunAddress ? (
-            <button
-              className="mini-copy"
-              type="button"
-              title="Copy shielded 0zk address"
-              onClick={() => void copyAddress(railgunAddress)}
-            >
-              <Copy size={13} aria-hidden="true" />
-            </button>
-          ) : null}
-        </div>
-      </div>
 
       <div className="balance-display">
         <span>{balanceLabel}</span>

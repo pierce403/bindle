@@ -23,11 +23,8 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByLabel("Bindle wallet")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Set Up Bindle" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create passkey" })).toBeDisabled();
-    await expect(
-      page.getByText("Passkeys are not available in this browser").first()
-    ).toBeVisible();
+    await expect(page.getByText("Passkeys are not available in this browser").first()).toBeVisible();
     await expect(page.getByRole("heading", { name: "$--" })).toBeVisible();
-    await expect(page.getByText("not created").first()).toBeVisible();
     await expect(page.getByLabel("Unshielded ETH balance")).toContainText(
       "not synced"
     );
@@ -63,6 +60,7 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByText("Public EVM address")).toBeVisible();
     await expect(review).toBeDisabled();
 
+    await page.getByRole("button", { name: "Close Send" }).click();
     await page.getByRole("button", { name: "Nodes" }).click();
     await page.getByLabel("Ethereum execution RPC").fill("http://127.0.0.1:8545");
     await page.getByRole("button", { name: "Wallet" }).click();
@@ -70,6 +68,8 @@ test.describe("passkey-first onboarding", () => {
     await expect(
       page.getByRole("button", { name: "Shield", exact: true })
     ).toBeDisabled();
+
+    await page.getByRole("button", { name: "Send" }).click();
     await expect(review).toBeDisabled();
   });
 
@@ -318,13 +318,13 @@ test.describe("passkey-first onboarding", () => {
     ).toBeEnabled();
     await page.getByRole("button", { name: "Create shielded wallet" }).click();
 
-    await expect(page.getByText(/0zk[A-Za-z0-9]{16,}/).first()).toBeVisible({
-      timeout: 30_000
-    });
     await expect(page.getByLabel("Shielded wallet recovery phrase")).toBeVisible();
 
     await page.getByRole("button", { name: "Receive" }).click();
 
+    await expect(page.getByText(/0zk[A-Za-z0-9]{16,}/).first()).toBeVisible({
+      timeout: 30_000
+    });
     await expect(page.getByText("Shielded address ready")).toBeVisible();
     await expect(page.getByRole("button", { name: "Copy 0zk address" })).toBeVisible();
   });
@@ -365,10 +365,11 @@ test.describe("passkey-first onboarding", () => {
       );
     await page.getByRole("button", { name: "Import existing" }).click();
 
+    await page.getByRole("button", { name: "Receive" }).click();
+
     await expect(page.getByText(/0zk[A-Za-z0-9]{16,}/).first()).toBeVisible({
       timeout: 30_000
     });
-    await page.getByRole("button", { name: "Receive" }).click();
     await expect(page.getByText("Shielded address ready")).toBeVisible();
     await expect(page.getByRole("button", { name: "Copy 0zk address" })).toBeVisible();
   });
