@@ -24,8 +24,18 @@ export type RailgunPayProgress = {
 export type PreparedBundlerSubmit = {
   submitter: "erc4337-bundler";
   chain: "ethereum-mainnet";
-  signableUserOp: any;
-  delegatingSignerPrivateKey: `0x${string}`;
+  provedTx: {
+    tx: {
+      to: `0x${string}`;
+      data: `0x${string}`;
+      value: bigint;
+    };
+  };
+  tailCalls?: {
+    target: `0x${string}`;
+    data: `0x${string}`;
+    value?: bigint;
+  }[];
 };
 
 export type PreparedRailgunPay = {
@@ -320,9 +330,6 @@ export const prepareRailgunPayForRecipient = async ({
   let railgunProvider: any = null;
   let builder: any = null;
   let signer: any = null;
-  let bundler: any = null;
-  let delegatingSigner: any = null;
-
   try {
     onStatus("Creating RAILGUN UTXO syncer");
     syncer = await createVisibleRailgunUtxoSyncer({
@@ -378,12 +385,20 @@ export const prepareRailgunPayForRecipient = async ({
       builder = builder.unshield(signer, resolvedRecipient as `0x${string}`, assetId, value);
     }
 
-    onStatus("Resolving fee token address");
-    const feeTokenAddress = resolveRailgunBroadcasterFeeTokenAddress(policy);
+    onStatus("Generating zk-SNARK proof");
+    onProgress({ percent: 60, status: "Generating proof" });
 
-    onStatus("Instantiating Pimlico bundler and delegating signer");
-    bundler = kohaku.Bundler.pimlico(bundlerUrl);
-    delegatingSigner = kohaku.Signer.privateKey(unlockedWallet.spendingKey);
+    const txData = await railgunProvider.build(builder);
+
+    // After build, builder is consumed/freed. Set it to null.
+    builder = null;
+
+    onStatus("Proof generated successfully");
+    onProgress({ percent: 100, status: "Proof complete" });
+
+    // Clean up temporary local WASM objects that are not returned
+    try { signer.free(); } catch (e) {}
+    signer = null;
 
     let tailCalls: any[] = [];
     if (!resolvedRecipient.startsWith("0zk")) {
@@ -399,35 +414,10 @@ export const prepareRailgunPayForRecipient = async ({
 
       tailCalls.push({
         target: chain.wrappedBaseToken as `0x${string}`,
-        data: data
+        data: data,
+        value: 0n
       });
     }
-
-    onStatus("Preparing User Operation and generating zk-SNARK proof");
-    onProgress({ percent: 60, status: "Generating proof" });
-
-    const signableUserOp = await railgunProvider.prepareUserOp(
-      builder,
-      bundler,
-      delegatingSigner.address,
-      signer,
-      feeTokenAddress,
-      tailCalls
-    );
-
-    // After prepareUserOp, builder is consumed/freed. Set it to null.
-    builder = null;
-
-    onStatus("Proof and User Operation generated successfully");
-    onProgress({ percent: 100, status: "Proof complete" });
-
-    // Clean up temporary local WASM objects that are not returned
-    try { signer.free(); } catch (e) {}
-    signer = null;
-    try { bundler.free(); } catch (e) {}
-    bundler = null;
-    try { delegatingSigner.free(); } catch (e) {}
-    delegatingSigner = null;
 
     return {
       railgunAdapter: "kohaku-railgun",
@@ -438,8 +428,14 @@ export const prepareRailgunPayForRecipient = async ({
       privateOperation: {
         submitter: "erc4337-bundler",
         chain: "ethereum-mainnet",
-        signableUserOp,
-        delegatingSignerPrivateKey: unlockedWallet.spendingKey
+        provedTx: {
+          tx: {
+            to: txData.to as `0x${string}`,
+            data: txData.data as `0x${string}`,
+            value: BigInt(txData.value || 0n)
+          }
+        },
+        tailCalls
       }
     };
   } catch (error) {
@@ -448,12 +444,6 @@ export const prepareRailgunPayForRecipient = async ({
     }
     if (signer) {
       try { signer.free(); } catch (e) {}
-    }
-    if (bundler) {
-      try { bundler.free(); } catch (e) {}
-    }
-    if (delegatingSigner) {
-      try { delegatingSigner.free(); } catch (e) {}
     }
     if (railgunProvider) {
       try { railgunProvider.free(); } catch (e) {}

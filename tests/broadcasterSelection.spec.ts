@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-test("Private Pay readiness uses ERC-4337 bundler relay submission", () => {
+test("Private Pay readiness uses smart-wallet submission", () => {
   const appSource = readFileSync(resolve("src/App.tsx"), "utf8");
   const submitPayStart = appSource.indexOf("const submitPay = async () =>");
   const submitPayEnd = appSource.indexOf("const submitShield = async", submitPayStart);
@@ -10,10 +10,8 @@ test("Private Pay readiness uses ERC-4337 bundler relay submission", () => {
 
   expect(submitPayStart).toBeGreaterThan(-1);
   expect(submitPaySource).toContain("prepareRailgunPayForRecipient");
-  expect(submitPaySource).toContain("bundler.sendUserOperation");
-  expect(submitPaySource).toContain("bundler.waitForReceipt");
+  expect(submitPaySource).toContain("sendSmartWalletCalls");
   expect(submitPaySource).not.toContain("submitRailgunWakuBroadcasterTransaction");
-  expect(submitPaySource).not.toContain("sendSmartWalletCalls");
 });
 
 test("Private Pay preparation specifies erc4337-bundler submission mode", () => {

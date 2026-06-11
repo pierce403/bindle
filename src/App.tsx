@@ -1831,11 +1831,9 @@ function WalletApp() {
     setAppNotice(null);
 
     let preparedPay: any = null;
-    let localSigner: any = null;
-    let localBundler: any = null;
     try {
       if (activeAction === "send") {
-        setPayStatus("Generating zk-SNARK proof and preparing user operation...");
+        setPayStatus("Generating zk-SNARK proof...");
         setPayProofProgress({
           percent: 40,
           status: "Generating zk-SNARK proof"
@@ -1862,25 +1860,36 @@ function WalletApp() {
           throw new Error("Private operation preparation failed.");
         }
 
-        setPayStatus("Signing and submitting User Operation to bundler...");
+        setPayStatus("Submitting private transaction via public smart wallet...");
         setPayProofProgress({
           percent: 90,
-          status: "Submitting to bundler"
+          status: "Submitting private transaction"
         });
 
-        const { signableUserOp, delegatingSignerPrivateKey } = preparedPay.privateOperation;
-        const { loadKohakuRailgunBrowserModule } = await import("./railgun/kohakuRailgunModule");
-        const kohaku = await loadKohakuRailgunBrowserModule();
-        localSigner = kohaku.Signer.privateKey(delegatingSignerPrivateKey);
-        const bundler = kohaku.Bundler.pimlico(policy.bundlerUrl.trim());
-        localBundler = bundler;
+        const provedTx = preparedPay.privateOperation.provedTx;
+        const mainCall = {
+          to: provedTx.tx.to,
+          data: provedTx.tx.data,
+          value: provedTx.tx.value,
+          origin: "railgun-private" as const
+        };
 
-        const signedUserOp = await signableUserOp.sign(localSigner);
-        const userOpHash = await bundler.sendUserOperation(signedUserOp);
+        const extraCalls = (preparedPay.privateOperation.tailCalls || []).map((c: any) => ({
+          to: c.target,
+          data: c.data,
+          value: c.value || 0n,
+          origin: "railgun-private" as const
+        }));
 
-        setPayStatus(`User operation submitted: ${userOpHash}. Waiting for transaction...`);
-        const receipt = await bundler.waitForReceipt(userOpHash);
-        const txHash = receipt.receipt.transactionHash || "pending";
+        const result = await sendSmartWalletCalls({
+          calls: [mainCall, ...extraCalls],
+          origin: "railgun-private",
+          policy,
+          walletState
+        });
+
+        const txHash = result.transactionHash || "pending";
+        const userOpHash = result.userOperationHash || "pending";
 
         setPayStatus(`Submitted: ${txHash}`);
         setPayProofProgress({
@@ -1892,7 +1901,7 @@ function WalletApp() {
           level: "info",
           source: "pay",
           message: `Private send submitted: ${txHash}`,
-          detail: `Recipient: ${draft.recipient}\nAmount: $${draft.amount} (~${convertedAmountEth} ETH)\nUserOp Hash: ${userOpHash}\nTx Hash: ${txHash}\nSubmitted via: bundler-relayer`
+          detail: `Recipient: ${draft.recipient}\nAmount: $${draft.amount} (~${convertedAmountEth} ETH)\nUserOp Hash: ${userOpHash}\nTx Hash: ${txHash}\nSubmitted via: public-smart-wallet`
         });
       } else {
         if (classifyPayTransactionOrigin(privatePayLegs) !== "railgun-private") {
@@ -2002,16 +2011,6 @@ function WalletApp() {
       });
     } finally {
       setIsSubmittingPay(false);
-      if (localSigner) {
-        try {
-          localSigner.free();
-        } catch (e) {}
-      }
-      if (localBundler) {
-        try {
-          localBundler.free();
-        } catch (e) {}
-      }
       if (preparedPay) {
         if (preparedPay.provider) {
           try {
