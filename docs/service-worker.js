@@ -1,4 +1,4 @@
-const CACHE_NAME = "bindle-shell-5cc242a9f5ad2eedba606208cdbe35f41fc548ff";
+const CACHE_NAME = "bindle-shell-6f42fff3592c231e49ec2d0b75512d64a3cde7ce";
 const ARTIFACT_CACHE_NAME = "bindle-railgun-artifacts-v1";
 const ARTIFACT_PROXY_VERSION = "railgun-artifacts-v1";
 const KOHAKU_RAILGUN_ARTIFACT_ORIGIN = "https://github.com";
@@ -96,7 +96,22 @@ const respondWithLocalRailgunArtifact = async (localUrl) => {
   });
 
   if (response.ok) {
-    await cache.put(localUrl.href, response.clone());
+    const headers = new Headers(response.headers);
+    headers.set("content-encoding", "br");
+    if (localUrl.pathname.endsWith(".wasm.br") || localUrl.pathname.endsWith("/wasm.br")) {
+      headers.set("content-type", "application/wasm");
+    } else {
+      headers.set("content-type", "application/octet-stream");
+    }
+
+    const decompressedResponse = new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers
+    });
+
+    await cache.put(localUrl.href, decompressedResponse.clone());
+    return decompressedResponse;
   }
 
   return response;

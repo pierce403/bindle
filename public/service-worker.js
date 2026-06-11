@@ -96,7 +96,22 @@ const respondWithLocalRailgunArtifact = async (localUrl) => {
   });
 
   if (response.ok) {
-    await cache.put(localUrl.href, response.clone());
+    const headers = new Headers(response.headers);
+    headers.set("content-encoding", "br");
+    if (localUrl.pathname.endsWith(".wasm.br") || localUrl.pathname.endsWith("/wasm.br")) {
+      headers.set("content-type", "application/wasm");
+    } else {
+      headers.set("content-type", "application/octet-stream");
+    }
+
+    const decompressedResponse = new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers
+    });
+
+    await cache.put(localUrl.href, decompressedResponse.clone());
+    return decompressedResponse;
   }
 
   return response;
