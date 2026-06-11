@@ -1,4 +1,4 @@
-import { getAddress, http, isAddress, parseEther, type Address } from "viem";
+import { getAddress, http, isAddress, parseEther, formatEther, type Address } from "viem";
 import {
   createBundlerClient,
   createPaymasterClient,
@@ -308,12 +308,27 @@ export const sendSmartWalletEthPayment = async ({
               })
           }
         });
+        const value = parseEther(amount.trim());
+        const balance = await client.getBalance({ address: account.address });
+
+        if (balance < value) {
+          throw new Error(
+            `Insufficient smart wallet balance. Your smart wallet has ${formatEther(balance)} ETH, but you tried to send ${amount} ETH (and additional ETH is required for gas).`
+          );
+        }
+
+        if (balance === 0n && !policy.paymasterUrl.trim()) {
+          throw new Error(
+            `Your smart wallet has 0 ETH. You must deposit some ETH to cover transaction gas fees, or configure a sponsored paymaster.`
+          );
+        }
+
         const userOperationHash = await bundlerClient.sendUserOperation({
           account,
           calls: [
             {
               to,
-              value: parseEther(amount.trim())
+              value
             }
           ]
         });
@@ -378,6 +393,14 @@ export const deploySmartWalletAccount = async ({
               })
           }
         });
+        const balance = await client.getBalance({ address: account.address });
+
+        if (balance === 0n && !policy.paymasterUrl.trim()) {
+          throw new Error(
+            `Your smart wallet has 0 ETH. You must deposit some ETH to cover transaction gas fees, or configure a sponsored paymaster.`
+          );
+        }
+
         const userOperationHash = await bundlerClient.sendUserOperation({
           account,
           calls: [
@@ -457,6 +480,21 @@ export const sendSmartWalletCalls = async ({
               })
           }
         });
+        const totalValue = calls.reduce((acc, call) => acc + BigInt(call.value || 0n), 0n);
+        const balance = await client.getBalance({ address: account.address });
+
+        if (balance < totalValue) {
+          throw new Error(
+            `Insufficient smart wallet balance. Your smart wallet has ${formatEther(balance)} ETH, but the transaction requires at least ${formatEther(totalValue)} ETH.`
+          );
+        }
+
+        if (balance === 0n && !policy.paymasterUrl.trim()) {
+          throw new Error(
+            `Your smart wallet has 0 ETH. You must deposit some ETH to cover transaction gas fees, or configure a sponsored paymaster.`
+          );
+        }
+
         const userOperationHash = await bundlerClient.sendUserOperation({
           account,
           calls

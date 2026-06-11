@@ -1,4 +1,4 @@
-const CACHE_NAME = "bindle-shell-6f42fff3592c231e49ec2d0b75512d64a3cde7ce";
+const CACHE_NAME = "bindle-shell-a2e7bb93df5a673aab181ae8e47fbcd279ca0311";
 const ARTIFACT_CACHE_NAME = "bindle-railgun-artifacts-v1";
 const ARTIFACT_PROXY_VERSION = "railgun-artifacts-v1";
 const KOHAKU_RAILGUN_ARTIFACT_ORIGIN = "https://github.com";
