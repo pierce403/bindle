@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -105,6 +105,19 @@ const result = spawnSync("pnpm", ["run", "build:app"], {
 
 if (result.error) {
   throw result.error;
+}
+
+if (result.status === 0) {
+  const swPath = resolve(repoRoot, "docs/service-worker.js");
+  if (existsSync(swPath)) {
+    console.log(`Busting PWA service worker cache using commit: ${buildCommit}`);
+    let swContent = readFileSync(swPath, "utf8");
+    swContent = swContent.replace(
+      'const CACHE_NAME = "bindle-shell-v12";',
+      `const CACHE_NAME = "bindle-shell-${buildCommit}";`
+    );
+    writeFileSync(swPath, swContent, "utf8");
+  }
 }
 
 process.exit(result.status ?? 1);
