@@ -25,6 +25,7 @@ Work style for this repo:
 - Do not ship simulated product state. Empty real states are better than fake UX.
 - Prefer small, verifiable changes that keep outbound services visible,
   replaceable, and disclosed.
+- **CRITICAL WORKFLOW RULE**: Always commit and push (`git commit` and `git push origin main`) immediately after completing each task to ensure the live application (`bindle.cash`) is updated and changes are saved. Do not end a task without pushing to main.
 - Commit finished knowledge and implementation changes. Push `main` when the
   change is meant to update the GitHub repo or `bindle.cash`.
 
