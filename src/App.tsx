@@ -100,8 +100,7 @@ import {
 import {
   deploySmartWalletAccount,
   deriveSmartWalletAddressFromPasskey,
-  sendSmartWalletCalls,
-  sendSmartWalletEthPayment
+  sendSmartWalletCalls
 } from "./wallet/smartAccountAdapter";
 import {
   fetchSmartAccountDeploymentStatus
@@ -436,8 +435,6 @@ function WalletApp() {
   const [isCreatingRailgunWallet, setIsCreatingRailgunWallet] = useState(false);
   const [isImportingRailgunWallet, setIsImportingRailgunWallet] =
     useState(false);
-  const [isSubmittingSmartPayment, setIsSubmittingSmartPayment] = useState(false);
-  const [smartPaymentStatus, setSmartPaymentStatus] = useState("");
   const [isSubmittingPay, setIsSubmittingPay] = useState(false);
   const [payStatus, setPayStatus] = useState("");
   const [payProofProgress, setPayProofProgress] = useState<RailgunPayProgress>({
@@ -503,7 +500,6 @@ function WalletApp() {
   const hasRailgunWallet = walletState.railgunAddress !== null;
   const hasSmartWallet = walletState.smartWalletAddress !== null;
   const rpcReady = toolkitState === "ready" && policy.ethereumRpcUrl.length > 0;
-  const bundlerReady = policy.bundlerUrl.trim().length > 0;
   const rpcConfigured = policy.ethereumRpcUrl.trim().length > 0;
   const hasOnboardingWalletShape =
     walletState.smartWalletAddress !== null && walletState.railgunAddress !== null;
@@ -1776,61 +1772,7 @@ function WalletApp() {
     }
   };
 
-  const submitSmartPayment = async () => {
-    if (!walletState.smartWalletAddress) {
-      setSmartPaymentStatus("Create the smart-wallet funding address first.");
-      return;
-    }
 
-    const convertedAmountEth = activeAction === "send"
-      ? usdToEthString(draft.amount, visibleShieldedBalance?.price ?? null)
-      : draft.amount;
-
-    setIsSubmittingSmartPayment(true);
-    setSmartPaymentStatus("Submitting ERC-4337 user operation");
-    recordDebugEvent({
-      level: "info",
-      source: "smart-payment",
-      message: "Submitting ERC-4337 user operation",
-      detail: activeAction === "send"
-        ? `Recipient: ${draft.recipient}\nAmount: $${draft.amount} (~${convertedAmountEth} ETH)\nBundler: ${policy.bundlerUrl.trim() || "off"}`
-        : `Recipient: ${draft.recipient}\nAmount: ${draft.amount} ETH\nBundler: ${policy.bundlerUrl.trim() || "off"}`
-    });
-
-    try {
-      const result = await sendSmartWalletEthPayment({
-        amount: convertedAmountEth,
-        policy,
-        recipient: draft.recipient,
-        walletState
-      });
-      setSmartPaymentStatus(
-        result.transactionHash
-          ? `Submitted: ${result.transactionHash}`
-          : `Submitted user operation: ${result.userOperationHash}`
-      );
-      recordDebugEvent({
-        level: "info",
-        source: "smart-payment",
-        message: result.transactionHash
-          ? `Submitted transaction ${result.transactionHash}`
-          : `Submitted user operation ${result.userOperationHash}`
-      });
-    } catch (error) {
-      setSmartPaymentStatus(
-        messageFromError(
-          error,
-          "Unable to submit payment",
-          "smart-payment",
-          activeAction === "send"
-            ? `Recipient: ${draft.recipient}\nAmount: $${draft.amount} (~${convertedAmountEth} ETH)\nBundler: ${policy.bundlerUrl.trim() || "off"}`
-            : `Recipient: ${draft.recipient}\nAmount: ${draft.amount} ETH\nBundler: ${policy.bundlerUrl.trim() || "off"}`
-        )
-      );
-    } finally {
-      setIsSubmittingSmartPayment(false);
-    }
-  };
 
   const submitPay = async () => {
     const asset = getPayAsset(draft.asset);
@@ -2764,13 +2706,9 @@ function WalletApp() {
                 draft={draft}
                 routedIntent={routedIntent}
                 hasRailgunWallet={hasRailgunWallet}
-                hasSmartWallet={hasSmartWallet}
                 rpcConfigured={rpcConfigured}
                 rpcReady={rpcReady}
-                bundlerReady={bundlerReady}
                 walletState={walletState}
-                isSubmittingSmartPayment={isSubmittingSmartPayment}
-                smartPaymentStatus={smartPaymentStatus}
                 isSubmittingPay={isSubmittingPay}
                 payStatus={payStatus}
                 payProofPercent={payProofProgress.percent}
@@ -2781,7 +2719,6 @@ function WalletApp() {
                 onDeriveSmartWallet={() => void deriveSmartWallet()}
                 onOpenConnections={() => setActiveTab("nodes")}
                 onCloseAction={() => setActiveAction(null)}
-                onSubmitSmartPayment={() => void submitSmartPayment()}
                 onSubmitPay={() => void submitPay()}
                 onDraftChange={setDraft}
                 onRouteChange={setRoutedIntent}

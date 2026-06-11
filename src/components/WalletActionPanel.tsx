@@ -76,13 +76,9 @@ type WalletActionPanelProps = {
   draft: IntentDraft;
   routedIntent: RoutedIntent;
   hasRailgunWallet: boolean;
-  hasSmartWallet: boolean;
   rpcConfigured: boolean;
   rpcReady: boolean;
-  bundlerReady: boolean;
   walletState: WalletState;
-  isSubmittingSmartPayment: boolean;
-  smartPaymentStatus: string;
   isSubmittingPay: boolean;
   payStatus: string;
   payProofPercent: number;
@@ -92,7 +88,6 @@ type WalletActionPanelProps = {
   onDeriveSmartWallet: () => void;
   onOpenConnections: () => void;
   onCloseAction: () => void;
-  onSubmitSmartPayment: () => void;
   onSubmitPay: () => void;
   onDraftChange: (draft: IntentDraft) => void;
   onRouteChange: (intent: RoutedIntent) => void;
@@ -146,13 +141,9 @@ export function WalletActionPanel({
   draft,
   routedIntent,
   hasRailgunWallet,
-  hasSmartWallet,
   rpcConfigured,
   rpcReady,
-  bundlerReady,
   walletState,
-  isSubmittingSmartPayment,
-  smartPaymentStatus,
   isSubmittingPay,
   payStatus,
   payProofPercent,
@@ -162,7 +153,6 @@ export function WalletActionPanel({
   onDeriveSmartWallet,
   onOpenConnections,
   onCloseAction,
-  onSubmitSmartPayment,
   onSubmitPay,
   onDraftChange,
   onRouteChange,
@@ -174,7 +164,7 @@ export function WalletActionPanel({
   const convertedAmountEth = action === "send"
     ? usdToEthString(draft.amount, price ?? null)
     : draft.amount;
-  const [sendMode, setSendMode] = useState<"shielded" | "public">("shielded");
+  const sendMode = "shielded";
   const [copied, setCopied] = useState(false);
   const [reviewingPayment, setReviewingPayment] = useState(false);
   const [assetQuery, setAssetQuery] = useState("");
@@ -217,16 +207,7 @@ export function WalletActionPanel({
     hasRecoverableRailgunKeyMaterial &&
     rpcReady &&
     requiredEndpointsReady;
-  const canReviewPublic =
-    hasRecipient &&
-    hasValidRecipient &&
-    hasAmount &&
-    hasSmartWallet &&
-    rpcReady &&
-    bundlerReady &&
-    requiredEndpointsReady;
-  const canReview =
-    sendMode === "public" ? canReviewPublic : canReviewShielded;
+  const canReview = canReviewShielded;
   const canCreateFundingAddress =
     walletState.passkeyPublicKey !== null &&
     rpcConfigured &&
@@ -958,9 +939,7 @@ export function WalletActionPanel({
         >
           <div className="modal-sheet-header">
             <div>
-              <span>
-                {sendMode === "shielded" ? "Railgun shielded ETH" : "Public ETH"}
-              </span>
+              <span>Railgun shielded ETH</span>
               <h2 id="send-heading">Send ETH</h2>
             </div>
             <button
@@ -970,29 +949,6 @@ export function WalletActionPanel({
               onClick={onCloseAction}
             >
               <X size={20} aria-hidden="true" />
-            </button>
-          </div>
-
-          <div className="mode-selector" aria-label="Send mode">
-            <button
-              type="button"
-              aria-pressed={sendMode === "shielded"}
-              onClick={() => {
-                setReviewingPayment(false);
-                setSendMode("shielded");
-              }}
-            >
-              Shielded
-            </button>
-            <button
-              type="button"
-              aria-pressed={sendMode === "public"}
-              onClick={() => {
-                setReviewingPayment(false);
-                setSendMode("public");
-              }}
-            >
-              Public
             </button>
           </div>
 
@@ -1088,32 +1044,7 @@ export function WalletActionPanel({
             ))}
           </div>
 
-          {reviewingPayment && sendMode === "public" ? (
-            <div className="review-card" aria-label="Review public payment">
-              <span>Review public payment</span>
-              <div>
-                <strong>From</strong>
-                <span>{walletState.smartWalletAddress}</span>
-              </div>
-              <div>
-                <strong>To</strong>
-                <span>{draft.recipient.trim()}</span>
-              </div>
-              <div>
-                <strong>Amount</strong>
-                <span>${draft.amount.trim()} (~{convertedAmountEth} ETH)</span>
-              </div>
-              <button
-                className="primary-action wide"
-                type="button"
-                disabled={!canReviewPublic || isSubmittingSmartPayment}
-                onClick={onSubmitSmartPayment}
-              >
-                <Send size={18} aria-hidden="true" />
-                {isSubmittingSmartPayment ? "Submitting" : "Submit public payment"}
-              </button>
-            </div>
-          ) : null}
+
 
           {reviewingPayment && sendMode === "shielded" ? (
             <div className="review-card" aria-label="Review shielded payment">
@@ -1148,10 +1079,6 @@ export function WalletActionPanel({
             </div>
           ) : null}
 
-          {smartPaymentStatus ? (
-            <p className="status-message">{smartPaymentStatus}</p>
-          ) : null}
-
           <button
             className="primary-action wide"
             type="button"
@@ -1161,9 +1088,7 @@ export function WalletActionPanel({
             }}
           >
             <Send size={18} aria-hidden="true" />
-            {sendMode === "public" && hasSmartWallet
-              ? "Review public payment"
-              : "Review"}
+            Review
           </button>
         </section>
       </div>
