@@ -30,6 +30,7 @@ import {
 } from "./intents/payFlow";
 import { routeIntent, type IntentDraft, type RoutedIntent } from "./intents/router";
 import { getPaySwapRoutePlan } from "./intents/swapRouting";
+import { usdToEthString } from "./intents/conversion";
 import {
   clearDebugLog,
   createDebugLogEntry,
@@ -1749,18 +1750,24 @@ function WalletApp() {
       return;
     }
 
+    const convertedAmountEth = activeAction === "send"
+      ? usdToEthString(draft.amount, visibleShieldedBalance?.price ?? null)
+      : draft.amount;
+
     setIsSubmittingSmartPayment(true);
     setSmartPaymentStatus("Submitting ERC-4337 user operation");
     recordDebugEvent({
       level: "info",
       source: "smart-payment",
       message: "Submitting ERC-4337 user operation",
-      detail: `Recipient: ${draft.recipient}\nAmount: ${draft.amount} ETH\nBundler: ${policy.bundlerUrl.trim() || "off"}`
+      detail: activeAction === "send"
+        ? `Recipient: ${draft.recipient}\nAmount: $${draft.amount} (~${convertedAmountEth} ETH)\nBundler: ${policy.bundlerUrl.trim() || "off"}`
+        : `Recipient: ${draft.recipient}\nAmount: ${draft.amount} ETH\nBundler: ${policy.bundlerUrl.trim() || "off"}`
     });
 
     try {
       const result = await sendSmartWalletEthPayment({
-        amount: draft.amount,
+        amount: convertedAmountEth,
         policy,
         recipient: draft.recipient,
         walletState
@@ -1783,7 +1790,9 @@ function WalletApp() {
           error,
           "Unable to submit payment",
           "smart-payment",
-          `Recipient: ${draft.recipient}\nAmount: ${draft.amount} ETH\nBundler: ${policy.bundlerUrl.trim() || "off"}`
+          activeAction === "send"
+            ? `Recipient: ${draft.recipient}\nAmount: $${draft.amount} (~${convertedAmountEth} ETH)\nBundler: ${policy.bundlerUrl.trim() || "off"}`
+            : `Recipient: ${draft.recipient}\nAmount: ${draft.amount} ETH\nBundler: ${policy.bundlerUrl.trim() || "off"}`
         )
       );
     } finally {
@@ -1847,8 +1856,10 @@ function WalletApp() {
           status: "Generating zk-SNARK proof"
         });
 
+        const convertedAmountEth = usdToEthString(draft.amount, visibleShieldedBalance?.price ?? null);
+
         const preparedPay = await prepareRailgunPayForRecipient({
-          amount: draft.amount,
+          amount: convertedAmountEth,
           asset,
           policy,
           recipient: draft.recipient,
@@ -1892,7 +1903,7 @@ function WalletApp() {
           level: "info",
           source: "pay",
           message: `Private send submitted: ${txHash}`,
-          detail: `Recipient: ${draft.recipient}\nAmount: ${draft.amount} ETH\nBroadcaster: ${freshSelection.selectedBroadcaster.railgunAddress}`
+          detail: `Recipient: ${draft.recipient}\nAmount: $${draft.amount} (~${convertedAmountEth} ETH)\nBroadcaster: ${freshSelection.selectedBroadcaster.railgunAddress}`
         });
       } else {
         if (classifyPayTransactionOrigin(privatePayLegs) !== "railgun-private") {
@@ -2753,6 +2764,7 @@ function WalletApp() {
                 payProofStatus={payProofProgress.status}
                 privatePayReadiness={privatePayReadiness}
                 endpointDisclosures={actionEndpointDisclosure}
+                price={visibleShieldedBalance?.price}
                 onDeriveSmartWallet={() => void deriveSmartWallet()}
                 onOpenConnections={() => setActiveTab("nodes")}
                 onCloseAction={() => setActiveAction(null)}

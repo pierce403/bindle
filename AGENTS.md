@@ -115,6 +115,7 @@ Hard product rules:
   endpoint.
 - Empty states are allowed only when they represent the real first-run state.
 - Controls that are not wired must either be removed or clearly disabled.
+- Send inputs accept amounts in USD rather than ETH. A conversion helper in `src/intents/conversion.ts` parses the USD string and uses the active Chainlink price feed (`visibleShieldedBalance?.price`) to convert it to equivalent ETH/Wei amounts. Submission pipelines convert the draft USD amount to ETH strings before sending.
 
 Current endpoint presets:
 

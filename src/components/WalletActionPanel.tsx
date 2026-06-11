@@ -32,6 +32,7 @@ import {
   UNISWAP_V4_PROTOCOL_LABEL
 } from "../intents/swapRouting";
 import { isValidDecimalAmount, isValidRecipientShape } from "../intents/validation";
+import { usdToEthString } from "../intents/conversion";
 import type { EndpointDisclosure } from "../privacy/preflightDisclosure";
 import { buildPayProofProgress, buildSendProofProgress } from "../railgun/proofProgress";
 import type { WalletState } from "../wallet/walletState";
@@ -95,6 +96,12 @@ type WalletActionPanelProps = {
   onSubmitPay: () => void;
   onDraftChange: (draft: IntentDraft) => void;
   onRouteChange: (intent: RoutedIntent) => void;
+  price?: {
+    answer: bigint;
+    decimals: number;
+    updatedAt: bigint;
+    source: "chainlink-eth-usd-via-rpc";
+  } | null;
 };
 
 type AddressQrCodeProps = {
@@ -158,11 +165,15 @@ export function WalletActionPanel({
   onSubmitSmartPayment,
   onSubmitPay,
   onDraftChange,
-  onRouteChange
+  onRouteChange,
+  price
 }: WalletActionPanelProps) {
   const [receiveMode, setReceiveMode] = useState<"shielded" | "public">(
-    "shielded"
+    "send" === action ? "public" : "shielded"
   );
+  const convertedAmountEth = action === "send"
+    ? usdToEthString(draft.amount, price ?? null)
+    : draft.amount;
   const [sendMode, setSendMode] = useState<"shielded" | "public">("shielded");
   const [copied, setCopied] = useState(false);
   const [reviewingPayment, setReviewingPayment] = useState(false);
@@ -1019,8 +1030,13 @@ export function WalletActionPanel({
                 updateDraft({ ...draft, amount: event.currentTarget.value })
               }
             />
-            <span>ETH</span>
+            <span>USD</span>
           </div>
+          {isValidDecimalAmount(draft.amount) ? (
+            <span style={{ fontSize: "0.82rem", color: "var(--muted)", marginTop: "-4px", display: "block", textAlign: "right" }}>
+              {price ? `~${convertedAmountEth} ETH` : "Loading price..."}
+            </span>
+          ) : null}
 
           <label className="field">
             <span>To</span>
@@ -1085,7 +1101,7 @@ export function WalletActionPanel({
               </div>
               <div>
                 <strong>Amount</strong>
-                <span>{draft.amount.trim()} ETH</span>
+                <span>${draft.amount.trim()} (~{convertedAmountEth} ETH)</span>
               </div>
               <button
                 className="primary-action wide"
@@ -1112,7 +1128,7 @@ export function WalletActionPanel({
               </div>
               <div>
                 <strong>Amount</strong>
-                <span>{draft.amount.trim()} ETH</span>
+                <span>${draft.amount.trim()} (~{convertedAmountEth} ETH)</span>
               </div>
               {isSubmittingPay || payProofPercent > 0 ? (
                 <ProofProgressPanel progress={sendProofProgress} />
