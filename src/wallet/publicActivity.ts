@@ -195,3 +195,80 @@ export const fetchPublicEthActivity = async ({
     syncedAt: new Date().toISOString()
   };
 };
+
+export type SerializedPublicEthActivity = {
+  id: string;
+  hash: Hash;
+  blockNumber: string;
+  transactionIndex: number;
+  from: Address;
+  to: Address | null;
+  valueWei: string;
+  amount: string;
+  direction: PublicEthActivityDirection;
+  timestamp: string;
+};
+
+export const serializeActivityItem = (item: PublicEthActivity): SerializedPublicEthActivity => ({
+  ...item,
+  blockNumber: item.blockNumber.toString(),
+  valueWei: item.valueWei.toString()
+});
+
+export const deserializeActivityItem = (item: SerializedPublicEthActivity): PublicEthActivity => ({
+  ...item,
+  blockNumber: BigInt(item.blockNumber),
+  valueWei: BigInt(item.valueWei)
+});
+
+export const loadCachedPublicActivity = (smartWalletAddress: string): PublicEthActivity[] => {
+  if (!smartWalletAddress) return [];
+  try {
+    const key = `bindle.activity.v1.${smartWalletAddress.toLowerCase()}`;
+    const data = localStorage.getItem(key);
+    if (!data) return [];
+    const parsed = JSON.parse(data) as SerializedPublicEthActivity[];
+    return parsed.map(deserializeActivityItem);
+  } catch (error) {
+    console.error("Failed to load cached public activity:", error);
+    return [];
+  }
+};
+
+export const saveCachedPublicActivity = (
+  smartWalletAddress: string,
+  items: PublicEthActivity[]
+): void => {
+  if (!smartWalletAddress) return;
+  try {
+    const key = `bindle.activity.v1.${smartWalletAddress.toLowerCase()}`;
+    const serialized = items.map(serializeActivityItem);
+    localStorage.setItem(key, JSON.stringify(serialized));
+  } catch (error) {
+    console.error("Failed to save cached public activity:", error);
+  }
+};
+
+export const mergePublicActivity = (
+  existing: PublicEthActivity[],
+  newItems: PublicEthActivity[]
+): PublicEthActivity[] => {
+  const mergedMap = new Map<string, PublicEthActivity>();
+  
+  for (const item of existing) {
+    mergedMap.set(item.id, item);
+  }
+  for (const item of newItems) {
+    mergedMap.set(item.id, item);
+  }
+  
+  return Array.from(mergedMap.values())
+    .sort((left, right) => {
+      if (left.blockNumber !== right.blockNumber) {
+        return left.blockNumber > right.blockNumber ? -1 : 1;
+      }
+      return right.transactionIndex - left.transactionIndex;
+    })
+    .slice(0, 100);
+};
+

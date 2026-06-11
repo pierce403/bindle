@@ -117,7 +117,10 @@ import { createVisibleMainnetClient } from "./wallet/mainnetClient";
 import { estimateVisibleUserOperationFees } from "./wallet/userOperationGas";
 import {
   fetchPublicEthActivity,
-  type PublicEthActivityScan
+  type PublicEthActivityScan,
+  loadCachedPublicActivity,
+  saveCachedPublicActivity,
+  mergePublicActivity
 } from "./wallet/publicActivity";
 import {
   createBindleOwnerEnrollmentCode,
@@ -205,7 +208,7 @@ type PublicBalanceState =
   | { status: "error"; message: string };
 
 type PublicActivityState =
-  | { status: "missing-wallet" | "missing-rpc" | "idle" | "syncing"; items: [] }
+  | { status: "missing-wallet" | "missing-rpc" | "idle" | "syncing"; items: ActivityItem[] }
   | { status: "ready"; scan: PublicEthActivityScan; items: ActivityItem[] }
   | { status: "error"; message: string; items: ActivityItem[] };
 
@@ -237,10 +240,23 @@ const initialPublicBalanceState = (): PublicBalanceState =>
     ? { status: "idle" }
     : { status: "missing-wallet" };
 
-const initialPublicActivityState = (): PublicActivityState =>
-  loadWalletState().smartWalletAddress
-    ? { status: "idle", items: [] }
-    : { status: "missing-wallet", items: [] };
+const initialPublicActivityState = (): PublicActivityState => {
+  const wallet = loadWalletState();
+  if (!wallet.smartWalletAddress) {
+    return { status: "missing-wallet", items: [] };
+  }
+  const cachedRaw = loadCachedPublicActivity(wallet.smartWalletAddress);
+  const scanDummy: PublicEthActivityScan = {
+    address: wallet.smartWalletAddress as `0x${string}`,
+    blockNumber: 0n,
+    scannedFromBlock: 0n,
+    scannedToBlock: 0n,
+    items: cachedRaw,
+    syncedAt: new Date().toISOString()
+  };
+  const items = publicActivityToItems(scanDummy);
+  return { status: "idle", items };
+};
 
 const initialShieldedBalanceState = (): ShieldedBalanceState =>
   loadWalletState().railgunAddress
@@ -903,7 +919,17 @@ function WalletApp() {
     }
 
     setPublicBalance({ status: "idle" });
-    setPublicActivity({ status: "idle", items: [] });
+    const cachedRaw = loadCachedPublicActivity(walletState.smartWalletAddress);
+    const scanDummy: PublicEthActivityScan = {
+      address: walletState.smartWalletAddress as `0x${string}`,
+      blockNumber: 0n,
+      scannedFromBlock: 0n,
+      scannedToBlock: 0n,
+      items: cachedRaw,
+      syncedAt: new Date().toISOString()
+    };
+    const items = publicActivityToItems(scanDummy);
+    setPublicActivity({ status: "idle", items });
   }, [walletState.smartWalletAddress, policy.ethereumRpcUrl, policy.providerMode]);
 
   useEffect(() => {
@@ -1116,7 +1142,7 @@ function WalletApp() {
 
     const requestId = publicActivityRequestRef.current + 1;
     publicActivityRequestRef.current = requestId;
-    setPublicActivity({ status: "syncing", items: [] });
+    setPublicActivity((prev) => ({ status: "syncing", items: prev.items }));
     recordDebugEvent({
       level: "info",
       source: "activity",
@@ -1132,8 +1158,16 @@ function WalletApp() {
       });
 
       if (publicActivityRequestRef.current === requestId) {
-        const items = publicActivityToItems(scan);
-        setPublicActivity({ status: "ready", scan, items });
+        const cachedRaw = loadCachedPublicActivity(smartWalletAddress);
+        const mergedRaw = mergePublicActivity(cachedRaw, scan.items);
+        saveCachedPublicActivity(smartWalletAddress, mergedRaw);
+
+        const mergedScan: PublicEthActivityScan = {
+          ...scan,
+          items: mergedRaw
+        };
+        const items = publicActivityToItems(mergedScan);
+        setPublicActivity({ status: "ready", scan: mergedScan, items });
         recordDebugEvent({
           level: "info",
           source: "activity",
@@ -1149,7 +1183,7 @@ function WalletApp() {
           "activity",
           `Address: ${smartWalletAddress}\nRPC: ${policy.ethereumRpcUrl.trim()}`
         );
-        setPublicActivity({ status: "error", message, items: [] });
+        setPublicActivity((prev) => ({ status: "error", message, items: prev.items }));
       }
     }
   };
@@ -2326,11 +2360,21 @@ function WalletApp() {
       setPublicBalance(
         nextState.smartWalletAddress ? { status: "idle" } : { status: "missing-wallet" }
       );
-      setPublicActivity(
-        nextState.smartWalletAddress
-          ? { status: "idle", items: [] }
-          : { status: "missing-wallet", items: [] }
-      );
+      if (nextState.smartWalletAddress) {
+        const cachedRaw = loadCachedPublicActivity(nextState.smartWalletAddress);
+        const scanDummy: PublicEthActivityScan = {
+          address: nextState.smartWalletAddress as `0x${string}`,
+          blockNumber: 0n,
+          scannedFromBlock: 0n,
+          scannedToBlock: 0n,
+          items: cachedRaw,
+          syncedAt: new Date().toISOString()
+        };
+        const items = publicActivityToItems(scanDummy);
+        setPublicActivity({ status: "idle", items });
+      } else {
+        setPublicActivity({ status: "missing-wallet", items: [] });
+      }
       setShieldedBalance(
         nextState.railgunAddress ? { status: "idle" } : { status: "missing-wallet" }
       );
