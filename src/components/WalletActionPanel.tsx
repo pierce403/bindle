@@ -1134,7 +1134,7 @@ export function WalletActionPanel({
                 <ProofProgressPanel progress={sendProofProgress} />
               ) : null}
               <button
-                className="secondary-action wide"
+                className="primary-action wide"
                 type="button"
                 disabled={!canReviewShielded || isSubmittingPay}
                 onClick={onSubmitPay}

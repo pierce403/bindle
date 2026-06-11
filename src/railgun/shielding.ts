@@ -30,7 +30,7 @@ export type UnshieldReadinessInput = {
   shieldedBalanceWei: bigint | null;
   toolkitReady: boolean;
   ethereumRpcUrl: string;
-  broadcasterUrl: string;
+  bundlerUrl: string;
   providerMode: ProviderMode;
 };
 
@@ -192,7 +192,7 @@ export const assessUnshieldReadiness = ({
   shieldedBalanceWei,
   toolkitReady,
   ethereumRpcUrl,
-  broadcasterUrl,
+  bundlerUrl,
   providerMode
 }: UnshieldReadinessInput): ReadinessReport =>
   readinessReport([
@@ -232,10 +232,10 @@ export const assessUnshieldReadiness = ({
       detail: ethereumRpcUrl.trim() || "configure a visible RPC endpoint"
     },
     {
-      id: "railgun-broadcaster",
-      label: "RAILGUN broadcaster",
-      ready: broadcasterUrl.trim().length > 0,
-      detail: broadcasterUrl.trim() || "configure a visible broadcaster"
+      id: "erc4337-bundler",
+      label: "ERC-4337 bundler",
+      ready: bundlerUrl.trim().length > 0,
+      detail: bundlerUrl.trim() || "configure a visible bundler endpoint"
     },
     {
       id: "provider-mode",

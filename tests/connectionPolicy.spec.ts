@@ -251,7 +251,7 @@ test("shielded balance sync preflight discloses the selected RPC", () => {
   );
 });
 
-test("unshield review preflight requires a visible broadcaster", () => {
+test("unshield review preflight requires a visible bundler", () => {
   const disclosure = buildEndpointDisclosure(
     defaultConnectionPolicy,
     "unshield-review"
@@ -265,11 +265,11 @@ test("unshield review preflight requires a visible broadcaster", () => {
         required: true
       }),
       expect.objectContaining({
-        id: "railgun-broadcaster",
+        id: "erc4337-bundler",
         configured: true,
         required: true,
         source: "default",
-        value: expect.stringContaining(RAILGUN_PUBLIC_WAKU_BROADCASTER_NETWORK)
+        value: expect.stringContaining("https://public.pimlico.io/v2/1/rpc")
       }),
       expect.objectContaining({
         id: "railgun-poi",
@@ -297,11 +297,11 @@ test("pay review preflight discloses private-source route endpoints", () => {
         source: "default"
       }),
       expect.objectContaining({
-        id: "railgun-broadcaster",
+        id: "erc4337-bundler",
         configured: true,
         required: true,
         source: "default",
-        value: expect.stringContaining(RAILGUN_PUBLIC_WAKU_BROADCASTER_NETWORK)
+        value: expect.stringContaining("https://public.pimlico.io/v2/1/rpc")
       }),
       expect.objectContaining({
         id: "provider-resolution",
@@ -320,20 +320,13 @@ test("pay review preflight discloses private-source route endpoints", () => {
         configured: true,
         required: true,
         source: "default"
-      }),
-      expect.objectContaining({
-        id: "waku",
-        configured: true,
-        required: false,
-        source: "default",
-        value: "enabled"
       })
     ])
   );
   expect(disclosure.map((endpoint) => endpoint.id)).not.toContain(
-    "erc4337-bundler"
+    "railgun-broadcaster"
   );
   expect(disclosure.map((endpoint) => endpoint.id)).not.toContain(
-    "erc4337-paymaster"
+    "waku"
   );
 });

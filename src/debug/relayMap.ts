@@ -268,6 +268,70 @@ export const scanWakuBroadcasterMap = async (
   policy: ConnectionPolicy
 ): Promise<WakuBroadcasterMapSnapshot> => {
   const startedAt = Date.now();
+
+  if (policy.broadcasterUrl === "mock://simulated-broadcaster") {
+    return {
+      createdAt: new Date().toISOString(),
+      chainId: 1,
+      network: "ethereum-mainnet",
+      status: "connected",
+      elapsedMs: Date.now() - startedAt,
+      transport: "kohaku-waku",
+      pubsubTopic: "mock-simulated",
+      wakuPeerCount: 0,
+      requiredProtocols: {
+        filter: "ready",
+        lightPush: "ready",
+        store: "ready"
+      },
+      rawFeeMessagesObserved: 0,
+      rawFeeAdsParsed: 0,
+      kohakuManagerSelections: 1,
+      feeTokens: [
+        {
+          symbol: "WETH",
+          tokenAddress: UNISWAP_V4_WETH_ADDRESS,
+          broadcasterFound: true,
+          rawAdFound: true,
+          selectionSource: "kohaku-manager",
+          selectedBroadcasterRailgunAddress: "0zk1mockbroadcasterxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          feesId: "mockfees",
+          feePerUnitGas: "0",
+          signatureStatus: "verified",
+          error: null
+        }
+      ],
+      discoveredBroadcasters: [
+        {
+          railgunAddress: "0zk1mockbroadcasterxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          supportedFeeTokens: ["WETH", "USDC"],
+          feeTokenQuotes: [
+            {
+              symbol: "WETH",
+              tokenAddress: UNISWAP_V4_WETH_ADDRESS,
+              feePerUnitGas: "0"
+            },
+            {
+              symbol: "USDC",
+              tokenAddress: mainnetUsdcAddress,
+              feePerUnitGas: "0"
+            }
+          ],
+          feesId: "mockfees",
+          identifier: "Simulated Diagnostic Broadcaster",
+          version: "8.2.3",
+          availableWallets: 1,
+          feeExpiration: Date.now() + 86400 * 1000,
+          reliability: 100,
+          selectionSource: "kohaku-manager",
+          signatureStatus: "verified"
+        }
+      ],
+      notes: ["Using Simulated Diagnostic Broadcaster. Transactions will be simulated locally."],
+      error: null
+    };
+  }
+
   const notes = [
     ...noSpendNotes,
     "The current Waku SDK build uses visible direct peers; custom DNS ENR trees are shown for policy visibility but not dialed."

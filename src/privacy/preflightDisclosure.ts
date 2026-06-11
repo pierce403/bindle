@@ -66,21 +66,21 @@ const actionEndpointRequirements: Record<
   "send-review": {
     "ethereum-rpc": "required",
     "railgun-sync": "possible",
+    "railgun-artifacts": "required",
     "railgun-poi": "possible",
-    "railgun-broadcaster": "possible",
-    "provider-resolution": "possible",
-    "erc4337-bundler": "possible",
-    "erc4337-paymaster": "possible"
+    "erc4337-bundler": "required",
+    "erc4337-paymaster": "possible",
+    "provider-resolution": "possible"
   },
   "pay-review": {
     "ethereum-rpc": "required",
     "railgun-sync": "possible",
     "railgun-artifacts": "required",
     "railgun-poi": "possible",
-    "railgun-broadcaster": "required",
+    "erc4337-bundler": "required",
+    "erc4337-paymaster": "possible",
     "provider-resolution": "possible",
-    "price-quotes": "required",
-    "waku": "possible"
+    "price-quotes": "required"
   },
   "public-smart-payment": {
     "ethereum-rpc": "required",
@@ -93,7 +93,7 @@ const actionEndpointRequirements: Record<
     "railgun-sync": "possible",
     "railgun-artifacts": "required",
     "railgun-poi": "possible",
-    "railgun-broadcaster": "possible",
+    "erc4337-bundler": "required",
     "provider-resolution": "possible"
   },
   "unshield-review": {
@@ -103,7 +103,8 @@ const actionEndpointRequirements: Record<
     "railgun-sync": "possible",
     "railgun-artifacts": "required",
     "railgun-poi": "possible",
-    "railgun-broadcaster": "required"
+    "erc4337-bundler": "required",
+    "erc4337-paymaster": "possible"
   },
   "shield-sweep": {
     "ethereum-rpc": "required",

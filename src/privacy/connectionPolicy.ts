@@ -151,6 +151,10 @@ export const endpointChoices = {
     {
       label: "RAILGUN public Waku broadcaster network",
       value: RAILGUN_PUBLIC_WAKU_BROADCASTER_NETWORK
+    },
+    {
+      label: "Simulated Diagnostic Broadcaster (Local/No-spend)",
+      value: "mock://simulated-broadcaster"
     }
   ],
   railgunBroadcasterPubSubTopic: [

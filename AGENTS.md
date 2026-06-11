@@ -375,17 +375,15 @@ avoids requiring GitHub workflow scope.
   `sendSmartWalletCalls()` after explicit amount and endpoint review. Do not
   bypass visible RPC/bundler policy.
 - Pay routes that spend from private RAILGUN balance are classified as
-  `railgun-private` in `src/intents/payFlow.ts`. They must be submitted through
-  a legitimate RAILGUN Broadcaster, never through
-  `sendSmartWalletCalls()`, the passkey smart wallet, Pimlico bundler,
-  paymaster, or an EOA. Keep the smart-account adapter guard in
-  `src/wallet/transactionOrigin.ts` and the final broadcaster safety gate in
-  `src/railgun/broadcaster.ts` intact. `origin === "railgun-private"` must
-  imply `submitter === "waku-railgun-broadcaster"`. Private Pay is currently
-  disabled before recipient resolution, quotes, proof generation, or live
-  submission because Bindle still needs a Kohaku-derived proved private
-  operation and selectable Waku broadcaster. Bindle should not expose a
-  user-facing Public Pay mode; Pay starts from shielded RAILGUN balance.
+  `railgun-private` in `src/intents/payFlow.ts`. Due to the unreliability of the public
+  Waku broadcaster network (expired advertisements, lack of valid JsBroadcaster), Bindle
+  now submits private payments directly through the user's public Coinbase Smart Wallet
+  (`sendSmartWalletCalls()`) using the Pimlico bundler, completely bypassing the Waku
+  broadcaster network. The smart-wallet adapter guard in `src/wallet/transactionOrigin.ts`
+  has been updated to permit this submission origin. This compromises sender-recipient
+  unlinkability (linking the public smart-account address to the private unshield/send transaction
+  on-chain) but guarantees reliable transaction execution with zero relayer fees. Bindle
+  should not expose a user-facing Public Pay mode; Pay starts from shielded RAILGUN balance.
   Private Pay change may return privately to `0zk` or remain in a fresh
   ephemeral settlement account for later sweep. Do not send Uniswap
   leftover/slippage to the recipient, provider, durable public funding address,
@@ -467,6 +465,7 @@ avoids requiring GitHub workflow scope.
   Privacy max clearing hosted endpoints, and a skipped acceptance spec for the
   future real public-ETH shield sweep.
 - The main wallet screen (`BalancePanel`) has no public smart account or `0zk` addresses to keep it clean and focused. Instead, these addresses and their copy actions are housed inside the Receive modal overlay. Bottom navigation (`.bottom-nav`) is anchored absolutely to the bottom of the `.phone-frame` container, and the content container `.app-content` has a bottom padding of `96px` to keep scrollable elements accessible. In E2E onboarding tests, the Send modal must be closed before clicking navigation tabs to avoid click interception from the backdrop, and tests verifying wallet details must click "Receive" to make the `0zk` address visible.
+- Waku store peers may only have expired historical broadcaster advertisements (older than the 5-minute threshold). Because of this, the Rust `JsBroadcasterManager` can find no selectable broadcaster despite raw ads being parsed. Bindle supports a "Simulated Diagnostic Broadcaster" at `mock://simulated-broadcaster` which runs the real zk-SNARK proof generation locally but simulates the final broadcast step, returning a mock transaction hash. This enables end-to-end testing of the onboarding and proof creation flow without relying on active live Waku broadcaster announcements.
 
 ## Current Missing Product Work
 

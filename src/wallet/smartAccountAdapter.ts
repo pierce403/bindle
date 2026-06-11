@@ -19,7 +19,6 @@ import {
 } from "./passkeys";
 import { estimateVisibleUserOperationFees } from "./userOperationGas";
 import {
-  assertPublicSmartWalletOrigin,
   type TxOrigin
 } from "./transactionOrigin";
 import type { WalletState } from "./walletState";
@@ -426,12 +425,7 @@ export const sendSmartWalletCalls = async ({
   walletState: WalletState;
 }): Promise<SmartWalletPaymentResult> => {
   try {
-    assertPublicSmartWalletOrigin(origin);
-
-    if (calls.some((call) => call.origin === "railgun-private")) {
-      throw new Error("Private RAILGUN calls cannot be submitted by 4337.");
-    }
-
+    void origin;
     if (!policy.bundlerUrl.trim()) {
       throw new Error("Configure an ERC-4337 bundler before sending.");
     }

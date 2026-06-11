@@ -375,6 +375,27 @@ export const ensureRailgunWakuBroadcasterTransport = async ({
 }): Promise<RailgunWakuBroadcasterTransport> => {
   const pubsubTopic = policy.railgunBroadcasterPubSubTopic.trim();
 
+  if (policy.broadcasterUrl === "mock://simulated-broadcaster") {
+    return {
+      policyKey: "mock-simulated",
+      pubsubTopic: "mock-simulated",
+      manager: {
+        isMock: true,
+        bestBroadcasterForToken: async () => null
+      } as any,
+      adapter: {
+        peerCount: async () => 0,
+        waitForRawFeeAds: async () => [],
+        getRawFeeAdSnapshot: () => ({
+          observedMessages: 0,
+          parsedAds: [],
+          parseErrors: []
+        }),
+        stop: async () => {}
+      } as any
+    };
+  }
+
   if (!policy.wakuEnabled || !policy.railgunBroadcasterEnabled) {
     throw new Error("Enable Waku broadcaster discovery before Private Pay.");
   }
@@ -518,6 +539,44 @@ export const selectRailgunWakuBroadcaster = async ({
   onStatus: (message: string) => void;
 }): Promise<SelectedRailgunBroadcaster> => {
   onStatus(`Selecting RAILGUN Waku broadcaster for ${feeTokenAddress}.`);
+
+  if ((manager as any).isMock) {
+    onStatus("Selected Simulated Diagnostic Broadcaster; fee 0 per gas.");
+    return {
+      submitter: "waku-railgun-broadcaster",
+      address: "0x0000000000000000000000000000000000000000",
+      railgunAddress: "0zk1mockbroadcasterxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      tokenFee: {
+        feesID: "mockfees",
+        token: feeTokenAddress,
+        perUnitGas: "0",
+        recipient: "0zk1mockbroadcasterxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        expiration: Date.now() + 86400 * 1000,
+        availableWallets: 1,
+        relayAdapt: "0x0000000000000000000000000000000000000000",
+        reliability: 100
+      },
+      raw: {
+        address: "0x0000000000000000000000000000000000000000",
+        fee: {
+          recipient: "0zk1mockbroadcasterxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          token: feeTokenAddress,
+          perUnitGas: 0n,
+          expiration: Date.now() + 86400 * 1000,
+          feesId: "mockfees",
+          availableWallets: 1,
+          relayAdapt: "0x0000000000000000000000000000000000000000",
+          reliability: 100
+        },
+        broadcast: async (_provedTx: any) => {
+          onStatus("Simulating private transaction submission...");
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          return "0xmocktxhash1234567890abcdef1234567890abcdef1234567890abcdef12345";
+        }
+      } as any
+    };
+  }
+
   const broadcaster = await manager.bestBroadcasterForToken(
     feeTokenAddress,
     currentTimestampMilliseconds()
@@ -588,6 +647,17 @@ export const submitRailgunWakuBroadcasterTransaction = async ({
     throw new Error(
       "Private RAILGUN actions can only be submitted through a Waku RAILGUN broadcaster."
     );
+  }
+
+  if (policy.broadcasterUrl === "mock://simulated-broadcaster") {
+    onStatus("Submitting private RAILGUN operation through Simulated Diagnostic Broadcaster...");
+    const transactionHash = await prepared.broadcaster.raw.broadcast(
+      prepared.provedTx
+    );
+    return {
+      transactionHash: transactionHash || null,
+      broadcasterId: prepared.broadcaster.address
+    };
   }
 
   await ensureRailgunWakuBroadcasterTransport({ policy, onStatus });

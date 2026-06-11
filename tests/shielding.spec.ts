@@ -40,14 +40,14 @@ test("funded public wallet is not shield-ready without recoverable 0zk state", (
   expect(summarizeMissingRequirements(report)).toContain("real 0zk address");
 });
 
-test("unshield path remains blocked until keys, balance sync, and broadcaster exist", () => {
+test("unshield path remains blocked until keys, balance sync, and bundler exist", () => {
   const report = assessUnshieldReadiness({
     railgunAddress: null,
     hasRecoverableRailgunKeyMaterial: false,
     shieldedBalanceWei: null,
     toolkitReady: false,
     ethereumRpcUrl: defaultConnectionPolicy.ethereumRpcUrl,
-    broadcasterUrl: defaultConnectionPolicy.broadcasterUrl,
+    bundlerUrl: defaultConnectionPolicy.bundlerUrl,
     providerMode: defaultConnectionPolicy.providerMode
   });
 
@@ -67,7 +67,7 @@ test("unshield path remains blocked until keys, balance sync, and broadcaster ex
         ready: false
       }),
       expect.objectContaining({
-        id: "railgun-broadcaster",
+        id: "erc4337-bundler",
         ready: true
       })
     ])

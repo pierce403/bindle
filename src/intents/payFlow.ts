@@ -101,6 +101,18 @@ export const getRailgunBroadcasterReadiness = (
     };
   }
 
+  if (policy.broadcasterUrl === "mock://simulated-broadcaster") {
+    return {
+      ready: true,
+      status: "configured",
+      message:
+        "Simulated Diagnostic Broadcaster configured. zk-SNARK proof generation will run, and transaction submission will be simulated locally.",
+      feeToken,
+      fee: "0 per gas",
+      wakuStatus: policy.wakuEnabled ? "enabled (simulation)" : "disabled (simulation)"
+    };
+  }
+
   if (!policy.wakuEnabled) {
     return {
       ready: false,

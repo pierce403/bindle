@@ -380,7 +380,7 @@ class ScriptWakuAdapter {
 
         if (decoded) {
           const message = makeWakuMessage(decoded);
-          this.observeFeeAd(message);
+          this.enqueue(message);
           messages.push(message);
         }
       }
@@ -507,6 +507,11 @@ const scan = async (options) => {
     adapter = new ScriptWakuAdapter(node, routingInfo);
     manager = new railgunWaku.JsBroadcasterManager(chainId, adapter, []);
     manager.start();
+
+    if (!options.json) {
+      console.log("Retrieving historical RAILGUN Waku broadcaster fee ads...");
+    }
+    await adapter.retrieveHistorical(feesContentTopic).catch(() => undefined);
 
     const found = new Map();
     const tokenResults = new Map(tokens.map((token) => [

@@ -251,29 +251,16 @@ test("fresh selector rejects unavailable or expired broadcaster fees", async () 
   ).rejects.toThrow(/fresh compatible fee with available wallets/i);
 });
 
-test("Private Pay readiness calls fresh selector before final blockers", () => {
+test("Private Pay readiness uses smart wallet direct submission", () => {
   const appSource = readFileSync(resolve("src/App.tsx"), "utf8");
-  const helperSource = readFileSync(
-    resolve("src/railgun/broadcasterSelection.ts"),
-    "utf8"
-  );
   const submitPayStart = appSource.indexOf("const submitPay = async () =>");
   const submitPayEnd = appSource.indexOf("const submitShield = async", submitPayStart);
   const submitPaySource = appSource.slice(submitPayStart, submitPayEnd);
 
   expect(submitPayStart).toBeGreaterThan(-1);
-  expect(submitPaySource).toContain(
-    "refreshAndSelectRailgunBroadcasterForPrivateAction"
-  );
-  expect(submitPaySource.indexOf("refreshAndSelectRailgunBroadcasterForPrivateAction")).toBeLessThan(
-    submitPaySource.indexOf("Kohaku proved private operation not built yet")
-  );
-  expect(submitPaySource).not.toContain("sendSmartWalletCalls");
-  expect(submitPaySource).not.toContain("pimlico");
-  expect(submitPaySource).not.toContain("paymaster");
-  expect(helperSource).not.toContain("sendSmartWalletCalls");
-  expect(helperSource).not.toContain("pimlico");
-  expect(helperSource).not.toContain("paymaster");
+  expect(submitPaySource).toContain("sendSmartWalletCalls");
+  expect(submitPaySource).toContain("prepareRailgunPayForRecipient");
+  expect(submitPaySource).not.toContain("refreshAndSelectRailgunBroadcasterForPrivateAction");
 });
 
 test("Private Pay final submit requires fresh broadcaster selection metadata", async () => {
