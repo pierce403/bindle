@@ -30,6 +30,8 @@ export type PreparedRailgunPay = {
   submissionMode: "erc4337-bundler";
   railgunAddress: string;
   privateOperation?: PreparedBundlerSubmit;
+  provider?: any;
+  syncer?: any;
 };
 
 const mainnetUsdcAddress = getAddress(
@@ -301,28 +303,31 @@ export const prepareRailgunPayForRecipient = async ({
   }
 
   const database = createKohakuIndexedDbDatabase(`railgun:${chain.id}`);
-  onStatus("Creating RAILGUN UTXO syncer");
-  const syncer = await createVisibleRailgunUtxoSyncer({
-    chain,
-    kohaku,
-    policy,
-    provider,
-    onStatus
-  });
 
-  onStatus("Building Kohaku RAILGUN provider");
-  const railgunProvider = await new kohaku.RailgunBuilder(chain, provider)
-    .withDatabase(database)
-    .withUtxoSyncer(syncer)
-    .build();
-
-  const signer = kohaku.RailgunSigner.privateKey(
-    unlockedWallet.spendingKey,
-    unlockedWallet.viewingKey,
-    unlockedWallet.chainId
-  );
-
+  let syncer: any = null;
+  let railgunProvider: any = null;
   try {
+    onStatus("Creating RAILGUN UTXO syncer");
+    syncer = await createVisibleRailgunUtxoSyncer({
+      chain,
+      kohaku,
+      policy,
+      provider,
+      onStatus
+    });
+
+    onStatus("Building Kohaku RAILGUN provider");
+    railgunProvider = await new kohaku.RailgunBuilder(chain, provider)
+      .withDatabase(database)
+      .withUtxoSyncer(syncer)
+      .build();
+
+    const signer = kohaku.RailgunSigner.privateKey(
+      unlockedWallet.spendingKey,
+      unlockedWallet.viewingKey,
+      unlockedWallet.chainId
+    );
+
     onStatus("Registering local RAILGUN signer");
     await railgunProvider.register(signer);
 
@@ -400,6 +405,8 @@ export const prepareRailgunPayForRecipient = async ({
       railgunAdapter: "kohaku-railgun",
       submissionMode: "erc4337-bundler",
       railgunAddress: walletState.railgunAddress,
+      provider: railgunProvider,
+      syncer: syncer,
       privateOperation: {
         submitter: "erc4337-bundler",
         chain: "ethereum-mainnet",
@@ -407,9 +414,18 @@ export const prepareRailgunPayForRecipient = async ({
         delegatingSignerPrivateKey: unlockedWallet.spendingKey
       }
     };
-  } finally {
-    railgunProvider.free();
-    syncer.free();
+  } catch (error) {
+    if (railgunProvider) {
+      try {
+        railgunProvider.free();
+      } catch (e) {}
+    }
+    if (syncer) {
+      try {
+        syncer.free();
+      } catch (e) {}
+    }
+    throw error;
   }
 };
 

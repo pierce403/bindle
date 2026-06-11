@@ -1795,6 +1795,7 @@ function WalletApp() {
     });
     setAppNotice(null);
 
+    let preparedPay: any = null;
     try {
       if (activeAction === "send") {
         setPayStatus("Generating zk-SNARK proof and preparing user operation...");
@@ -1805,7 +1806,7 @@ function WalletApp() {
 
         const convertedAmountEth = usdToEthString(draft.amount, visibleShieldedBalance?.price ?? null);
 
-        const preparedPay = await prepareRailgunPayForRecipient({
+        preparedPay = await prepareRailgunPayForRecipient({
           amount: convertedAmountEth,
           asset,
           policy,
@@ -1934,6 +1935,18 @@ function WalletApp() {
       });
     } finally {
       setIsSubmittingPay(false);
+      if (preparedPay) {
+        if (preparedPay.provider) {
+          try {
+            preparedPay.provider.free();
+          } catch (e) {}
+        }
+        if (preparedPay.syncer) {
+          try {
+            preparedPay.syncer.free();
+          } catch (e) {}
+        }
+      }
     }
   };
 
