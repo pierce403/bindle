@@ -84,5 +84,4 @@ test("Private Pay source does not import removed SDK or quote/broadcaster path",
   expect(prepareSource).toContain("kohakuPrivateActionsPendingMessage");
   expect(prepareSource).not.toContain("@railgun-community/wallet");
   expect(prepareSource).not.toContain("prepareUniswapV4EthToUsdcExactOutputRoute");
-  expect(prepareSource).not.toContain("getRailgunWakuBroadcasterQuote");
 });

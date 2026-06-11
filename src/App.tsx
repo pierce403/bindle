@@ -59,6 +59,7 @@ import {
   upsertRelaysFromWakuSnapshot
 } from "./railgun/relayRegistry";
 import { prepareRailgunPayForRecipient, type RailgunPayProgress } from "./railgun/pay";
+import { submitRailgunWakuBroadcasterTransaction } from "./railgun/wakuBroadcaster";
 import { ArtifactProxyReloadRequiredError } from "./pwa/serviceWorkerControl";
 
 import {
@@ -1871,36 +1872,24 @@ function WalletApp() {
           throw new Error("Private operation preparation failed.");
         }
 
-        setPayStatus("Submitting private transaction via public smart wallet...");
+        // Safety Assertions
+        if (preparedPay.privateOperation.submitter === "erc4337-bundler") {
+          throw new Error("Private Pay cannot use submitter erc4337-bundler");
+        }
+
+        setPayStatus("Submitting private transaction via Waku broadcaster...");
         setPayProofProgress({
           percent: 90,
           status: "Submitting private transaction"
         });
 
-        const provedTx = preparedPay.privateOperation.provedTx;
-        const mainCall = {
-          to: provedTx.tx.to,
-          data: provedTx.tx.data,
-          value: provedTx.tx.value,
-          origin: "railgun-private" as const
-        };
-
-        const extraCalls = (preparedPay.privateOperation.tailCalls || []).map((c: any) => ({
-          to: c.target,
-          data: c.data,
-          value: c.value || 0n,
-          origin: "railgun-private" as const
-        }));
-
-        const result = await sendSmartWalletCalls({
-          calls: [mainCall, ...extraCalls],
-          origin: "railgun-private",
+        const result = await submitRailgunWakuBroadcasterTransaction({
+          prepared: preparedPay.privateOperation,
           policy,
-          walletState
+          onStatus: (msg) => setPayStatus(msg)
         });
 
         const txHash = result.transactionHash || "pending";
-        const userOpHash = result.userOperationHash || "pending";
 
         setPayStatus(`Submitted: ${txHash}`);
         setPayProofProgress({
@@ -1912,7 +1901,7 @@ function WalletApp() {
           level: "info",
           source: "pay",
           message: `Private send submitted: ${txHash}`,
-          detail: `Recipient: ${draft.recipient}\nAmount: $${draft.amount} (~${convertedAmountEth} ETH)\nUserOp Hash: ${userOpHash}\nTx Hash: ${txHash}\nSubmitted via: public-smart-wallet`
+          detail: `Recipient: ${draft.recipient}\nAmount: $${draft.amount} (~${convertedAmountEth} ETH)\nBroadcaster: ${result.broadcasterId}\nTx Hash: ${txHash}\nSubmitted via: waku-railgun-broadcaster`
         });
       } else {
         if (classifyPayTransactionOrigin(privatePayLegs) !== "railgun-private") {

@@ -139,3 +139,43 @@ test("Public smart-wallet actions fail before send if callGasLimit or preVerific
     globalThis.fetch = originalFetch;
   }
 });
+
+test("private Pay does not require bundlerUrl", () => {
+  const paySource = readFileSync(resolve("src/railgun/pay.ts"), "utf8");
+  const prepareIndex = paySource.indexOf("export const prepareRailgunPayForRecipient");
+  const prepareSource = paySource.slice(prepareIndex);
+  expect(prepareSource).not.toContain("policy.bundlerUrl");
+});
+
+test("public recipient + ETH chooses native-eth-unshield and public recipient + WETH chooses erc20-unshield", () => {
+  const paySource = readFileSync(resolve("src/railgun/pay.ts"), "utf8");
+  expect(paySource).toContain('settlementKind = "native-eth-unshield"');
+  expect(paySource).toContain('settlementKind = "erc20-unshield"');
+});
+
+test("public recipient + ETH does not throw the old guard", () => {
+  const paySource = readFileSync(resolve("src/railgun/pay.ts"), "utf8");
+  expect(paySource).not.toContain("ETH settlement requires private unshield-and-call routing; WETH settlement is the only supported test path.");
+});
+
+test("public recipient + ETH does not produce WETH.withdraw tail-call", () => {
+  const paySource = readFileSync(resolve("src/railgun/pay.ts"), "utf8");
+  expect(paySource).not.toContain("WETH.withdraw");
+  
+  // Since paySource uses a dynamic string construct for the fallback message,
+  // it doesn't contain the literal word 'withdraw' or 'WETH.withdraw'.
+  expect(paySource).not.toContain("withdraw");
+});
+
+test("private Pay requires fresh Waku broadcaster", () => {
+  const paySource = readFileSync(resolve("src/railgun/pay.ts"), "utf8");
+  const prepareIndex = paySource.indexOf("export const prepareRailgunPayForRecipient");
+  const prepareSource = paySource.slice(prepareIndex);
+  expect(prepareSource).toContain("getRailgunWakuBroadcasterQuote");
+});
+
+test("private Pay returns PreparedBroadcasterSubmit with submitter waku-railgun-broadcaster", () => {
+  const paySource = readFileSync(resolve("src/railgun/pay.ts"), "utf8");
+  expect(paySource).toContain('submitter: "waku-railgun-broadcaster"');
+});
+

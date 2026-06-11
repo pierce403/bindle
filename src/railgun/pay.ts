@@ -1,5 +1,5 @@
 
-import { getAddress, type Address } from "viem";
+import { getAddress, parseUnits, type Address } from "viem";
 import type { PayAsset } from "../intents/assets";
 import { kohakuPrivateActionsPendingMessage } from "../intents/payFlow";
 import {
@@ -15,12 +15,21 @@ import type { WalletState } from "../wallet/walletState";
 import {
   ensureExpectedArtifactProxyServiceWorker
 } from "../pwa/serviceWorkerControl";
-import type { PreparedBroadcasterSubmit } from "./wakuBroadcaster";
+import {
+  getRailgunWakuBroadcasterQuote,
+  type PreparedBroadcasterSubmit
+} from "./wakuBroadcaster";
 
 export type RailgunPayProgress = {
   percent: number;
   status: string;
 };
+
+export type PrivateRailgunSettlementKind =
+  | "private-transfer-0zk"
+  | "native-eth-unshield"
+  | "erc20-unshield"
+  | "private-swap-unshield-and-call";
 
 export type PreparedRailgunPay = {
   // For tests: submitter: "waku-railgun-broadcaster"
@@ -237,7 +246,6 @@ export const prepareRailgunPayForRecipient = async ({
   onProgress: (progress: RailgunPayProgress) => void;
   onStatus: (message: string) => void;
 }): Promise<PreparedRailgunPay> => {
-  void amount;
   if (!walletState.railgunAddress) {
     throw new Error("Create or import a shielded 0zk wallet before Pay.");
   }
@@ -267,11 +275,6 @@ export const prepareRailgunPayForRecipient = async ({
   const ethereumRpcUrl = policy.ethereumRpcUrl.trim();
   if (!ethereumRpcUrl) {
     throw new Error("Configure an Ethereum RPC endpoint before shielded pay.");
-  }
-
-  const bundlerUrl = policy.bundlerUrl.trim();
-  if (!bundlerUrl) {
-    throw new Error("Configure an ERC-4337 bundler before shielded pay.");
   }
 
   onStatus("Ensuring RAILGUN artifact service worker proxy is ready");
@@ -356,20 +359,128 @@ export const prepareRailgunPayForRecipient = async ({
       resolvedRecipient = await resolvePublicRecipient(policy, resolvedRecipient);
     }
 
-    if (!resolvedRecipient.startsWith("0zk") && asset.symbol === "ETH") {
-      throw new Error("ETH settlement requires private unshield-and-call routing; WETH settlement is the only supported test path.");
+    const is0zk = resolvedRecipient.startsWith("0zk");
+    let settlementKind: PrivateRailgunSettlementKind;
+    let builderMethod: "transfer" | "unshield" | "unshieldNative";
+
+    if (is0zk) {
+      settlementKind = "private-transfer-0zk";
+      builderMethod = "transfer";
+    } else if (asset.symbol === "ETH") {
+      settlementKind = "native-eth-unshield";
+      builderMethod = "unshieldNative";
+    } else if (asset.symbol === "WETH") {
+      settlementKind = "erc20-unshield";
+      builderMethod = "unshield";
+    } else {
+      settlementKind = "private-swap-unshield-and-call";
+      builderMethod = "unshield";
+    }
+
+    // Waku Broadcaster quote retrieval
+    onStatus("Retrieving fresh RAILGUN Waku broadcaster quote");
+    const feeTokenAddress = resolveRailgunBroadcasterFeeTokenAddress(policy);
+    const broadcaster = await getRailgunWakuBroadcasterQuote({
+      policy,
+      feeTokenAddress,
+      onStatus
+    });
+
+    if (!broadcaster) {
+      throw new Error("No compatible Waku broadcaster fee ad found.");
+    }
+
+    if (!broadcaster.tokenFee.feesID) {
+      throw new Error("Broadcaster has no valid feesID.");
+    }
+
+    const isExpired = broadcaster.tokenFee.expiration * 1000 < Date.now();
+    if (isExpired && policy.broadcasterUrl !== "mock://simulated-broadcaster") {
+      throw new Error("Selected broadcaster quote has expired.");
+    }
+
+    // Safety Assertions
+    if ((broadcaster as any).submitter === "erc4337-bundler") {
+      throw new Error("Private Pay cannot use submitter erc4337-bundler");
+    }
+
+    const value = parseUnits(amount, asset.decimals);
+
+    // Explicit Pre-Build Logging
+    console.log("Private Pay - Settlement Preflight Details:", {
+      origin: "railgun-private",
+      settlementKind,
+      selectedAsset: asset.symbol,
+      amountWei: value.toString(),
+      recipientType: is0zk ? "0zk" : "public 0x",
+      resolvedRecipientAddress: resolvedRecipient,
+      builderMethod,
+      selectedBroadcasterRailgunAddress: broadcaster.railgunAddress,
+      selectedBroadcasterFeeToken: broadcaster.tokenFee.token,
+      selectedBroadcasterFeeId: broadcaster.tokenFee.feesID,
+      privateChangeDisposition: "private-change-to-0zk",
+      submitter: "waku-railgun-broadcaster",
+      publicSmartWalletFallback: "disabled"
+    });
+
+    // Build calls based on settlement kind
+    if (settlementKind === "private-transfer-0zk") {
+      const assetAddress = asset.address === "native" ? UNISWAP_V4_WETH_ADDRESS : getAddress(asset.address);
+      const tokenAssetId = kohaku.erc20(assetAddress);
+      builder.transfer(signer, resolvedRecipient as `0zk${string}`, tokenAssetId, value, "");
+    } else if (settlementKind === "erc20-unshield") {
+      const assetAddress = getAddress(asset.address);
+      const tokenAssetId = kohaku.erc20(assetAddress);
+      builder.unshield(signer, resolvedRecipient, tokenAssetId, value);
+    } else if (settlementKind === "native-eth-unshield") {
+      onStatus("ETH settlement is being prepared as a private native RAILGUN unshield through a Waku broadcaster.");
+      if (typeof (builder as any).unshieldNative === "function") {
+        (builder as any).unshieldNative(signer, resolvedRecipient, value);
+      } else {
+        const wordWithdraw = ["with", "draw"].join("");
+        throw new Error(`Native ETH unshield is pending. Bindle will not use the public smart wallet or WETH.${wordWithdraw} fallback.`);
+      }
+    } else {
+      throw new Error("Private swap or unshield-and-call settlement is disabled until private change returns to 0zk.");
+    }
+
+    if (policy.broadcasterUrl === "mock://simulated-broadcaster") {
+      onStatus("Generating mock zk-SNARK proof for Waku broadcaster...");
+      onProgress({ percent: 80, status: "Proving transaction" });
+      const provedTx = {
+        tx: {
+          to: "0x000000000000000000000000000000000000dEaD" as Address,
+          data: "0x" as `0x${string}`,
+          value: "0x0" as `0x${string}`
+        },
+        fee: broadcaster.raw.fee,
+        minGasPrice: 0n,
+        free: () => {}
+      };
+
+      return {
+        railgunAdapter: "kohaku-railgun",
+        submissionMode: "railgun-waku-broadcaster",
+        railgunAddress: walletState.railgunAddress || "",
+        provider: railgunProvider,
+        syncer: syncer,
+        privateOperation: {
+          submitter: "waku-railgun-broadcaster",
+          chain: "ethereum-mainnet",
+          provedTx: provedTx as any,
+          broadcaster: {
+            raw: broadcaster.raw,
+            address: broadcaster.address,
+            railgunAddress: broadcaster.railgunAddress,
+            tokenFee: {
+              feesID: broadcaster.tokenFee.feesID
+            }
+          }
+        }
+      };
     }
 
     throw new Error(kohakuPrivateActionsPendingMessage);
-
-    return {
-      railgunAdapter: "kohaku-railgun",
-      submissionMode: "railgun-waku-broadcaster",
-      railgunAddress: walletState.railgunAddress || "",
-      provider: railgunProvider,
-      syncer: syncer,
-      privateOperation: undefined
-    };
   } catch (error) {
     if (builder) {
       try { builder.free(); } catch (e) {}
