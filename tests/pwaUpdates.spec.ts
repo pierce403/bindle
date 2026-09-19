@@ -166,6 +166,39 @@ test("Approve installs automatically after an open Send flow closes", async ({ p
   await expect(menu.getByRole("radio", { name: "Approve", exact: true })).toBeChecked();
 });
 
+for (const missingSelection of [false, true]) {
+  for (const preference of ["Ask", "Reject"] as const) {
+    test(`${preference} survives closing all windows${missingSelection ? " with a missing approval record" : ""}`, async ({ page, context }) => {
+      const menu = await settings(page);
+      await menu.getByRole("radio", { name: preference, exact: true }).check();
+      if (missingSelection) {
+        // Existing installs (including the pre-controls worker) may have a
+        // cached shell without a durable selection record.
+        await page.evaluate(() => caches.delete("bindle-release-selection-v1"));
+      }
+      await stageUpdate(page);
+      const worker = context.serviceWorkers().at(-1)!;
+      await page.close();
+      await expect.poll(() => worker.evaluate(() => {
+        const scope = globalThis as unknown as ServiceWorkerGlobalScope;
+        return !scope.registration.waiting && scope.registration.active?.state === "activated";
+      })).toBe(true);
+      const reopened = await context.newPage();
+      await enableStandalonePwa(reopened);
+      await reopened.goto(origin);
+      await expect(reopened.getByTitle("Open version and update settings")).toContainText(previous.commit.slice(0, 12));
+      const reopenedMenu = await settings(reopened);
+      await expect(reopenedMenu.getByRole("radio", { name: preference, exact: true })).toBeChecked();
+      if (preference === "Reject") {
+        await expect(reopened.getByLabel("App update available")).toHaveCount(0);
+        await reopenedMenu.getByRole("radio", { name: "Ask", exact: true }).check();
+      }
+      await reopened.getByLabel("App update available").getByRole("button", { name: "Install update" }).click();
+      await expectCurrent(reopened);
+    });
+  }
+}
+
 test("an incomplete release stays uninstalled and a later check can recover", async ({ page }) => {
   const menu = await settings(page);
   deployed = newFiles;
@@ -189,6 +222,21 @@ test("an approved version opens offline without changing the preference", async 
   await expect(page.getByTitle("Open version and update settings")).toContainText(previous.commit.slice(0, 12));
   await settings(page);
   await expect(menu.getByRole("radio", { name: "Reject", exact: true })).toBeChecked();
+});
+
+test("losing the selection after download cannot select the waiting update", async ({ page, context }) => {
+  await stageUpdate(page);
+  await page.evaluate(() => caches.delete("bindle-release-selection-v1"));
+  const worker = context.serviceWorkers().at(-1)!;
+  await page.close();
+  await expect.poll(() => worker.evaluate(() => {
+    const scope = globalThis as unknown as ServiceWorkerGlobalScope;
+    return !scope.registration.waiting && scope.registration.active?.state === "activated";
+  })).toBe(true);
+  const reopened = await context.newPage();
+  const response = await reopened.goto(origin);
+  expect(response?.status()).toBe(503);
+  await expect(reopened.locator("body")).toContainText("saved version is unavailable");
 });
 
 test("approval in another window defers reload until this window's Send flow closes", async ({ page, context }) => {

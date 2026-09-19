@@ -1,6 +1,6 @@
 // Stamped by pnpm build. The development worker does not pin Vite modules.
-const BUILD_INFO = {"version":"0.1.2","commit":"ef1c695bd805a4698903697e926e6de18079b80b-dirty","time":"2026-09-19T13:08:04.199Z","id":"00d7925f65f48070ec6784e5"};
-const PRECACHE = [{"url":"/.nojekyll","hash":"01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"},{"url":"/CNAME","hash":"4e35c0e085a490b46a50c23d115a2b2d52dcee84cd8dccd6c2ea50e7b63bd46d"},{"url":"/favicon-16.png","hash":"e71f59a78448b8264c0a3e96399bbe7e60d5815474e7053007e23d88bb176d7b"},{"url":"/favicon-32.png","hash":"b5fc90d4936b1cfa6f5168d0b859d0dd3ac6a31abf2852c98b7d4d246019bab1"},{"url":"/index.html","hash":"c36eaca0dab886980e923e40989ae2d7eaa7daedb226e1538c0f6ebe64da3f4a"},{"url":"/logo.png","hash":"bb119224bf2b6c67ebc68a8daf8abb8e661254b955c54d363411eaeb352afddf"},{"url":"/manifest.webmanifest","hash":"048cf65eb8430e8b8c6512860e53847bb78b54f74b8f5f811331d0a4640af171"},{"url":"/paisley-monochrome.png","hash":"c60bb9bc1d7705fd6a8262ed2e47348da17ac81babef91c74cb13e1a4823d75a"},{"url":"/paisley-rose-monochrome.png","hash":"42e7e07b241db403d04c9352c9da6e3b62d92fff1094bed9253d91675486f7ff"},{"url":"/assets/ccip-02bd7tEp.js","hash":"57a5b650a0c698e08eae9cbba2b0ae986b9575cbec3ee5cf0751194e082bc624"},{"url":"/assets/dist-CCRklUx3.js","hash":"864938937a27022af4744b798dbd0fa738f67a24cc175997c32259b880ff42c0"},{"url":"/assets/index-BFeqMLLP.css","hash":"051f184e3e4158130b68bb6cdfae711a4b29cb89a6c7dc579801c2966228019a"},{"url":"/assets/index-DCX4pbd8.js","hash":"c071352b82351190a62d924b80836b03a099e4dbaec81ed2c5567c76aa743f3f"},{"url":"/assets/index_bg-B29YS5-Q.wasm","hash":"a122c9b3dc572805f68e3bea27f3c2bb1a0c3ee42a86cc3cfd287990e49a4b04"},{"url":"/assets/pkg-BHh18C2y.js","hash":"724a391976c0ff772189a34007c78b9fda4a9ebdc2b156b642a6817d08910566"},{"url":"/assets/railgun_rs-FG7lo5Ag.js","hash":"69d030fe12399cae31518295edee62f7c11f0cc04ac85b3b37ea6f0013d588bc"},{"url":"/assets/railgun_rs_bg-mJRSrp_z.wasm","hash":"3d7d0d556b545ef67a5e67144134931058b2fe7b887815311d16b1304d49497b"},{"url":"/assets/utils-BAL4l3fO.js","hash":"42edaea7a1f433a9b4833a15edd8da26917672f93c2c7c0d37de0aeeb2a722f2"},{"url":"/icons/icon-192.png","hash":"6f1c4c80db555703c22bc947e5fbb970ab138e482770e3604b0224548931ce46"},{"url":"/icons/icon-512.png","hash":"bb119224bf2b6c67ebc68a8daf8abb8e661254b955c54d363411eaeb352afddf"},{"url":"/icons/maskable-192.png","hash":"1450f8d17005132ee822528e6154265c8e3451abdd547aa5321b2d9fac65307f"},{"url":"/icons/maskable-512.png","hash":"84b19d3486a10725c6367240d9967394b6e3d1931fb9a38a2585e1ca858b9b1d"}];
+const BUILD_INFO = {"version":"0.1.3","commit":"8a348c133ea6d98d35a238b41e09b2c0601e4f4e-dirty","time":"2026-09-19T13:18:47.876Z","id":"5f7e7c297ab6e3c5f41aeedc"};
+const PRECACHE = [{"url":"/.nojekyll","hash":"01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"},{"url":"/CNAME","hash":"4e35c0e085a490b46a50c23d115a2b2d52dcee84cd8dccd6c2ea50e7b63bd46d"},{"url":"/favicon-16.png","hash":"e71f59a78448b8264c0a3e96399bbe7e60d5815474e7053007e23d88bb176d7b"},{"url":"/favicon-32.png","hash":"b5fc90d4936b1cfa6f5168d0b859d0dd3ac6a31abf2852c98b7d4d246019bab1"},{"url":"/index.html","hash":"df6e28e33dc271560e2d1b1a445ce56ab5ebc3674d42a76641b61e9e3ac77bdf"},{"url":"/logo.png","hash":"bb119224bf2b6c67ebc68a8daf8abb8e661254b955c54d363411eaeb352afddf"},{"url":"/manifest.webmanifest","hash":"048cf65eb8430e8b8c6512860e53847bb78b54f74b8f5f811331d0a4640af171"},{"url":"/paisley-monochrome.png","hash":"c60bb9bc1d7705fd6a8262ed2e47348da17ac81babef91c74cb13e1a4823d75a"},{"url":"/paisley-rose-monochrome.png","hash":"42e7e07b241db403d04c9352c9da6e3b62d92fff1094bed9253d91675486f7ff"},{"url":"/assets/ccip-02bd7tEp.js","hash":"57a5b650a0c698e08eae9cbba2b0ae986b9575cbec3ee5cf0751194e082bc624"},{"url":"/assets/ccip-lslBLEZ8.js","hash":"b3877ff3e38759def4f5a7bdd626f5e47ef6c01bcfa14d5d6977b4a137abea0d"},{"url":"/assets/dist-CCRklUx3.js","hash":"864938937a27022af4744b798dbd0fa738f67a24cc175997c32259b880ff42c0"},{"url":"/assets/dist-Dar16ANQ.js","hash":"42e9534436712ccbe72663ef9e16f219edc4a68f279ca0892bc2aa9e30337745"},{"url":"/assets/index-BCGC7-3p.js","hash":"13062a83b56bc78d4b979e2cdd645e819f066530812d0ee25ea6aba9b70328a3"},{"url":"/assets/index-BFeqMLLP.css","hash":"051f184e3e4158130b68bb6cdfae711a4b29cb89a6c7dc579801c2966228019a"},{"url":"/assets/index-DCX4pbd8.js","hash":"c071352b82351190a62d924b80836b03a099e4dbaec81ed2c5567c76aa743f3f"},{"url":"/assets/index_bg-B29YS5-Q.wasm","hash":"a122c9b3dc572805f68e3bea27f3c2bb1a0c3ee42a86cc3cfd287990e49a4b04"},{"url":"/assets/pkg-BHh18C2y.js","hash":"724a391976c0ff772189a34007c78b9fda4a9ebdc2b156b642a6817d08910566"},{"url":"/assets/railgun_rs-FG7lo5Ag.js","hash":"69d030fe12399cae31518295edee62f7c11f0cc04ac85b3b37ea6f0013d588bc"},{"url":"/assets/railgun_rs_bg-mJRSrp_z.wasm","hash":"3d7d0d556b545ef67a5e67144134931058b2fe7b887815311d16b1304d49497b"},{"url":"/assets/utils-BAL4l3fO.js","hash":"42edaea7a1f433a9b4833a15edd8da26917672f93c2c7c0d37de0aeeb2a722f2"},{"url":"/icons/icon-192.png","hash":"6f1c4c80db555703c22bc947e5fbb970ab138e482770e3604b0224548931ce46"},{"url":"/icons/icon-512.png","hash":"bb119224bf2b6c67ebc68a8daf8abb8e661254b955c54d363411eaeb352afddf"},{"url":"/icons/maskable-192.png","hash":"1450f8d17005132ee822528e6154265c8e3451abdd547aa5321b2d9fac65307f"},{"url":"/icons/maskable-512.png","hash":"84b19d3486a10725c6367240d9967394b6e3d1931fb9a38a2585e1ca858b9b1d"}];
 const CACHE_NAME = `bindle-shell-${BUILD_INFO?.id ?? "dev"}`;
 const RELEASE_CACHE = "bindle-release-selection-v1";
 const RELEASE_KEY = "/__bindle-approved-release";
@@ -17,6 +17,30 @@ const approveRelease = async () => {
       ? previous.previousCacheName : previous?.cacheName
   }));
 };
+const initializeRelease = async () => {
+  if (await readRelease()) return;
+  const previousShells = [];
+  for (const name of await caches.keys()) {
+    if (name.startsWith("bindle-shell-") && name !== CACHE_NAME &&
+        await (await caches.open(name)).match("/index.html")) previousShells.push(name);
+  }
+  if (previousShells.length === 1) {
+    // Older workers did not persist approval metadata. Preserve their shell;
+    // migration and a missing selection record are not consent to upgrade.
+    await (await caches.open(RELEASE_CACHE)).put(RELEASE_KEY, Response.json({
+      build: null, cacheName: previousShells[0]
+    }));
+  } else if (previousShells.length === 0 && !self.registration.active) {
+    // Only a genuinely fresh install may select itself without an approval.
+    await approveRelease();
+  } else {
+    throw new Error("Cannot determine the previously approved Bindle release.");
+  }
+};
+const missingRelease = () => new Response(
+  "Bindle's saved version is unavailable. Restore site storage or clear site data to install the current release.",
+  { status: 503, headers: { "content-type": "text/plain" } }
+);
 const ARTIFACT_CACHE_NAME = "bindle-railgun-artifacts-v4";
 const ARTIFACT_PROXY_VERSION = "railgun-artifacts-v4";
 const KOHAKU_RAILGUN_ARTIFACT_ORIGIN = "https://github.com";
@@ -35,6 +59,7 @@ self.addEventListener("install", (event) => {
       }
       await cache.put(url, response);
     }
+    await initializeRelease();
     // No skipWaiting: only the explicit approval message can activate early.
   })());
 });
@@ -43,11 +68,10 @@ self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
     // Browsers activate a waiting worker when the last window closes. Preserve
     // the approved shell independently, so closing the PWA never implies consent.
-    if (BUILD_INFO && !(await readRelease())) await approveRelease();
     const release = await readRelease();
     const keep = [CACHE_NAME, release?.cacheName, release?.previousCacheName];
     // Keep all shells while a page may still need an older lazy-loaded chunk.
-    if ((await self.clients.matchAll({ includeUncontrolled: true })).length === 0) {
+    if (release && (await self.clients.matchAll({ includeUncontrolled: true })).length === 0) {
       await Promise.all((await caches.keys())
         .filter((key) => key.startsWith("bindle-shell-") && !keep.includes(key))
         .map((key) => caches.delete(key)));
@@ -351,11 +375,9 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     event.respondWith((async () => {
       const release = await readRelease();
-      const cache = await caches.open(release?.cacheName ?? CACHE_NAME);
-      return await cache.match("/index.html") ?? new Response(
-        "Bindle's saved version is unavailable. Restore site storage or clear site data to install the current release.",
-        { status: 503, headers: { "content-type": "text/plain" } }
-      );
+      if (!release) return missingRelease();
+      const cache = await caches.open(release.cacheName);
+      return await cache.match("/index.html") ?? missingRelease();
     })());
     return;
   }
@@ -364,7 +386,8 @@ self.addEventListener("fetch", (event) => {
   if (requestUrl.pathname.startsWith("/assets/") || PRECACHE.some(({ url }) => url === requestUrl.pathname)) {
     event.respondWith((async () => {
       const release = await readRelease();
-      const cache = await caches.open(release?.cacheName ?? CACHE_NAME);
+      if (!release) return missingRelease();
+      const cache = await caches.open(release.cacheName);
       const saved = await cache.match(request);
       if (saved) return saved;
       // Hashed assets from older open windows remain valid across activation.

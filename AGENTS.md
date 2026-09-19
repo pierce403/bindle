@@ -235,6 +235,13 @@ avoids requiring GitHub workflow scope.
   defers installation/reload during wallet actions and recovery-phrase review.
   Settings > Version and the header version button expose current/pending
   version, full commit, and build timestamp. Checks/downloads are same-origin.
+- Never initialize the approved release during worker activation: activation
+  after the last window closes is automatic. Initialize only during a fresh
+  install; if selection metadata is absent on an upgrade, preserve the sole
+  previous cached shell or fail closed when it is missing/ambiguous. Navigation
+  must not fall back to the new worker's shell without a saved selection.
+  `pnpm test:pwa-worker` exercises these worker lifecycle cases without a browser;
+  `tests/pwaUpdates.spec.ts` also covers Ask/Reject across closing every window.
 - `pnpm build` stamps the worker and `docs/build.json` with matching release
   metadata and hashes every shell asset, including lazy JS/WASM. Installation
   must fail on missing/mismatched assets; proving artifacts remain on demand.

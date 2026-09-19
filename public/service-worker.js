@@ -17,6 +17,30 @@ const approveRelease = async () => {
       ? previous.previousCacheName : previous?.cacheName
   }));
 };
+const initializeRelease = async () => {
+  if (await readRelease()) return;
+  const previousShells = [];
+  for (const name of await caches.keys()) {
+    if (name.startsWith("bindle-shell-") && name !== CACHE_NAME &&
+        await (await caches.open(name)).match("/index.html")) previousShells.push(name);
+  }
+  if (previousShells.length === 1) {
+    // Older workers did not persist approval metadata. Preserve their shell;
+    // migration and a missing selection record are not consent to upgrade.
+    await (await caches.open(RELEASE_CACHE)).put(RELEASE_KEY, Response.json({
+      build: null, cacheName: previousShells[0]
+    }));
+  } else if (previousShells.length === 0 && !self.registration.active) {
+    // Only a genuinely fresh install may select itself without an approval.
+    await approveRelease();
+  } else {
+    throw new Error("Cannot determine the previously approved Bindle release.");
+  }
+};
+const missingRelease = () => new Response(
+  "Bindle's saved version is unavailable. Restore site storage or clear site data to install the current release.",
+  { status: 503, headers: { "content-type": "text/plain" } }
+);
 const ARTIFACT_CACHE_NAME = "bindle-railgun-artifacts-v4";
 const ARTIFACT_PROXY_VERSION = "railgun-artifacts-v4";
 const KOHAKU_RAILGUN_ARTIFACT_ORIGIN = "https://github.com";
@@ -35,6 +59,7 @@ self.addEventListener("install", (event) => {
       }
       await cache.put(url, response);
     }
+    await initializeRelease();
     // No skipWaiting: only the explicit approval message can activate early.
   })());
 });
@@ -43,11 +68,10 @@ self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
     // Browsers activate a waiting worker when the last window closes. Preserve
     // the approved shell independently, so closing the PWA never implies consent.
-    if (BUILD_INFO && !(await readRelease())) await approveRelease();
     const release = await readRelease();
     const keep = [CACHE_NAME, release?.cacheName, release?.previousCacheName];
     // Keep all shells while a page may still need an older lazy-loaded chunk.
-    if ((await self.clients.matchAll({ includeUncontrolled: true })).length === 0) {
+    if (release && (await self.clients.matchAll({ includeUncontrolled: true })).length === 0) {
       await Promise.all((await caches.keys())
         .filter((key) => key.startsWith("bindle-shell-") && !keep.includes(key))
         .map((key) => caches.delete(key)));
@@ -351,11 +375,9 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     event.respondWith((async () => {
       const release = await readRelease();
-      const cache = await caches.open(release?.cacheName ?? CACHE_NAME);
-      return await cache.match("/index.html") ?? new Response(
-        "Bindle's saved version is unavailable. Restore site storage or clear site data to install the current release.",
-        { status: 503, headers: { "content-type": "text/plain" } }
-      );
+      if (!release) return missingRelease();
+      const cache = await caches.open(release.cacheName);
+      return await cache.match("/index.html") ?? missingRelease();
     })());
     return;
   }
@@ -364,7 +386,8 @@ self.addEventListener("fetch", (event) => {
   if (requestUrl.pathname.startsWith("/assets/") || PRECACHE.some(({ url }) => url === requestUrl.pathname)) {
     event.respondWith((async () => {
       const release = await readRelease();
-      const cache = await caches.open(release?.cacheName ?? CACHE_NAME);
+      if (!release) return missingRelease();
+      const cache = await caches.open(release.cacheName);
       const saved = await cache.match(request);
       if (saved) return saved;
       // Hashed assets from older open windows remain valid across activation.
