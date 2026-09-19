@@ -242,6 +242,17 @@ avoids requiring GitHub workflow scope.
   must not fall back to the new worker's shell without a saved selection.
   `pnpm test:pwa-worker` exercises these worker lifecycle cases without a browser;
   `tests/pwaUpdates.spec.ts` also covers Ask/Reject across closing every window.
+- The current approval protocol protects against conforming update workers, not
+  a hostile or accidentally regressed `service-worker.js`. Browsers execute the
+  candidate worker's install code before user approval, with access to the same
+  Cache Storage and `skipWaiting()`. A September 19 Chromium proof set Reject,
+  then showed a candidate worker could cache its shell, overwrite
+  `bindle-release-selection-v1`, call `skipWaiting()`, and load the new release
+  on reload without consent. Do not describe this as protection from a malicious
+  publisher. Closing this boundary requires an append-only worker URL/update
+  architecture where the installed script is never replaced and a new script
+  URL is registered only after approval; ordinary state-machine checks inside
+  the replaceable candidate worker cannot enforce that property.
 - `pnpm build` stamps the worker and `docs/build.json` with matching release
   metadata and hashes every shell asset, including lazy JS/WASM. Installation
   must fail on missing/mismatched assets; proving artifacts remain on demand.
