@@ -1,5 +1,5 @@
 import { deflateSync, inflateSync } from "node:zlib";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 const sourcePath = new URL("../assets/bindle-logo-source.png", import.meta.url);
 const publicDirectory = new URL("../public/", import.meta.url);
@@ -236,6 +236,49 @@ const makePng = (source, size, scale = 1) => {
   ]);
 };
 
+const makeSplashPng = (source, width, height) => {
+  const stride = width * 4;
+  const pixels = Buffer.alloc((stride + 1) * height);
+  const logoSize = Math.min(width, height) * 0.42;
+  const left = (width - logoSize) / 2;
+  const top = (height - logoSize) / 2;
+  const cropSize = Math.min(source.width, source.height);
+  const cropX = (source.width - cropSize) / 2;
+  const cropY = (source.height - cropSize) / 2;
+
+  for (let y = 0; y < height; y += 1) {
+    const rowStart = y * (stride + 1);
+    pixels[rowStart] = 0;
+    for (let x = 0; x < width; x += 1) {
+      const offset = rowStart + 1 + x * 4;
+      let color = [0, 0, 0, 255];
+      if (x >= left && x < left + logoSize && y >= top && y < top + logoSize) {
+        color = sample(
+          source,
+          cropX + ((x - left) / logoSize) * (cropSize - 1),
+          cropY + ((y - top) / logoSize) * (cropSize - 1)
+        );
+      }
+      pixels[offset] = Math.round(color[0]);
+      pixels[offset + 1] = Math.round(color[1]);
+      pixels[offset + 2] = Math.round(color[2]);
+      pixels[offset + 3] = Math.round(color[3]);
+    }
+  }
+
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header[8] = 8;
+  header[9] = 6;
+  return Buffer.concat([
+    pngSignature,
+    chunk("IHDR", header),
+    chunk("IDAT", deflateSync(pixels, { level: 9 })),
+    chunk("IEND", Buffer.alloc(0))
+  ]);
+};
+
 const source = readPng(readFileSync(sourcePath));
 mkdirSync(publicDirectory, { recursive: true });
 mkdirSync(iconDirectory, { recursive: true });
@@ -250,4 +293,32 @@ for (const size of [192, 512]) {
     new URL(`maskable-${size}.png`, iconDirectory),
     makePng(source, size, 0.82)
   );
+}
+
+const androidResources = new URL("../android/app/src/main/res/", import.meta.url);
+if (existsSync(androidResources)) {
+  const launcherSizes = { mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192 };
+  for (const [density, size] of Object.entries(launcherSizes)) {
+    const directory = new URL(`mipmap-${density}/`, androidResources);
+    writeFileSync(new URL("ic_launcher.png", directory), makePng(source, size));
+    writeFileSync(new URL("ic_launcher_round.png", directory), makePng(source, size, 0.88));
+    writeFileSync(new URL("ic_launcher_foreground.png", directory), makePng(source, Math.round(size * 2.25), 0.66));
+  }
+
+  const splashSizes = {
+    "drawable/splash.png": [480, 320],
+    "drawable-land-mdpi/splash.png": [480, 320],
+    "drawable-land-hdpi/splash.png": [800, 480],
+    "drawable-land-xhdpi/splash.png": [1280, 720],
+    "drawable-land-xxhdpi/splash.png": [1600, 960],
+    "drawable-land-xxxhdpi/splash.png": [1920, 1280],
+    "drawable-port-mdpi/splash.png": [320, 480],
+    "drawable-port-hdpi/splash.png": [480, 800],
+    "drawable-port-xhdpi/splash.png": [720, 1280],
+    "drawable-port-xxhdpi/splash.png": [960, 1600],
+    "drawable-port-xxxhdpi/splash.png": [1280, 1920]
+  };
+  for (const [path, [width, height]] of Object.entries(splashSizes)) {
+    writeFileSync(new URL(path, androidResources), makeSplashPng(source, width, height));
+  }
 }

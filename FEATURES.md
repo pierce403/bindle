@@ -46,6 +46,9 @@ See [modernization evidence](public/railgun-modernization.md) for validation.
 - [x] Preserve the 0.1.5 byte-stable update controller and release manifest;
       ordinary application releases do not replace controller code. Document
       the migration and origin-trust caveats in SECURITY.md.
+- [x] Signed, non-Play-Store Android APK with embedded application assets,
+      certificate-bound passkeys, manual-only APK download/install, a strict
+      release discovery manifest, and no PWA shell updater inside the APK.
 - [x] One Kohaku RAILGUN generation (`alpha.30`); remove the old Waku alias.
 - [x] Official broadcaster client owns Waku lifecycle, signed fee handling,
       selection, and prepared submission; no second RAILGUN wallet engine starts.
@@ -112,6 +115,9 @@ See [modernization evidence](public/railgun-modernization.md) for validation.
       uncached and wallet data independent of release installation.
 - [ ] Validate target physical-device/browser passkey, WASM, memory, and storage
       behavior beyond virtual-authenticator browser tests.
+- [ ] Validate APK install, certificate-bound passkey create/sign, upgrade data
+      preservation, large proving-artifact reads, and manual update UX on a
+      physical Android device before treating the APK as production-hardened.
 
 ## Future product and protocol work
 

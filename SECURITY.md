@@ -1,9 +1,9 @@
 # Bindle Security Policy
 
-Bindle is a statically hosted Progressive Web App for public smart-wallet and
-shielded RAILGUN activity. Security-sensitive state stays in the browser. This
-document describes the intended boundaries, including where the browser and
-the `bindle.cash` origin remain trusted.
+Bindle is distributed as a statically hosted Progressive Web App and a signed
+Android APK for public smart-wallet and shielded RAILGUN activity. This document
+describes their different update trust boundaries and where the browser,
+Android device, signing key, and `bindle.cash` origin remain trusted.
 
 ## Reporting A Vulnerability
 
@@ -59,6 +59,65 @@ people's wallets or funds.
   assets come from the same origin and are not independently signed, they do
   not prove that a release is trustworthy or that displayed commit metadata is
   truthful.
+
+## Android APK Update Controls
+
+The APK is a Capacitor application with package ID `cash.bindle.wallet`. Its
+HTML, JavaScript, WASM, and proving artifacts are embedded in the signed package;
+the configuration has no remote `server.url`. The APK does not register the PWA
+release controller. Its bundled Android service worker can validate and cache
+proving artifacts from the package, but cannot fetch, cache, stage, approve, or
+replace the application shell.
+
+Android package signing is the update trust anchor. Once Bindle is installed,
+Android will accept an in-place replacement only when it has the same package ID
+and signing certificate (and an acceptable version code). Bindle versions map
+`major.minor.patch` to `major * 1,000,000 + minor * 1,000 + patch`. The expected
+release certificate SHA-256 fingerprint is:
+
+```text
+6F:F8:E9:D9:15:11:95:24:8F:F8:D2:92:4C:BC:10:E1:BE:35:C3:2D:1A:B5:43:A3:C6:BD:FD:30:6D:61:70:44
+```
+
+The app checks `https://bindle.cash/android-release.json` for strictly shaped
+release metadata. The browser install page reads the same-origin copy. A valid
+manifest must name a newer internally consistent version and an HTTPS APK under
+this repository's GitHub Releases path. Checking happens automatically when the
+relevant UI mounts and reveals ordinary request metadata. Downloading requires
+a user click, opens the GitHub release asset, and does not install it. Bindle has
+no silent install, background package replacement, Play Store updater, or
+in-app sideload permission. Android presents and enforces the eventual install.
+
+The manifest and its SHA-256 field are advisory discovery metadata, not an
+independent signature and not a hash verification performed by the downloading
+browser. For an already-installed copy, a GitHub or `bindle.cash` attacker who
+does not possess the release signing key can publish or advertise another APK,
+but Android should reject it as an update. Such an attacker can still suppress
+updates, lie about availability, link an existing release, consume bandwidth,
+or try to persuade the user to uninstall first. A compromised signing key can
+authorize malicious in-place updates and is therefore a critical secret.
+
+A fresh installer has no previously pinned Android certificate. Compromise of
+the download page, GitHub account, browser, device, or user decision can lead to
+installation of an attacker-signed lookalike. Fresh installers should verify the
+certificate fingerprint or APK digest through an independent trusted channel.
+There is no Play Store review, Play signing, transparency log, or automatic key
+recovery. Losing the release keystore or password prevents future updates.
+
+Android passkeys use RP ID `bindle.cash`. `/.well-known/assetlinks.json` binds
+that RP ID to the package and release certificate. Domain compromise can remove
+that association, disrupt passkey use, or publish an association for an
+attacker-controlled app; the signing check still prevents that app from
+replacing an installed Bindle APK. The app also depends on Android, Credential
+Manager, the system WebView, and passkey providers, which update outside this
+APK's controls.
+
+Wallet secrets remain in the app WebView's IndexedDB under a non-extractable
+WebCrypto key; they have not been migrated into Android Keystore hardware. APK
+replacement normally preserves app data. Clearing app data or uninstalling
+removes local secrets and may make funds unrecoverable without a separately
+backed-up recovery phrase. Removal prevents later code from using erased local
+keys, but it is data loss, not a safe substitute for recovery planning.
 
 ## PWA Update Controls
 
@@ -151,7 +210,8 @@ the `bindle.cash` origin.
   The controller does not preserve arbitrary application data if the browser
   itself evicts origin storage.
 
-Users who require protection from a malicious or compromised web origin need a
-separately distributed, independently verified native wrapper, browser
-extension, or comparable external trust anchor. Bindle does not currently
-provide one.
+Users who require protection from a malicious or compromised web origin should
+use the APK only after independently verifying its signing certificate. The APK
+narrows application-code updates to the Android signing key, but does not remove
+the domain, operating system, WebView, network endpoints, passkey provider, or
+device from the broader wallet threat model.

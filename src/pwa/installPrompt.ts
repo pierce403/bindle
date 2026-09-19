@@ -1,3 +1,5 @@
+import { isAndroidApp } from "../platform/runtime";
+
 export type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{
@@ -7,6 +9,7 @@ export type BeforeInstallPromptEvent = Event & {
 };
 
 export const isRunningAsPwa = () => {
+  if (isAndroidApp()) return true;
   const standaloneMedia = window.matchMedia("(display-mode: standalone)");
   const fullscreenMedia = window.matchMedia("(display-mode: fullscreen)");
   const minimalUiMedia = window.matchMedia("(display-mode: minimal-ui)");

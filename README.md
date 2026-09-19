@@ -1,9 +1,9 @@
 # Bindle
 
-Bindle is a static mobile PWA wallet interface for Ethereum payments through
-RAILGUN. Its home screen has one shielded balance, Receive/Send/Pay/Swap actions,
-and real activity. Ordinary browser visits show an information/install page.
-Unimplemented actions remain visibly disabled.
+Bindle is a static mobile PWA and signed Android APK wallet interface for
+Ethereum payments through RAILGUN. Its home screen has one shielded balance,
+Receive/Send/Pay/Swap actions, and real activity. Ordinary browser visits show
+an information/install page. Unimplemented actions remain visibly disabled.
 
 The public funding account uses a platform passkey and Coinbase Smart Wallet.
 The shielded RAILGUN account currently uses a recovery phrase encrypted in
@@ -183,6 +183,35 @@ Browser eviction or site-data removal can remove the cached-release guarantee.
 Ordinary releases use `release.json` behind the byte-stable update controller;
 the build rejects changes to that controller. See [SECURITY.md](SECURITY.md) for
 the migration caveat and the continuing trust in the hosting origin.
+
+### Android APK
+
+The Android build is a Capacitor wrapper with package ID `cash.bindle.wallet`.
+It embeds the reviewed web build and proving artifacts; it has no remote
+`server.url`. Its small bundled service worker proxies only proving-artifact
+requests and never caches or updates the application shell.
+
+```bash
+pnpm android:debug
+
+BINDLE_ANDROID_KEYSTORE=/secure/path/bindle-release.p12 \
+BINDLE_ANDROID_PASSWORD_FILE=/secure/path/keystore.pass \
+BINDLE_ANDROID_KEY_ALIAS=bindle \
+pnpm android:release
+```
+
+Android builds require JDK 21 and Android SDK 36. Set `BINDLE_JAVA_HOME` when
+JDK 21 is not installed in the standard system path. Release APKs are written
+to ignored `dist/` output. Signing keys, passwords, debug APKs, and release APKs
+must not be committed.
+
+The website offers the APK below the PWA installer using
+`/android-release.json`. The installed app checks that manifest and shows a
+newer version, but downloads only after a user click and never installs an
+update. Android's same-certificate check is the update trust anchor. Back up
+the release keystore and password together: losing either permanently ends the
+ability to update installed copies. See [SECURITY.md](SECURITY.md) for the APK
+threat model and fresh-install caveat.
 
 Modernization evidence and limitations are in
 [the modernization report](public/railgun-modernization.md), copied to

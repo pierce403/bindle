@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Bindle</string>
+    <string name="title_activity_main">Bindle</string>
+    <string name="package_name">cash.bindle.wallet</string>
+    <string name="custom_url_scheme">cash.bindle.wallet</string>
+</resources>

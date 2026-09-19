@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "cash.bindle.wallet",
+      "sha256_cert_fingerprints": [
+        "6F:F8:E9:D9:15:11:95:24:8F:F8:D2:92:4C:BC:10:E1:BE:35:C3:2D:1A:B5:43:A3:C6:BD:FD:30:6D:61:70:44"
+      ]
+    }
+  }
+]

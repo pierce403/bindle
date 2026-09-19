@@ -1,4 +1,5 @@
 import { createWebAuthnCredential } from "viem/account-abstraction";
+import { isAndroidApp } from "../platform/runtime";
 
 export type PasskeyCapability = {
   checked: boolean;
@@ -46,6 +47,9 @@ export const bindleLegacyPasskeyRpId = "bindle.me";
 export const bindleCanonicalPasskeyRpId = "bindle.cash";
 
 export const getDefaultPasskeyRpId = (): string => {
+  if (isAndroidApp()) {
+    return bindleCanonicalPasskeyRpId;
+  }
   if (typeof window === "undefined") {
     return bindleCanonicalPasskeyRpId;
   }
@@ -185,6 +189,12 @@ export const passkeyLookupFailureMessage = ({
     currentHostname !== null && currentHostname.length > 0 && currentHostname !== rpId;
 
   if (originMismatch) {
+    if (isAndroidApp()) {
+      return [
+        `Passkey signing failed: no usable passkey was found for RP ID ${rpId}.`,
+        "The signed Android app must be associated with bindle.cash through its published Digital Asset Links certificate fingerprint, and the passkey must exist on this device."
+      ].join(" ");
+    }
     return [
       `Passkey signing failed: no usable passkey was found for RP ID ${rpId}.`,
       `This app is running on ${currentHostname}, so migrated passkeys require ${rpId}/.well-known/webauthn to authorize this origin.`,

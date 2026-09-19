@@ -1,3 +1,8 @@
+import { isAndroidApp } from "../platform/runtime";
+
+const artifactProxyWorkerUrl = (): string =>
+  isAndroidApp() ? "/android-service-worker.js" : "/service-worker.js";
+
 export type ServiceWorkerArtifactProxyStatus = {
   ok: boolean;
   expectedVersion: string;
@@ -101,7 +106,7 @@ export async function ensureExpectedArtifactProxyServiceWorker({
     onStatus("No Service Worker registration found. Registering service worker...");
     status.repairActions.push("register_new_worker");
     try {
-      registration = await navigator.serviceWorker.register("/service-worker.js", {
+      registration = await navigator.serviceWorker.register(artifactProxyWorkerUrl(), {
         scope: "/",
         updateViaCache: "none"
       });
@@ -157,7 +162,9 @@ export async function ensureExpectedArtifactProxyServiceWorker({
   status.ok = currentVersion === expectedVersion;
   status.caches = await getCacheKeys();
   if (!status.ok) {
-    status.error = "The required artifact proxy is unavailable. Open Settings > Version to review app updates, then retry.";
+    status.error = isAndroidApp()
+      ? "The bundled artifact proxy is unavailable. Close and reopen the Android app, then retry."
+      : "The required artifact proxy is unavailable. Open Settings > Version to review app updates, then retry.";
     onStatus(status.error);
   }
   return status;

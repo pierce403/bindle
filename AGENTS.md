@@ -237,6 +237,37 @@ against a malicious origin replacing the stable URL or clearing storage. The
 one-time 0.1.4-to-0.1.5 migration executes candidate install code before approval.
 `SECURITY.md` is the canonical PWA threat model; preserve those caveats.
 
+## Android APK lifecycle
+
+The Android app is a Capacitor wrapper with package ID `cash.bindle.wallet`,
+SDK 36, and JDK 21. It embeds `docs/`; never add `server.url` or another remote
+code-loading path. Native mode registers `/android-service-worker.js`, which is
+an artifact-proxy-only worker and must never gain PWA shell caching/update logic.
+Android package replacement is the only native application-code updater.
+
+Versions map `major.minor.patch` to Android code
+`major * 1,000,000 + minor * 1,000 + patch`, with each component at most 999.
+`pnpm android:debug` produces a debug-only APK. `pnpm android:release` must fail
+without `BINDLE_ANDROID_KEYSTORE`, `BINDLE_ANDROID_KEY_ALIAS`, and either the two
+password environment variables or `BINDLE_ANDROID_PASSWORD_FILE`. Never commit
+keystores, password files, or APKs. Back up the signing material before release;
+key loss makes installed APKs permanently unupdatable.
+
+This workstation's release identity is stored outside the repository at
+`/home/pierce/.local/share/bindle/android-signing/` with owner-only permissions.
+Alias `bindle` has certificate fingerprint
+`6F:F8:E9:D9:15:11:95:24:8F:F8:D2:92:4C:BC:10:E1:BE:35:C3:2D:1A:B5:43:A3:C6:BD:FD:30:6D:61:70:44`.
+The same fingerprint belongs in `public/.well-known/assetlinks.json`; changing
+the signing identity breaks both upgrades and Android RP-ID association.
+
+The installed app checks `https://bindle.cash/android-release.json`, shows only
+a higher consistent version, and opens the pinned GitHub Releases path only on
+user click. It never installs automatically. The manifest is discovery metadata;
+Android's same-certificate enforcement is the installed-user trust boundary.
+Fresh installers must independently trust/verify the APK. `SECURITY.md` is
+canonical for these caveats. Bundled proving artifacts make the APK roughly
+233 MB; GitHub Releases, not Git, holds the binary.
+
 ## Build, test, preview, and deploy
 
 ```bash
@@ -247,6 +278,9 @@ pnpm typecheck
 pnpm test:pwa-worker
 pnpm test:e2e
 pnpm build
+pnpm android:debug
+# release: provide signing variables; output is ignored under dist/
+pnpm android:release
 pnpm dev
 pnpm preview
 pnpm scan:railgun

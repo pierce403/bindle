@@ -5,6 +5,8 @@ import {
   checkForUpdates, dismissUpdate, getUpdateState, installUpdate,
   setUpdatePreference, subscribeToUpdates, type ReleaseInfo
 } from "../pwa/registerServiceWorker";
+import { isAndroidApp } from "../platform/runtime";
+import { AndroidUpdatePrompt, AndroidVersionMenu } from "./AndroidUpdates";
 
 function ReleaseDetails({ release }: { release: ReleaseInfo }) {
   return (
@@ -17,6 +19,11 @@ function ReleaseDetails({ release }: { release: ReleaseInfo }) {
 }
 
 export function AppUpdatePrompt({ busy }: { busy: boolean }) {
+  if (isAndroidApp()) return <AndroidUpdatePrompt />;
+  return <PwaAppUpdatePrompt busy={busy} />;
+}
+
+function PwaAppUpdatePrompt({ busy }: { busy: boolean }) {
   const updates = useSyncExternalStore(subscribeToUpdates, getUpdateState);
   if (!updates.pending || updates.preference !== "ask" || updates.dismissed === updates.pending.id) return null;
   return (
@@ -38,6 +45,11 @@ export function AppUpdatePrompt({ busy }: { busy: boolean }) {
 }
 
 export function VersionMenu({ busy }: { busy: boolean }) {
+  if (isAndroidApp()) return <AndroidVersionMenu />;
+  return <PwaVersionMenu busy={busy} />;
+}
+
+function PwaVersionMenu({ busy }: { busy: boolean }) {
   const updates = useSyncExternalStore(subscribeToUpdates, getUpdateState);
   const descriptions = {
     approve: "Automatically install updates and reload when no wallet action is open or running.",

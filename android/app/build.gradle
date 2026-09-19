@@ -1,0 +1,89 @@
+apply plugin: 'com.android.application'
+
+import groovy.json.JsonSlurper
+
+def bindlePackage = new JsonSlurper().parse(file('../../package.json'))
+def bindleVersion = bindlePackage.version.toString()
+def bindleVersionParts = bindleVersion.tokenize('.').collect { it as int }
+if (bindleVersionParts.size() != 3 || bindleVersionParts.any { it < 0 || it > 999 }) {
+    throw new GradleException("Bindle Android versions must use major.minor.patch with components from 0 to 999")
+}
+def bindleVersionCode = bindleVersionParts[0] * 1000000 + bindleVersionParts[1] * 1000 + bindleVersionParts[2]
+def bindleKeystorePath = System.getenv('BINDLE_ANDROID_KEYSTORE')
+def bindleKeystorePassword = System.getenv('BINDLE_ANDROID_STORE_PASSWORD')
+def bindleKeyAlias = System.getenv('BINDLE_ANDROID_KEY_ALIAS')
+def bindleKeyPassword = System.getenv('BINDLE_ANDROID_KEY_PASSWORD')
+def bindleReleaseSigningReady = [bindleKeystorePath, bindleKeystorePassword, bindleKeyAlias, bindleKeyPassword].every { it }
+
+android {
+    namespace = "cash.bindle.wallet"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "cash.bindle.wallet"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode bindleVersionCode
+        versionName bindleVersion
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        if (bindleReleaseSigningReady) {
+            release {
+                storeFile file(bindleKeystorePath)
+                storePassword bindleKeystorePassword
+                keyAlias bindleKeyAlias
+                keyPassword bindleKeyPassword
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (bindleReleaseSigningReady) signingConfig signingConfigs.release
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    implementation "androidx.webkit:webkit:$androidxWebkitVersion"
+    implementation "androidx.credentials:credentials:1.6.0-beta02"
+    implementation "androidx.credentials:credentials-play-services-auth:1.6.0-beta02"
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+gradle.taskGraph.whenReady { graph ->
+    if (graph.allTasks.any { it.name == 'assembleRelease' } && !bindleReleaseSigningReady) {
+        throw new GradleException('Release signing requires BINDLE_ANDROID_KEYSTORE, BINDLE_ANDROID_STORE_PASSWORD, BINDLE_ANDROID_KEY_ALIAS, and BINDLE_ANDROID_KEY_PASSWORD.')
+    }
+}
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

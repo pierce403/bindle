@@ -9,6 +9,8 @@ import { BuildMetadataLink } from "./components/BuildMetadataLink";
 import { AppUpdatePrompt } from "./components/AppUpdates";
 import { useAppUpdates } from "./pwa/useAppUpdates";
 import { checkForUpdates } from "./pwa/registerServiceWorker";
+import { checkForAndroidUpdate } from "./android/updates";
+import { isAndroidApp } from "./platform/runtime";
 import { DebugPanel } from "./components/DebugPanel";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { PrivacySwitchboard } from "./components/PrivacySwitchboard";
@@ -2499,7 +2501,7 @@ function WalletApp() {
               className="icon-button ghost"
               type="button"
               title="Check for updates"
-              onClick={() => void checkForUpdates()}
+              onClick={() => void (isAndroidApp() ? checkForAndroidUpdate() : checkForUpdates())}
             >
               <RotateCw size={19} aria-hidden="true" />
             </button>

@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { BuildMetadataLink } from "./BuildMetadataLink";
 import { PwaInstallPrompt } from "./PwaInstallPrompt";
+import { AndroidDownloadCard } from "./AndroidUpdates";
 
 const principles = [
   {
@@ -73,6 +74,7 @@ export function BrowserLandingPage() {
             </div>
             <PwaInstallPrompt />
           </section>
+          <AndroidDownloadCard />
         </section>
 
         <section className="landing-feature-grid" aria-label="Bindle goals">
