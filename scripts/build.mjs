@@ -5,6 +5,16 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const stableUpdateControllerHash = "d82fa0672e56b8ca4fe72b4b8158bc3da1f102efb0b8a6c89aaf5b90a261a586";
+
+const updateControllerPath = resolve(repoRoot, "public/service-worker.js");
+const updateControllerHash = createHash("sha256").update(readFileSync(updateControllerPath)).digest("hex");
+if (updateControllerHash !== stableUpdateControllerHash) {
+  throw new Error(
+    "public/service-worker.js is the frozen update trust anchor. " +
+    "Use a separately approved, content-addressed controller migration instead of replacing it."
+  );
+}
 
 const readGitDir = () => {
   const gitPath = resolve(repoRoot, ".git");
@@ -142,18 +152,23 @@ if (result.status === 0) {
   const time = env.BINDLE_BUILD_TIME;
   const id = createHash("sha256").update(JSON.stringify([version, buildCommit, time])).digest("hex").slice(0, 24);
   const build = { version, commit: buildCommit, time, id };
+  if (!existsSync(swPath)) {
+    throw new Error("The stable service-worker.js update controller is missing from the build.");
+  }
   const files = readdirSync(resolve(repoRoot, "docs"), { recursive: true })
-    .filter((file) => !file.startsWith("railgun-artifacts/") && file !== "service-worker.js" && file !== "build.json")
+    .filter((file) => !file.startsWith("railgun-artifacts/") &&
+      file !== "service-worker.js" && file !== "build.json" && file !== "release.json")
     .filter((file) => statSync(resolve(repoRoot, "docs", file)).isFile());
   const precache = files.map((file) => ({
     url: `/${file}`,
     hash: createHash("sha256").update(readFileSync(resolve(repoRoot, "docs", file))).digest("hex")
   }));
-  const swContent = readFileSync(swPath, "utf8")
-    .replace("/* BINDLE_BUILD_INFO */ null", JSON.stringify(build))
-    .replace("/* BINDLE_PRECACHE */ []", JSON.stringify(precache));
-  writeFileSync(swPath, swContent);
   writeFileSync(resolve(repoRoot, "docs/build.json"), JSON.stringify(build, null, 2) + "\n");
+  writeFileSync(resolve(repoRoot, "docs/release.json"), JSON.stringify({
+    schema: 1,
+    build,
+    files: precache
+  }, null, 2) + "\n");
   console.log(`Prepared PWA release ${version} (${id}), ${precache.length} verified shell assets.`);
 }
 

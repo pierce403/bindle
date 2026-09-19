@@ -55,13 +55,13 @@ const isRelease = (value: unknown): value is ReleaseInfo => {
   const candidate = value as Record<string, unknown>;
   return ["id", "version", "commit", "time"].every((key) => typeof candidate[key] === "string" && candidate[key]);
 };
-const messageWorker = <T>(worker: ServiceWorker, data: object): Promise<T> =>
+const messageWorker = <T>(worker: ServiceWorker, data: object, timeoutMs = 10_000): Promise<T> =>
   new Promise((resolve, reject) => {
     const channel = new MessageChannel();
     const timeout = window.setTimeout(() => {
       channel.port1.close();
       reject(new Error("The update worker did not respond. Please try again."));
-    }, 10_000);
+    }, timeoutMs);
     channel.port1.onmessage = (event: MessageEvent<T>) => {
       clearTimeout(timeout);
       channel.port1.close();
@@ -108,7 +108,8 @@ const getRegistration = () => {
       registration.addEventListener("updatefound", watchInstalling);
       navigator.serviceWorker.addEventListener("controllerchange", inspect);
       navigator.serviceWorker.addEventListener("message", (event) => {
-        if (event.data?.type === "BINDLE_RELEASE_APPROVED") inspect();
+        if (event.data?.type === "BINDLE_RELEASE_APPROVED" ||
+            event.data?.type === "BINDLE_RELEASE_STAGED") inspect();
       });
       watchInstalling();
       inspect();
@@ -129,26 +130,12 @@ export const checkForUpdates = async () => {
   publish({ checking: true, error: null });
   try {
     const registration = await getRegistration();
-    await registration.update();
-    if (registration.installing) {
-      const worker = registration.installing;
-      await new Promise<void>((resolve, reject) => {
-        const finish = () => {
-          if (worker.state === "installed" || worker.state === "activated" || worker.state === "redundant") {
-            clearTimeout(timer);
-            worker.removeEventListener("statechange", finish);
-            if (worker.state === "redundant") reject(new Error("Update download failed. Your current version is unchanged."));
-            else resolve();
-          }
-        };
-        const timer = setTimeout(() => {
-          worker.removeEventListener("statechange", finish);
-          reject(new Error("The update is still downloading. Check again in a moment."));
-        }, 60_000);
-        worker.addEventListener("statechange", finish);
-        finish();
-      });
-    }
+    const worker = registration.waiting ?? registration.active;
+    if (!worker) throw new Error("The update controller is not ready. Reload Bindle and try again.");
+    const response = await messageWorker<{ error?: string }>(
+      worker, { type: "BINDLE_CHECK_FOR_UPDATE" }, 60_000
+    );
+    if (response.error) throw new Error(response.error);
     await inspectRegistration(registration);
     publish({ checked: true });
   } catch (error) {
@@ -162,9 +149,9 @@ export const installUpdate = async () => {
   if (!pending || !worker || state.installing) return;
   publish({ installing: true, error: null });
   try {
-    const response = await messageWorker<{ approved?: ReleaseInfo; error?: string }>(worker, {
-      type: "BINDLE_APPROVE_UPDATE", id: pending.id
-    });
+    const response = await messageWorker<{ approved?: ReleaseInfo; error?: string }>(
+      worker, { type: "BINDLE_APPROVE_UPDATE", id: pending.id }, 60_000
+    );
     if (response.error || response.approved?.id !== pending.id) throw new Error(response.error ?? "Update approval failed.");
     publish({ readyToReload: true });
   } catch (error) {

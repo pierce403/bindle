@@ -242,20 +242,21 @@ avoids requiring GitHub workflow scope.
   must not fall back to the new worker's shell without a saved selection.
   `pnpm test:pwa-worker` exercises these worker lifecycle cases without a browser;
   `tests/pwaUpdates.spec.ts` also covers Ask/Reject across closing every window.
-- The current approval protocol protects against conforming update workers, not
-  a hostile or accidentally regressed `service-worker.js`. Browsers execute the
-  candidate worker's install code before user approval, with access to the same
-  Cache Storage and `skipWaiting()`. A September 19 Chromium proof set Reject,
-  then showed a candidate worker could cache its shell, overwrite
-  `bindle-release-selection-v1`, call `skipWaiting()`, and load the new release
-  on reload without consent. Do not describe this as protection from a malicious
-  publisher. Closing this boundary requires an append-only worker URL/update
-  architecture where the installed script is never replaced and a new script
-  URL is registered only after approval; ordinary state-machine checks inside
-  the replaceable candidate worker cannot enforce that property.
-- `pnpm build` stamps the worker and `docs/build.json` with matching release
-  metadata and hashes every shell asset, including lazy JS/WASM. Installation
-  must fail on missing/mismatched assets; proving artifacts remain on demand.
+- From 0.1.5, `/service-worker.js` is a byte-stable update controller rather
+  than release-specific code. Ordinary releases change `/release.json` and
+  hashed app assets only. The controller verifies and caches a pending release,
+  then changes `bindle-release-selection-v1` only after approval. `pnpm build`
+  fails if the controller hash changes. A future controller migration must use
+  a content-addressed append-only URL registered after separate approval; never
+  replace the stable URL as part of an ordinary release.
+- The stable controller narrows the earlier candidate-worker bypass but cannot
+  protect against a malicious or compromised origin that replaces the stable
+  URL or clears site data. The one-time 0.1.4-to-0.1.5 migration also necessarily
+  executes the candidate controller's install code before approval. Keep these
+  caveats explicit; `SECURITY.md` is the canonical threat-model description.
+- `pnpm build` writes matching `docs/build.json` and `docs/release.json` metadata
+  and hashes every shell asset, including lazy JS/WASM. Staging must fail on
+  missing/mismatched assets; proving artifacts remain on demand.
   Keep the approved shell pointer in `bindle-release-selection-v1` independent
   of worker activation: browsers activate waiting workers after all windows
   close, which must not imply app-update approval. Never restore unconditional
@@ -270,8 +271,9 @@ avoids requiring GitHub workflow scope.
   release fixtures and exercise real workers, restart rejection, deferred
   auto-approval, offline launch, incomplete downloads, multiple windows, and
   localStorage/IndexedDB preservation. Vite dev uses an unpinned worker. The
-  September 19 update suite run passed 126 tests with the existing real-spend
-  acceptance test skipped; no paid/chain transactions were run.
+  September 19 0.1.5 suite run passed 129 of 130 browser tests plus all 10
+  controller lifecycle cases; the existing real-spend acceptance test was
+  skipped and no paid/chain transactions were run.
 - In the Codex desktop runtime, the fallback `pnpm` may be version 11 and try an
   unwanted install that fails with SQLite store permissions. Use the cached
   pinned pnpm 10.34.1 executable (or Corepack), and ensure nested build/test

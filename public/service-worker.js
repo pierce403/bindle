@@ -1,38 +1,107 @@
-// Stamped by pnpm build. The development worker does not pin Vite modules.
-const BUILD_INFO = /* BINDLE_BUILD_INFO */ null;
-const PRECACHE = /* BINDLE_PRECACHE */ [];
-const CACHE_NAME = `bindle-shell-${BUILD_INFO?.id ?? "dev"}`;
+// This update controller is intentionally byte-stable across Bindle releases.
+// Releases are data in /release.json; publishing one must not execute new worker
+// code or change the approved shell.
 const RELEASE_CACHE = "bindle-release-selection-v1";
 const RELEASE_KEY = "/__bindle-approved-release";
-const readRelease = async () => {
-  const response = await (await caches.open(RELEASE_CACHE)).match(RELEASE_KEY);
+const PENDING_KEY = "/__bindle-pending-release";
+const RELEASE_MANIFEST_URL = "/release.json";
+const releaseCacheName = (id) => `bindle-shell-${id}`;
+const readRecord = async (key) => {
+  const response = await (await caches.open(RELEASE_CACHE)).match(key);
   return response ? response.json() : null;
 };
-const approveRelease = async () => {
-  const previous = await readRelease();
-  await (await caches.open(RELEASE_CACHE)).put(RELEASE_KEY, Response.json({
-    build: BUILD_INFO,
-    cacheName: CACHE_NAME,
-    previousCacheName: previous?.cacheName === CACHE_NAME
-      ? previous.previousCacheName : previous?.cacheName
-  }));
+const readRelease = async () => {
+  return readRecord(RELEASE_KEY);
 };
-const initializeRelease = async () => {
+const readPendingRelease = async () => {
+  return readRecord(PENDING_KEY);
+};
+const writeRecord = async (key, value) => {
+  await (await caches.open(RELEASE_CACHE)).put(key, Response.json(value));
+};
+const isReleaseManifest = (value) => {
+  if (!value || typeof value !== "object" || value.schema !== 1 ||
+      !value.build || typeof value.build !== "object" || !Array.isArray(value.files)) return false;
+  if (!["id", "version", "commit", "time"].every((key) =>
+    typeof value.build[key] === "string" && value.build[key])) return false;
+  const urls = new Set();
+  for (const entry of value.files) {
+    const parsedUrl = typeof entry?.url === "string"
+      ? new URL(entry.url, self.location.origin) : null;
+    if (!entry || typeof entry.url !== "string" || typeof entry.hash !== "string" ||
+        !/^\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]+$/.test(entry.url) ||
+        parsedUrl.origin !== self.location.origin || parsedUrl.pathname !== entry.url ||
+        !/^[a-f0-9]{64}$/.test(entry.hash) || urls.has(entry.url) ||
+        entry.url === "/service-worker.js" || entry.url === RELEASE_MANIFEST_URL ||
+        entry.url === "/build.json" || entry.url.startsWith("/railgun-artifacts/")) return false;
+    urls.add(entry.url);
+  }
+  return urls.has("/index.html");
+};
+const fetchReleaseManifest = async () => {
+  const response = await fetch(RELEASE_MANIFEST_URL, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Unable to fetch the Bindle release manifest: ${response.status}`);
+  const manifest = await response.json();
+  if (!isReleaseManifest(manifest)) throw new Error("The Bindle release manifest is invalid.");
+  return manifest;
+};
+const cacheRelease = async (manifest) => {
+  const cacheName = releaseCacheName(manifest.build.id);
+  const cache = await caches.open(cacheName);
+  for (const { url, hash } of manifest.files) {
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok || await sha256Hex(await response.clone().arrayBuffer()) !== hash) {
+      throw new Error(`Incomplete Bindle release: ${url}`);
+    }
+    await cache.put(url, response);
+  }
+  return { build: manifest.build, cacheName, files: manifest.files };
+};
+const verifyCachedRelease = async (release) => {
+  if (!release?.cacheName || !Array.isArray(release.files)) return false;
+  const cache = await caches.open(release.cacheName);
+  for (const { url, hash } of release.files) {
+    const response = await cache.match(url);
+    if (!response || await sha256Hex(await response.arrayBuffer()) !== hash) return false;
+  }
+  return true;
+};
+const stageLatestRelease = async () => {
+  const manifest = await fetchReleaseManifest();
+  const approved = await readRelease();
+  if (approved?.build?.id === manifest.build.id) {
+    await (await caches.open(RELEASE_CACHE)).delete(PENDING_KEY);
+    return approved;
+  }
+  const staged = await cacheRelease(manifest);
+  await writeRecord(PENDING_KEY, staged);
+  return staged;
+};
+const approveRelease = async (release) => {
+  const previous = await readRelease();
+  await writeRecord(RELEASE_KEY, {
+    ...release,
+    previousCacheName: previous?.cacheName === release.cacheName
+      ? previous.previousCacheName : previous?.cacheName
+  });
+  await (await caches.open(RELEASE_CACHE)).delete(PENDING_KEY);
+};
+const initializeRelease = async (staged) => {
   if (await readRelease()) return;
   const previousShells = [];
   for (const name of await caches.keys()) {
-    if (name.startsWith("bindle-shell-") && name !== CACHE_NAME &&
+    if (name.startsWith("bindle-shell-") && name !== staged.cacheName &&
         await (await caches.open(name)).match("/index.html")) previousShells.push(name);
   }
   if (previousShells.length === 1) {
     // Older workers did not persist approval metadata. Preserve their shell;
     // migration and a missing selection record are not consent to upgrade.
-    await (await caches.open(RELEASE_CACHE)).put(RELEASE_KEY, Response.json({
+    await writeRecord(RELEASE_KEY, {
       build: null, cacheName: previousShells[0]
-    }));
+    });
   } else if (previousShells.length === 0 && !self.registration.active) {
     // Only a genuinely fresh install may select itself without an approval.
-    await approveRelease();
+    await approveRelease(staged);
   } else {
     throw new Error("Cannot determine the previously approved Bindle release.");
   }
@@ -48,18 +117,9 @@ const KOHAKU_RAILGUN_ARTIFACT_PATH_PREFIX =
   "/Robert-MacWha/privacy-protocol-artifacts/raw/refs/heads/main/artifacts/";
 const LOCAL_RAILGUN_ARTIFACT_PATH_PREFIX = "/railgun-artifacts/";
 self.addEventListener("install", (event) => {
-  if (!BUILD_INFO) return;
   event.waitUntil((async () => {
-    const cache = await caches.open(CACHE_NAME);
-    // A partial/mixed deployment must never become an installable release.
-    for (const { url, hash } of PRECACHE) {
-      const response = await fetch(url, { cache: "no-store" });
-      if (!response.ok || await sha256Hex(await response.clone().arrayBuffer()) !== hash) {
-        throw new Error(`Incomplete Bindle release: ${url}`);
-      }
-      await cache.put(url, response);
-    }
-    await initializeRelease();
+    const staged = await stageLatestRelease();
+    await initializeRelease(staged);
     // No skipWaiting: only the explicit approval message can activate early.
   })());
 });
@@ -69,7 +129,8 @@ self.addEventListener("activate", (event) => {
     // Browsers activate a waiting worker when the last window closes. Preserve
     // the approved shell independently, so closing the PWA never implies consent.
     const release = await readRelease();
-    const keep = [CACHE_NAME, release?.cacheName, release?.previousCacheName];
+    const pending = await readPendingRelease();
+    const keep = [release?.cacheName, release?.previousCacheName, pending?.cacheName];
     // Keep all shells while a page may still need an older lazy-loaded chunk.
     if (release && (await self.clients.matchAll({ includeUncontrolled: true })).length === 0) {
       await Promise.all((await caches.keys())
@@ -101,21 +162,40 @@ self.addEventListener("message", (event) => {
   };
 
   if (type === "BINDLE_GET_RELEASE") {
-    event.waitUntil(readRelease().then((release) => reply({
-      build: BUILD_INFO, approved: release?.build ?? null
-    })));
+    event.waitUntil(Promise.all([readRelease(), readPendingRelease()])
+      .then(([release, pending]) => reply({
+        build: pending?.build ?? release?.build ?? null,
+        approved: release?.build ?? null
+      })));
+    return;
+  }
+
+  if (type === "BINDLE_CHECK_FOR_UPDATE") {
+    event.waitUntil((async () => {
+      const staged = await stageLatestRelease();
+      const release = await readRelease();
+      reply({ build: staged?.build ?? release?.build ?? null, approved: release?.build ?? null });
+      for (const client of await self.clients.matchAll({ includeUncontrolled: true })) {
+        client.postMessage({ type: "BINDLE_RELEASE_STAGED" });
+      }
+    })().catch((error) => reply({ error: error.message })));
     return;
   }
 
   if (type === "BINDLE_APPROVE_UPDATE") {
     event.waitUntil((async () => {
-      if (!BUILD_INFO || event.data.id !== BUILD_INFO.id) {
+      const pending = await readPendingRelease();
+      if (!pending?.build || event.data.id !== pending.build.id) {
         reply({ error: "The available release changed. Check for updates again." });
         return;
       }
-      await approveRelease();
+      if (!await verifyCachedRelease(pending)) {
+        reply({ error: "The downloaded release is incomplete. Check for updates again." });
+        return;
+      }
+      await approveRelease(pending);
       await self.skipWaiting();
-      reply({ approved: BUILD_INFO });
+      reply({ approved: pending.build });
       for (const client of await self.clients.matchAll({ includeUncontrolled: true })) {
         client.postMessage({ type: "BINDLE_RELEASE_APPROVED" });
       }
@@ -127,7 +207,7 @@ self.addEventListener("message", (event) => {
     reply({
       type: "BINDLE_ARTIFACT_PROXY_READY",
       version: ARTIFACT_PROXY_VERSION,
-      cacheName: CACHE_NAME,
+      cacheName: null,
       artifactCacheName: ARTIFACT_CACHE_NAME,
       scriptURL: self.registration?.active?.scriptURL ?? self.location.href
     });
@@ -183,7 +263,7 @@ self.addEventListener("message", (event) => {
         reply({
           type: "BINDLE_SW_DIAGNOSTICS_RESPONSE",
           artifactProxyVersion: ARTIFACT_PROXY_VERSION,
-          cacheName: CACHE_NAME,
+          cacheName: null,
           artifactCacheName: ARTIFACT_CACHE_NAME,
           cacheKeys: keys,
           manifestLoaded: manifestPromise !== null,
@@ -370,8 +450,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (!BUILD_INFO) return;
-
   if (request.mode === "navigate") {
     event.respondWith((async () => {
       const release = await readRelease();
@@ -382,23 +460,23 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Only release assets are cached, never arbitrary same-origin APIs/requests.
-  if (requestUrl.pathname.startsWith("/assets/") || PRECACHE.some(({ url }) => url === requestUrl.pathname)) {
-    event.respondWith((async () => {
-      const release = await readRelease();
-      if (!release) return missingRelease();
-      const cache = await caches.open(release.cacheName);
-      const saved = await cache.match(request);
-      if (saved) return saved;
-      // Hashed assets from older open windows remain valid across activation.
-      if (requestUrl.pathname.startsWith("/assets/")) {
-        for (const name of await caches.keys()) {
-          if (!name.startsWith("bindle-shell-")) continue;
-          const older = await (await caches.open(name)).match(request);
-          if (older) return older;
-        }
+  event.respondWith((async () => {
+    const release = await readRelease();
+    const isHashedAsset = requestUrl.pathname.startsWith("/assets/");
+    const isReleaseAsset = release?.files?.some(({ url }) => url === requestUrl.pathname) ?? false;
+    if (!isHashedAsset && !isReleaseAsset) return fetch(request);
+    if (!release) return missingRelease();
+    const cache = await caches.open(release.cacheName);
+    const saved = await cache.match(request);
+    if (saved) return saved;
+    // Hashed assets from older open windows remain valid across approval.
+    if (isHashedAsset) {
+      for (const name of await caches.keys()) {
+        if (!name.startsWith("bindle-shell-")) continue;
+        const older = await (await caches.open(name)).match(request);
+        if (older) return older;
       }
-      return fetch(request);
-    })());
-  }
+    }
+    return missingRelease();
+  })());
 });
