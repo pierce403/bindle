@@ -1,0 +1,103 @@
+{
+  "schema": 1,
+  "build": {
+    "version": "0.2.0",
+    "commit": "79d910894ce78baedb4f0181ef86ceecd7cc50f3-dirty",
+    "time": "2026-09-19T14:05:47.770Z",
+    "id": "5ea17361c2ce70771fb5da29"
+  },
+  "files": [
+    {
+      "url": "/.nojekyll",
+      "hash": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "url": "/CNAME",
+      "hash": "4e35c0e085a490b46a50c23d115a2b2d52dcee84cd8dccd6c2ea50e7b63bd46d"
+    },
+    {
+      "url": "/favicon-16.png",
+      "hash": "e71f59a78448b8264c0a3e96399bbe7e60d5815474e7053007e23d88bb176d7b"
+    },
+    {
+      "url": "/favicon-32.png",
+      "hash": "b5fc90d4936b1cfa6f5168d0b859d0dd3ac6a31abf2852c98b7d4d246019bab1"
+    },
+    {
+      "url": "/index.html",
+      "hash": "08fc10a6e972b867e2562b1c74fb5b71d13ae17bb5a54904e0cc5848788d49f1"
+    },
+    {
+      "url": "/logo.png",
+      "hash": "bb119224bf2b6c67ebc68a8daf8abb8e661254b955c54d363411eaeb352afddf"
+    },
+    {
+      "url": "/manifest.webmanifest",
+      "hash": "048cf65eb8430e8b8c6512860e53847bb78b54f74b8f5f811331d0a4640af171"
+    },
+    {
+      "url": "/paisley-monochrome.png",
+      "hash": "c60bb9bc1d7705fd6a8262ed2e47348da17ac81babef91c74cb13e1a4823d75a"
+    },
+    {
+      "url": "/paisley-rose-monochrome.png",
+      "hash": "42e7e07b241db403d04c9352c9da6e3b62d92fff1094bed9253d91675486f7ff"
+    },
+    {
+      "url": "/railgun-modernization-evidence.json",
+      "hash": "58ce1cb6003f15023e041623d52a32840e61516e3072e485b161b330d13b3450"
+    },
+    {
+      "url": "/railgun-modernization.md",
+      "hash": "250e71bb483095695d87af4868b4c89cb1bc3c93027b16f93743fea687956e92"
+    },
+    {
+      "url": "/assets/ccip-CPW5AHs3.js",
+      "hash": "aeac3d49e33113d254eb336dcb5d316ac158483c296dad549be9391a28833d9b"
+    },
+    {
+      "url": "/assets/curve25519_scalarmult_wasm_bg-DFYe4j8J.wasm",
+      "hash": "6e8400dd820cea117d53f3bf23a1dcf23dc4c51aa963beeff756f04dfcd1fb12"
+    },
+    {
+      "url": "/assets/dist-DeXr1vr6.js",
+      "hash": "19af622a858560370084884a6eaee5fc0b6fcb212c7daaa272324dc5b8d85134"
+    },
+    {
+      "url": "/assets/index-BFeqMLLP.css",
+      "hash": "051f184e3e4158130b68bb6cdfae711a4b29cb89a6c7dc579801c2966228019a"
+    },
+    {
+      "url": "/assets/index-CCq0seo1.js",
+      "hash": "1fb6f6fedfbb164e6ef5cfb65f625573275f0b3bc2476a60d3bb7868949c06a2"
+    },
+    {
+      "url": "/assets/index_bg-DA_b1Txv.wasm",
+      "hash": "7e80412980013e28b8371343db9495bf60c2608e3ce89c5fe49416b2b0804d76"
+    },
+    {
+      "url": "/assets/pkg-CqexTNHz.js",
+      "hash": "10de3772df8854c93f799d0d4fd2f479b23d58f85bed243b7b2722cdf1fc6a17"
+    },
+    {
+      "url": "/assets/poseidon_hash_wasm_bg-DLm7sDf5.wasm",
+      "hash": "190d538162636b62494359150a6eeb7216f6ef39ad567014332f0a4753b8d1d5"
+    },
+    {
+      "url": "/icons/icon-192.png",
+      "hash": "6f1c4c80db555703c22bc947e5fbb970ab138e482770e3604b0224548931ce46"
+    },
+    {
+      "url": "/icons/icon-512.png",
+      "hash": "bb119224bf2b6c67ebc68a8daf8abb8e661254b955c54d363411eaeb352afddf"
+    },
+    {
+      "url": "/icons/maskable-192.png",
+      "hash": "1450f8d17005132ee822528e6154265c8e3451abdd547aa5321b2d9fac65307f"
+    },
+    {
+      "url": "/icons/maskable-512.png",
+      "hash": "84b19d3486a10725c6367240d9967394b6e3d1931fb9a38a2585e1ca858b9b1d"
+    }
+  ]
+}

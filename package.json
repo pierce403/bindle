@@ -19,6 +19,7 @@
     "scan:waku": "node scripts/scan-railgun.mjs",
     "scan:railgun": "node scripts/scan-railgun.mjs",
     "test:e2e": "playwright test",
+    "test:pwa-worker": "node --test tests/serviceWorkerRelease.test.mjs",
     "typecheck": "tsc -b"
   },
   "dependencies": {

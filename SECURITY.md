@@ -1,32 +1,148 @@
-# Security Policy (SECURITY.md)
+# Bindle Security Policy
 
-This document outlines the security architecture, design principles, and practices followed by Bindle to protect user keys, funds, and transaction integrity.
+Bindle is a statically hosted Progressive Web App for public smart-wallet and
+shielded RAILGUN activity. Security-sensitive state stays in the browser. This
+document describes the intended boundaries, including where the browser and
+the `bindle.cash` origin remain trusted.
 
-## Core Security Stance
+## Reporting A Vulnerability
 
-Bindle is designed to run entirely client-side as a statically hosted Progressive Web App (PWA). There are no backend database servers, hosted custodial services, or centralized user accounts. The security model relies on browser sandbox security, device-level hardware keys, and local cryptographic encryption.
+Please use a private GitHub Security Advisory in
+[`pierce403/bindle`](https://github.com/pierce403/bindle/security/advisories/new)
+for vulnerabilities that could expose wallet material, change transaction
+intent, bypass update consent, or compromise the release channel. A public issue
+is appropriate only when confidential handling is unnecessary.
 
-### 1. Passkey-First Onboarding & Smart Accounts
-* **Coinbase Smart Wallet (ERC-4337)**: The default funding wallet is an ERC-4337 smart account using platform-level passkeys (P-256 WebAuthn) for transaction authentication.
-* **No Local Private Keys for Funding**: Private keys for the public funding wallet are never generated or stored by Bindle. The private key material stays inside the device's secure enclave (platform authenticator) and is accessed only via standard browser WebAuthn API calls.
-* **Smart Account Owners**: Bindle resolves and validates smart wallet owner indexes on-chain. If multiple passkeys are enrolled, they are stored as non-secret credential metadata locally, with signature verification handled natively on-chain.
+Include the affected version, browser and operating system, reproduction steps,
+and whether any real funds or credentials were involved. Do not test with other
+people's wallets or funds.
 
-### 2. Shielded RAILGUN Wallet Security
-* **IndexedDB Encrypted Secrets**: Stored RAILGUN viewing and spending keys are derived from an encrypted recovery phrase stored in IndexedDB (`bindle-railgun-wallet-secrets`).
-* **Non-Extractable Keys**: The recovery phrase is encrypted using standard browser WebCrypto APIs (`AES-GCM`) with a key marked as non-extractable. This prevents other scripts in the origin from extracting the key material.
-* **Clean localStorage Boundary**: Bindle strictly segregates public metadata from secrets. No mnemonics, spending/viewing keys, private keys, or seed phrases are ever saved in `localStorage`. Only non-secret public addresses, sync state, and credential markers live in `localStorage`.
+## Application Security Boundaries
 
-### 3. Supply Chain Hardening
-* **Strict Package Manager Policies**: Bindle is `pnpm`-only. We enforce strict package manager execution using `scripts/require-pnpm.mjs` and configure pnpm to block executing lifecycle scripts of dependencies via `ignoreDepScripts: true` in `pnpm-workspace.yaml`.
-* **Transitive Dependency Auditing**: Vulnerable transitive dependencies are locked and patched using pnpm overrides in `package.json` (e.g., locking `underscore`, `uuid`, and `ws` versions).
-* **Removed Node Polyfills**: Broad polyfill plugins (e.g., `vite-plugin-node-polyfills`) have been purged to avoid pulling in unsafe cryptographic graphs like `elliptic` or `crypto-browserify`.
+### Funding smart account
 
-### 4. Direct RPC & Bundler Boundary
-* **No Silent Endpoints**: All outbound endpoints (Ethereum RPC, Pimlico ERC-4337 bundler, paymaster, or sync indexers) must be explicitly visible in the `ConnectionPolicy` settings.
-* **No Hosted Backends or Telemetry**: Bindle does not host a private API, telemetry gateway, or backend service that tracks user transactions or behavior.
+- Default funding uses a Coinbase ERC-4337 smart account controlled by a P-256
+  WebAuthn passkey.
+- Bindle stores public credential identifiers and owner metadata, not the
+  passkey private key. The authenticator or passkey provider performs signing.
+- Platform passkeys may sync through Apple, Google, Microsoft, or another
+  account provider. They are not necessarily device-local.
 
-## Vulnerability Reporting
+### Shielded RAILGUN wallet
 
-If you find a security vulnerability in Bindle, please report it immediately:
-1. **GitHub Security Advisories**: You can submit a private report via a draft security advisory in the GitHub repository: [pierce403/bindle](https://github.com/pierce403/bindle).
-2. **Direct Contact**: You can also reach out to the project maintainers directly or open a GitHub issue if the vulnerability does not require confidential disclosure.
+- The RAILGUN recovery phrase is encrypted in IndexedDB
+  (`bindle-railgun-wallet-secrets`) with an AES-GCM WebCrypto key marked
+  non-extractable.
+- `localStorage` contains public addresses, status, cached display data, and
+  credential markers only. It must not contain mnemonics, private keys, or
+  RAILGUN spending or viewing keys.
+- A non-extractable key limits direct key export. It does not protect against
+  malicious same-origin JavaScript that can ask the browser to decrypt or use
+  data while the origin is running.
+
+### Network and service boundary
+
+- RPC, bundler, paymaster, relay, attestation, recovery, and artifact endpoints
+  must be visible and replaceable through `ConnectionPolicy`.
+- Bindle has no private telemetry API, hosted custody service, or user-account
+  database.
+- Public RPC and bundler operators can observe network metadata. RAILGUN
+  privacy does not make every surrounding network request private.
+
+### Supply chain
+
+- The repository is pnpm-only, pins the package-manager version, disables
+  dependency lifecycle scripts, and holds newly published package versions.
+- Production release assets are listed in `/release.json` with SHA-256 hashes.
+  The update controller verifies every asset before it can become pending.
+- Hashes detect incomplete or mixed deployments. Because the manifest and
+  assets come from the same origin and are not independently signed, they do
+  not prove that a release is trustworthy or that displayed commit metadata is
+  truthful.
+
+## PWA Update Controls
+
+### Intended model from 0.1.5 onward
+
+Version 0.1.5 moves ordinary application releases behind a byte-stable update
+controller at `/service-worker.js`:
+
+1. The controller fetches same-origin `/release.json` with the network cache
+   bypassed.
+2. It validates the manifest shape, downloads every listed shell asset, checks
+   each SHA-256 hash, and stores the complete release in a release-specific
+   cache.
+3. Downloading creates a *pending* release only. It does not change the approved
+   release pointer and does not execute the pending HTML or JavaScript.
+4. Navigation and release-asset requests continue to use the approved cache.
+   Missing or ambiguous approval state fails closed instead of falling through
+   to the newly deployed network shell.
+5. Only `BINDLE_APPROVE_UPDATE` with the exact pending release ID changes the
+   approved pointer. Open wallet actions defer reload even after approval.
+
+The production build hashes the stable controller and fails if its bytes
+change. Normal releases change `/release.json` and hashed application assets,
+not the controller. A future controller change must use a content-addressed,
+append-only URL and be registered only after a separate explicit approval; it
+must not replace `/service-worker.js` in place.
+
+### User preferences
+
+- **Ask** is the default. A verified pending release is shown with its version,
+  commit claim, and build time. “Not now” dismisses that release locally.
+- **Reject** allows checks and verified downloads but hides installation
+  prompts and keeps serving the approved release.
+- **Approve** intentionally approves a pending release automatically, but only
+  when no protected wallet action or recovery-phrase review is open.
+
+Preferences are local browser state. Approval in another window applies to the
+origin, while each open window delays its own reload until its protected action
+is finished.
+
+### Migration to 0.1.5
+
+Browsers already registered to the older mutable `/service-worker.js` URL must
+download and execute the 0.1.5 controller's install handler before they can
+evaluate it as a pending update. The 0.1.5 handler preserves the previously
+approved shell, including when the old installation has only one legacy shell
+and no approval record. Closing every window may activate the controller, but
+activation does not approve 0.1.5 and navigation still serves the old shell.
+
+This transition cannot be made self-protecting from a malicious 0.1.5 worker:
+the browser's service-worker model executes candidate install code before the
+application can ask for consent. Users must trust the release channel for this
+one-time migration.
+
+### Caveats and non-goals
+
+The controls reduce accidental upgrades and make a normal new application
+release unable to replace a rejected shell. They are not a trust anchor outside
+the `bindle.cash` origin.
+
+- A compromised hosting account, DNS/TLS path, browser, extension, or device
+  can replace the stable controller, clear origin storage, or otherwise bypass
+  these controls. A pure same-origin PWA cannot prevent a malicious origin from
+  replacing its service worker.
+- The build-time controller hash prevents accidental changes in this repository;
+  an attacker or maintainer able to change both the controller and the expected
+  hash can defeat it. Code review and release-channel security remain required.
+- Any same-origin script can access Cache Storage and message the controller.
+  Consequently, a same-origin XSS is already inside this control boundary and
+  can approve a pending release as well as attack wallet operations directly.
+- Clearing site data, uninstalling the PWA, browser storage eviction, private
+  browsing cleanup, or storage corruption removes the saved preference and
+  approved-shell guarantee. A subsequent visit may be a fresh installation.
+- Release metadata is publisher-provided, not independently signed or recorded
+  in a transparency log. The UI shows what the release channel claims.
+- Update checks and downloads contact `bindle.cash` and reveal ordinary request
+  metadata to its hosting path even when a release is rejected.
+- The controller deliberately retains the approved, previous, pending, and
+  potentially older release caches so an already-open window can finish loading
+  its hashed modules. These caches contain application assets, not wallet state.
+  The controller does not preserve arbitrary application data if the browser
+  itself evicts origin storage.
+
+Users who require protection from a malicious or compromised web origin need a
+separately distributed, independently verified native wrapper, browser
+extension, or comparable external trust anchor. Bindle does not currently
+provide one.

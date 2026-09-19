@@ -121,6 +121,12 @@ a waiting worker by closing the app is not update consent. Updates defer during
 wallet operations/recovery review and preserve wallet storage. Site-data removal
 or browser eviction can remove the cached-release guarantee.
 
+Ordinary releases stage data from `release.json` behind a byte-stable service
+worker controller. This reduces accidental update-consent bypasses but cannot
+protect against a malicious hosting origin replacing that controller. The
+one-time migration to the 0.1.5 controller executes its install code before
+approval. [SECURITY.md](SECURITY.md) documents these boundaries.
+
 The worker caches only same-origin GET resources, never sensitive RPC,
 broadcaster, resolver, or provider POST traffic. Installing as a PWA gates the
 wallet UI, but display mode is a usability boundary rather than protection from

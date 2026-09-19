@@ -11,10 +11,11 @@ const root = resolve("docs");
 const current = JSON.parse(readFileSync(resolve(root, "build.json"), "utf8"));
 const previous = { ...current, id: "previous-release", commit: "a".repeat(40), time: "2026-01-01T00:00:00.000Z" };
 const builtWorker = readFileSync(resolve(root, "service-worker.js"), "utf8");
-const precache: Array<{ url: string; hash: string }> = JSON.parse(builtWorker.match(/const PRECACHE = (\[.*\]);/)![1]);
+const builtManifest: { schema: 1; build: typeof current; files: Array<{ url: string; hash: string }> } =
+  JSON.parse(readFileSync(resolve(root, "release.json"), "utf8"));
 const makeRelease = (build: typeof current) => {
   const files = new Map<string, Buffer>();
-  for (const entry of precache) {
+  for (const entry of builtManifest.files) {
     let bytes = readFileSync(resolve(root, entry.url.slice(1)));
     if (entry.url.endsWith(".js") && build !== current) {
       let source = bytes.toString();
@@ -24,9 +25,8 @@ const makeRelease = (build: typeof current) => {
     files.set(entry.url, bytes);
   }
   const manifest = [...files].map(([url, bytes]) => ({ url, hash: createHash("sha256").update(bytes).digest("hex") }));
-  const worker = builtWorker.replace(/const BUILD_INFO = .*;/, `const BUILD_INFO = ${JSON.stringify(build)};`)
-    .replace(/const PRECACHE = .*;/, `const PRECACHE = ${JSON.stringify(manifest)};`);
-  files.set("/service-worker.js", Buffer.from(worker));
+  files.set("/service-worker.js", Buffer.from(builtWorker));
+  files.set("/release.json", Buffer.from(JSON.stringify({ schema: 1, build, files: manifest })));
   files.set("/build.json", Buffer.from(JSON.stringify(build)));
   return files;
 };
@@ -75,8 +75,21 @@ const settings = async (page: Page) => {
 };
 const stageUpdate = async (page: Page) => {
   deployed = newFiles;
-  await page.evaluate(async () => { await (await navigator.serviceWorker.ready).update(); });
-  await expect.poll(() => page.evaluate(async () => Boolean((await navigator.serviceWorker.ready).waiting))).toBe(true);
+  await page.evaluate(async () => {
+    const worker = navigator.serviceWorker.controller;
+    if (!worker) throw new Error("Missing stable update controller");
+    await new Promise<void>((resolve, reject) => {
+      const channel = new MessageChannel();
+      channel.port1.onmessage = (event) => event.data?.error
+        ? reject(new Error(event.data.error)) : resolve();
+      worker.postMessage({ type: "BINDLE_CHECK_FOR_UPDATE" }, [channel.port2]);
+    });
+  });
+  await expect.poll(() => page.evaluate(async () => {
+    const response = await (await caches.open("bindle-release-selection-v1"))
+      .match("/__bindle-pending-release");
+    return response ? (await response.json()).build.id : null;
+  })).toBe(current.id);
 };
 const expectCurrent = async (page: Page) => {
   await expect(page.getByTitle("Open version and update settings")).toContainText(current.commit.slice(0, 12));
@@ -129,15 +142,7 @@ test("Reject pins the approved version after every app window closes and allows 
   await menu.getByRole("radio", { name: "Reject", exact: true }).check();
   await stageUpdate(page);
   await expect(page.getByLabel("App update available")).toHaveCount(0);
-  const activated = new Promise<void>((resolve) => {
-    const worker = context.serviceWorkers()[context.serviceWorkers().length - 1];
-    void worker.evaluate(() => new Promise<void>((done) => {
-      const scope = globalThis as unknown as ServiceWorkerGlobalScope;
-      scope.addEventListener("activate", () => done(), { once: true });
-    })).then(() => resolve()).catch(() => resolve());
-  });
   await page.close();
-  await activated;
   const reopened = await context.newPage();
   await enableStandalonePwa(reopened);
   await reopened.goto(origin);
@@ -166,6 +171,27 @@ test("Approve installs automatically after an open Send flow closes", async ({ p
   await expect(menu.getByRole("radio", { name: "Approve", exact: true })).toBeChecked();
 });
 
+for (const preference of ["Ask", "Reject"] as const) {
+  test(`${preference} survives closing all windows`, async ({ page, context }) => {
+    const menu = await settings(page);
+    await menu.getByRole("radio", { name: preference, exact: true }).check();
+    await stageUpdate(page);
+    await page.close();
+    const reopened = await context.newPage();
+    await enableStandalonePwa(reopened);
+    await reopened.goto(origin);
+    await expect(reopened.getByTitle("Open version and update settings")).toContainText(previous.commit.slice(0, 12));
+    const reopenedMenu = await settings(reopened);
+    await expect(reopenedMenu.getByRole("radio", { name: preference, exact: true })).toBeChecked();
+    if (preference === "Reject") {
+      await expect(reopened.getByLabel("App update available")).toHaveCount(0);
+      await reopenedMenu.getByRole("radio", { name: "Ask", exact: true }).check();
+    }
+    await reopened.getByLabel("App update available").getByRole("button", { name: "Install update" }).click();
+    await expectCurrent(reopened);
+  });
+}
+
 test("an incomplete release stays uninstalled and a later check can recover", async ({ page }) => {
   const menu = await settings(page);
   deployed = newFiles;
@@ -189,6 +215,16 @@ test("an approved version opens offline without changing the preference", async 
   await expect(page.getByTitle("Open version and update settings")).toContainText(previous.commit.slice(0, 12));
   await settings(page);
   await expect(menu.getByRole("radio", { name: "Reject", exact: true })).toBeChecked();
+});
+
+test("losing the selection after download cannot select the staged update", async ({ page, context }) => {
+  await stageUpdate(page);
+  await page.evaluate(() => caches.delete("bindle-release-selection-v1"));
+  await page.close();
+  const reopened = await context.newPage();
+  const response = await reopened.goto(origin);
+  expect(response?.status()).toBe(503);
+  await expect(reopened.locator("body")).toContainText("saved version is unavailable");
 });
 
 test("approval in another window defers reload until this window's Send flow closes", async ({ page, context }) => {

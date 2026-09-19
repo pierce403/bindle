@@ -43,6 +43,9 @@ See [modernization evidence](public/railgun-modernization.md) for validation.
 - [x] PWA version/full source commit/build time display, Approve/Ask/Reject,
       persistent approved-release shell, offline/restart behavior, update
       deferral during sensitive wallet work, and integrity-checked shell assets.
+- [x] Preserve the 0.1.5 byte-stable update controller and release manifest;
+      ordinary application releases do not replace controller code. Document
+      the migration and origin-trust caveats in SECURITY.md.
 - [x] One Kohaku RAILGUN generation (`alpha.30`); remove the old Waku alias.
 - [x] Official broadcaster client owns Waku lifecycle, signed fee handling,
       selection, and prepared submission; no second RAILGUN wallet engine starts.

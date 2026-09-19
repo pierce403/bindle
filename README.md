@@ -132,6 +132,7 @@ wallet and does not recover funds at the old address.
 corepack enable
 pnpm install --frozen-lockfile
 pnpm typecheck
+pnpm test:pwa-worker
 pnpm test:e2e
 pnpm build
 pnpm dev
@@ -173,6 +174,9 @@ the default update policy, with persistent Approve and Reject options. The
 approved cached release survives restarts and offline launch; wallet actions
 and recovery review defer installation. Updates do not clear wallet storage.
 Browser eviction or site-data removal can remove the cached-release guarantee.
+Ordinary releases use `release.json` behind the byte-stable update controller;
+the build rejects changes to that controller. See [SECURITY.md](SECURITY.md) for
+the migration caveat and the continuing trust in the hosting origin.
 
 Modernization evidence and limitations are in
 [the modernization report](public/railgun-modernization.md), copied to

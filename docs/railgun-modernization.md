@@ -151,15 +151,10 @@ reported separately from successful execution.
 Baseline: pinned install, typecheck, and build passed; 126 tests passed with one
 pre-existing real-spend acceptance test skipped.
 
-Final merged validation: frozen pnpm 10.34.1 install, TypeScript, and production
-build passed; **192 combined deterministic/integration/Chrome tests passed**,
-with the one pre-existing real-spend acceptance case intentionally skipped.
-**All 10 stable-controller lifecycle tests passed.** The suite covers browser
-onboarding, recovery compatibility, orphaned/concurrent key protection,
-private-submit invariants, transport lifecycle, bridge validation, and real
-two-release PWA behavior. The build verified 81 mirrored proving artifacts and
-23 release-shell assets. Upstream annotation/externalization and bundle-size
-warnings remain; no browser runtime exceptions occurred in final diagnostics.
+Final validation results are recorded after the merged release checks. The full
+suite includes browser onboarding, recovery compatibility, private-submit
+invariants, transport lifecycle, bridge validation, and real PWA update behavior.
+The one real-spend acceptance case remains intentionally skipped.
 
 The concurrent 0.1.5 PWA controller hardening is preserved: ordinary releases
 update `release.json`, never the byte-stable controller. Approve/Ask/Reject,

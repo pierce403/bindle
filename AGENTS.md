@@ -200,11 +200,18 @@ Ask is default. `useAppUpdates` defers install/reload during wallet actions and
 phrase review. Header version and Settings show current/pending version, full
 source commit, and build timestamp. Updates are same-origin and preserve wallets.
 
-Builds stamp worker/`build.json` consistently and hash every shell asset,
-including lazy JS/WASM; missing/mismatched assets fail install. Proving artifacts
-stay on demand. Keep the approved shell pointer in `bindle-release-selection-v1`
+From 0.1.5 onward, `/service-worker.js` is a byte-stable update controller.
+Ordinary releases change `release.json` and hashed app assets; they must never
+change the controller. The build verifies its frozen SHA-256. A future controller
+migration requires a content-addressed, append-only URL and separate approval.
+Builds write matching `build.json` and `release.json` metadata and hash every
+shell asset, including lazy JS/WASM. Missing/mismatched assets fail staging;
+proving artifacts stay on demand. Keep the approved shell pointer in `bindle-release-selection-v1`
 independent of worker activation: closing all windows can activate a waiting
-worker without user approval. Never restore unconditional `skipWaiting`,
+worker without user approval. Never initialize approval during activation.
+A fresh install may select its release; upgrades with missing selection must
+preserve the sole previous shell or fail closed when missing/ambiguous. Never
+fall back to a new network shell. Never restore unconditional `skipWaiting`,
 controller-change reloads, or network-first shell navigation. Cache only
 same-origin GET resources, never sensitive RPC/broadcaster/provider POSTs.
 
@@ -214,6 +221,11 @@ only. Storage eviction or an explicit site-data wipe removes the cached-release
 guarantee. `pnpm build` then `pnpm test:e2e tests/pwaUpdates.spec.ts` verifies
 real two-release lifecycle fixtures, restarts, offline launch, multiple windows,
 incomplete downloads, deferral, and localStorage/IndexedDB preservation.
+`pnpm test:pwa-worker` additionally covers controller lifecycle without a browser.
+The stable controller narrows ordinary candidate-code updates but cannot defend
+against a malicious origin replacing the stable URL or clearing storage. The
+one-time 0.1.4-to-0.1.5 migration executes candidate install code before approval.
+`SECURITY.md` is the canonical PWA threat model; preserve those caveats.
 
 ## Build, test, preview, and deploy
 
@@ -222,6 +234,7 @@ corepack enable
 pnpm --version # must resolve 10.34.1, including nested build/test commands
 pnpm install --frozen-lockfile
 pnpm typecheck
+pnpm test:pwa-worker
 pnpm test:e2e
 pnpm build
 pnpm dev
