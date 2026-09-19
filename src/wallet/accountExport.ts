@@ -1,4 +1,5 @@
 import type { ExportedRailgunWallet } from "../railgun/railgunWallet";
+import { parseRailgunDerivationVersion } from "../railgun/railgunDerivation";
 import {
   emptyWalletState,
   type CustodyModel,
@@ -44,6 +45,7 @@ const schema = "me.bindle.account-export";
 
 const exportWarnings = [
   "If railgunWallet is present, this file contains the RAILGUN recovery phrase and can recover shielded funds.",
+  "Keep the derivation version with the recovery phrase. Historical Bindle and standard RAILGUN derive different accounts from the same phrase; importing does not migrate funds.",
   "The public smart-account address can be controlled on a new device only if the same WebAuthn/passkey credential and RP ID are available there.",
   "Enrolling a new passkey creates a new owner path; it does not recover the old public smart account unless an on-chain recovery or owner-rotation flow was set up before losing the old passkey.",
   "Keep this file private and import it only into a trusted Bindle PWA session."
@@ -197,6 +199,9 @@ const normalizeWallet = (value: unknown): WalletState => {
       parsed.railgunDerivationProvider,
       typeof parsed.railgunAddress === "string" && parsed.railgunAddress.length > 0
     ),
+    railgunDerivationVersion: parsed.railgunAddress
+      ? parseRailgunDerivationVersion(parsed.railgunDerivationVersion)
+      : null,
     passkeyPresent: booleanValue(parsed.passkeyPresent),
     mnemonicPresent: booleanValue(parsed.mnemonicPresent),
     createdAt: stringOrNull(parsed.createdAt),
@@ -254,6 +259,7 @@ const normalizeRailgunWallet = (
         ? "kohaku-railgun"
         : "legacy-noncanonical",
     recoveryPhrase: parsed.recoveryPhrase,
+    derivationVersion: parseRailgunDerivationVersion(parsed.derivationVersion),
     keyIndex: parsed.keyIndex,
     chainId: parsed.chainId,
     exportedFrom: "browser-local"

@@ -1,13 +1,13 @@
 import { expect, test } from "@playwright/test";
 import { UNISWAP_V4_WETH_ADDRESS } from "../src/intents/uniswapV4PayRoute";
 import {
-  KOHAKU_RAILGUN_ACTIVE_POI_LIST_KEYS,
   RAILGUN_MAINNET_WAKU_FEES_TOPIC,
   parseRailgunWakuFeeMessage,
   selectBestRawRailgunBroadcasterTokenAd
 } from "../src/railgun/wakuFeeAds";
 
 const textEncoder = new TextEncoder();
+const activePoiListKeys = ["efc6ddb59c098a13fb2b618fdae94c1c3a807abc8fb1837c93620c9143ee9e88"];
 
 const utf8ToHex = (value: string): `0x${string}` => {
   const bytes = textEncoder.encode(value);
@@ -32,7 +32,7 @@ const makeFeeMessage = (overrides: Record<string, unknown> = {}) => {
     availableWallets: 3,
     relayAdapt: "0xAc9f360Ae85469B27aEDdEaFC579Ef2d052aD405",
     relayAdapt7702: "0x2dF3D82C06339387A4532C685dAAf39a218Cf56e",
-    requiredPOIListKeys: [...KOHAKU_RAILGUN_ACTIVE_POI_LIST_KEYS],
+    requiredPOIListKeys: activePoiListKeys,
     reliability: 0.99,
     version: "8.2.3",
     identifier: "railoxide",
@@ -61,7 +61,7 @@ test("parses current RAILGUN Waku broadcaster fee ads without Wallet SDK imports
 
   expect(result.ad.feesID).toBe("vccjkhl8g9pi4b4d");
   expect(result.ad.version).toBe("8.2.3");
-  expect(result.ad.signatureStatus).toBe("unverified-no-wallet-sdk");
+  expect(result.ad.signatureStatus).toBe("unverified-observation");
   expect(result.ad.fees[UNISWAP_V4_WETH_ADDRESS]).toBe("0xbbdadfb5598e000");
 });
 
@@ -91,11 +91,12 @@ test("selects the lowest usable raw fee ad for a token", () => {
 
   const selected = selectBestRawRailgunBroadcasterTokenAd({
     ads: [first.ad, second.ad],
-    tokenAddress: UNISWAP_V4_WETH_ADDRESS
+    tokenAddress: UNISWAP_V4_WETH_ADDRESS,
+    activePoiListKeys
   });
 
   expect(selected?.feesID).toBe("lower");
-  expect(selected?.signatureStatus).toBe("unverified-no-wallet-sdk");
+  expect(selected?.signatureStatus).toBe("unverified-observation");
 });
 
 test("raw fee ads are not usable when required POI list is inactive", () => {

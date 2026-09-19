@@ -1,3 +1,5 @@
+import { historicalRailgunDerivation, parseRailgunDerivationVersion, type RailgunDerivationVersion } from "../railgun/railgunDerivation";
+
 export type WalletStatus =
   | "none"
   | "passkey-ready"
@@ -36,6 +38,7 @@ export type WalletState = {
   railgunAddress: string | null;
   railgunKeyStore: RailgunKeyStore;
   railgunDerivationProvider: RailgunDerivationProvider | null;
+  railgunDerivationVersion?: RailgunDerivationVersion | null;
   passkeyPresent: boolean;
   mnemonicPresent: boolean;
   createdAt: string | null;
@@ -59,6 +62,7 @@ export const emptyWalletState: WalletState = {
   railgunAddress: null,
   railgunKeyStore: null,
   railgunDerivationProvider: null,
+  railgunDerivationVersion: null,
   passkeyPresent: false,
   mnemonicPresent: false,
   createdAt: null,
@@ -224,12 +228,24 @@ const normalizeWalletState = (value: unknown): WalletState => {
   const custodyModel = isCustodyModel(parsed.custodyModel)
     ? parsed.custodyModel
     : emptyWalletState.custodyModel;
+  const railgunAddress = stringOrNull(parsed.railgunAddress);
+  let railgunDerivationVersion: RailgunDerivationVersion | null = null;
+  let derivationError: string | null = null;
+  if (railgunAddress) {
+    try {
+      railgunDerivationVersion = parseRailgunDerivationVersion(parsed.railgunDerivationVersion);
+    } catch {
+      // Keep the account and passkey metadata visible. An unsupported format
+      // must never turn an existing wallet into an apparently empty setup.
+      derivationError = "Stored RAILGUN recovery format is unsupported. Wallet data was retained; shielding and shielded balance sync are blocked.";
+    }
+  }
 
   return {
-    status,
+    status: derivationError ? "error" : status,
     custodyModel,
     smartWalletAddress: stringOrNull(parsed.smartWalletAddress),
-    railgunAddress: stringOrNull(parsed.railgunAddress),
+    railgunAddress,
     railgunKeyStore: isRailgunKeyStore(parsed.railgunKeyStore)
       ? parsed.railgunKeyStore
       : emptyWalletState.railgunKeyStore,
@@ -237,12 +253,13 @@ const normalizeWalletState = (value: unknown): WalletState => {
       parsed.railgunDerivationProvider,
       Boolean(parsed.railgunAddress)
     ),
+    railgunDerivationVersion,
     passkeyPresent: booleanValue(parsed.passkeyPresent),
     mnemonicPresent: booleanValue(parsed.mnemonicPresent),
     createdAt: stringOrNull(parsed.createdAt),
     railgunWalletCreatedAt: stringOrNull(parsed.railgunWalletCreatedAt),
     railgunWalletImportedAt: stringOrNull(parsed.railgunWalletImportedAt),
-    lastError: stringOrNull(parsed.lastError),
+    lastError: derivationError ?? stringOrNull(parsed.lastError),
     passkeyCredentialId: stringOrNull(parsed.passkeyCredentialId),
     passkeyPublicKey: hexOrNull(parsed.passkeyPublicKey),
     passkeyRpId: stringOrNull(parsed.passkeyRpId),
@@ -289,8 +306,9 @@ export const saveWalletState = (state: WalletState): WalletState => {
     // WebAuthn private material, or provider secrets in this localStorage record.
     // The railgunKeyStore value is only a marker that encrypted local key
     // material exists in IndexedDB; it is not key material itself.
-    // railgunDerivationProvider is public compatibility metadata so Bindle can
-    // keep one canonical Kohaku 0zk and quarantine older noncanonical records.
+    // Derivation provider identifies the adapter, not the mnemonic algorithm.
+    // The version preserves historical Bindle accounts and canonical RAILGUN
+    // accounts separately. Missing stored versions are always historical.
     // WebAuthn credential IDs, RP IDs, and public P-256 keys are public account
     // metadata used to reconstruct the smart-account owner; they are not
     // signing secrets.
@@ -326,6 +344,7 @@ export const clearRailgunWalletState = (currentState: WalletState): WalletState 
     railgunAddress: null,
     railgunKeyStore: null,
     railgunDerivationProvider: null,
+    railgunDerivationVersion: null,
     mnemonicPresent: false,
     railgunWalletCreatedAt: null,
     railgunWalletImportedAt: null,
@@ -414,7 +433,8 @@ export const markRailgunWalletReady = (
   railgunAddress: string,
   source: "created" | "imported",
   derivationProvider: Exclude<RailgunDerivationProvider, "unknown"> =
-    "kohaku-railgun"
+    "kohaku-railgun",
+  derivationVersion: RailgunDerivationVersion = historicalRailgunDerivation
 ): WalletState => {
   const now = new Date().toISOString();
 
@@ -424,6 +444,7 @@ export const markRailgunWalletReady = (
     railgunAddress,
     railgunKeyStore: "encrypted-local",
     railgunDerivationProvider: derivationProvider,
+    railgunDerivationVersion: derivationVersion,
     mnemonicPresent: true,
     custodyModel: currentState.custodyModel ?? "mnemonic-railgun",
     createdAt: currentState.createdAt ?? now,

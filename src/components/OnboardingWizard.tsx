@@ -12,6 +12,7 @@ import type { ConnectionPolicy } from "../privacy/connectionPolicy";
 import type { PrivacyToolkitState } from "../privacy/toolkit";
 import type { PasskeyCapability } from "../wallet/passkeys";
 import type { WalletState } from "../wallet/walletState";
+import { canonicalRailgunDerivation, type RailgunDerivationVersion } from "../railgun/railgunDerivation";
 
 type OnboardingWizardProps = {
   walletState: WalletState;
@@ -26,7 +27,7 @@ type OnboardingWizardProps = {
   onCreatePasskey: () => void;
   onDeriveSmartWallet: () => void;
   onCreateRailgunWallet: () => Promise<string | null>;
-  onImportRailgunWallet: (recoveryPhrase: string) => Promise<void>;
+  onImportRailgunWallet: (recoveryPhrase: string, derivationVersion: RailgunDerivationVersion) => Promise<void>;
   onOpenConnections: () => void;
   onStartToolkit: () => void;
 };
@@ -80,6 +81,7 @@ export function OnboardingWizard({
   const [copiedShieldedAddress, setCopiedShieldedAddress] = useState(false);
   const [copiedRecoveryPhrase, setCopiedRecoveryPhrase] = useState(false);
   const [importRecoveryPhrase, setImportRecoveryPhrase] = useState("");
+  const [importDerivationVersion, setImportDerivationVersion] = useState<RailgunDerivationVersion>(canonicalRailgunDerivation);
   const [showImport, setShowImport] = useState(false);
   const [createdRecoveryPhrase, setCreatedRecoveryPhrase] = useState<
     string | null
@@ -215,7 +217,7 @@ export function OnboardingWizard({
     }
   };
   const importShieldedWallet = async () => {
-    await onImportRailgunWallet(importRecoveryPhrase);
+    await onImportRailgunWallet(importRecoveryPhrase, importDerivationVersion);
     setImportRecoveryPhrase("");
   };
 
@@ -362,6 +364,20 @@ export function OnboardingWizard({
                 <div className="wallet-secret-card">
                   <strong>Import shielded wallet</strong>
                   <label className="field">
+                    <span>Recovery format</span>
+                    <select value={importDerivationVersion} onChange={(event) =>
+                      setImportDerivationVersion(event.currentTarget.value as RailgunDerivationVersion)
+                    }>
+                      <option value="railgun-babyjubjub-v1">Standard RAILGUN</option>
+                      <option value="bindle-ethers-bip32-v1">Bindle before v0.2</option>
+                    </select>
+                  </label>
+                  <p className="field-hint">
+                    These formats produce different addresses from the same phrase.
+                    Choose the original wallet format; importing does not move funds.
+                    A Bindle account export preserves the format automatically.
+                  </p>
+                  <label className="field">
                     <span>Recovery phrase</span>
                     <textarea
                       value={importRecoveryPhrase}
@@ -399,6 +415,7 @@ export function OnboardingWizard({
       {createdRecoveryPhrase ? (
         <div className="recovery-card" aria-label="Shielded wallet recovery phrase">
           <span>Recovery phrase - save before funding</span>
+          <small>Recovery format: Standard RAILGUN</small>
           <strong>{createdRecoveryPhrase}</strong>
           <button
             className="secondary-action wide"

@@ -53,6 +53,7 @@ export type ConnectionPolicy = {
   railgunSyncUrl: string;
   railgunArtifactUrl: string;
   poiAggregatorUrls: string[];
+  railgunPoiListKeys: string[];
   broadcasterUrl: string;
   railgunBroadcasterMode: RailgunBroadcasterMode;
   railgunBroadcasterEnabled: boolean;
@@ -61,6 +62,8 @@ export type ConnectionPolicy = {
   railgunBroadcasterTrustedFeeSigner: string;
   railgunBroadcasterPubSubTopic: string;
   railgunBroadcasterDnsDiscoveryUrls: string[];
+  railgunBroadcasterDnsDiscoveryEnabled: boolean;
+  railgunBroadcasterDnsResolverUrls: string[];
   railgunBroadcasterDirectPeers: string[];
   providerResolverUrl: string;
   priceQuoteUrl: string;
@@ -102,10 +105,18 @@ export const RAILGUN_PUBLIC_WAKU_BROADCASTER_PUBSUB_TOPIC = "/waku/2/rs/5/1";
 export const RAILGUN_PUBLIC_WAKU_BROADCASTER_DNS_DISCOVERY_URLS = [
   "enrtree://APMYHUVNQWHJNPI5L2KQ765EMCKUAMRWPUH3U2QIKPK6XEV3OW442@discovery.rootedinprivacy.com"
 ];
+export const RAILGUN_PUBLIC_WAKU_DNS_RESOLVER_URLS = [
+  "https://cloudflare-dns.com/dns-query"
+];
+// Published Kohaku alpha.30 mainnet ChainConfig.listKeys. This is an explicit
+// discovery compatibility filter, not evidence of pre-transaction POI support.
+export const RAILGUN_MAINNET_POI_LIST_KEYS = [
+  "efc6ddb59c098a13fb2b618fdae94c1c3a807abc8fb1837c93620c9143ee9e88"
+];
 export const RAILGUN_PUBLIC_WAKU_BROADCASTER_DIRECT_PEERS = [
-  "/dns4/relay-a.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmFbD2ZvAFi2j9jjDo6g4HFbQAhfjDfnTTrbyRGQRmtG7x",
-  "/dns4/relay-b.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmPtEAoPPok7VLrpNNC6t92ZQFqLndHvkdx6Fk3CxA4MaG",
-  "/dns4/client-edge.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmQdCGG5qREQCq96kucmpUVupmvLwrTRjMazPAaMTNP97A"
+  "/dns4/relay-a.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmMkCL9Y4R6V8eyTfHRfPA9JUBSnsJXwiUvgUJHU7N9AsR",
+  "/dns4/relay-b.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAm1XAZUTsZcbvLBWe9MR2QxEJ1oowv5VgZavwiwTEx4uPC",
+  "/dns4/client-edge.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmS8YbNhE1rJGBQ3VaubZjM1iAR7zVvtLf6CrEB3Hc9Krr"
 ];
 
 export const endpointChoices = {
@@ -151,10 +162,6 @@ export const endpointChoices = {
     {
       label: "RAILGUN public Waku broadcaster network",
       value: RAILGUN_PUBLIC_WAKU_BROADCASTER_NETWORK
-    },
-    {
-      label: "Simulated Diagnostic Broadcaster (Local/No-spend)",
-      value: "mock://simulated-broadcaster"
     }
   ],
   railgunBroadcasterPubSubTopic: [
@@ -173,6 +180,7 @@ const policyBase = {
   railgunSyncUrl: "",
   railgunArtifactUrl: "",
   poiAggregatorUrls: [],
+  railgunPoiListKeys: [],
   broadcasterUrl: "",
   railgunBroadcasterMode: "off" as RailgunBroadcasterMode,
   railgunBroadcasterEnabled: false,
@@ -181,6 +189,8 @@ const policyBase = {
   railgunBroadcasterTrustedFeeSigner: "",
   railgunBroadcasterPubSubTopic: "",
   railgunBroadcasterDnsDiscoveryUrls: [],
+  railgunBroadcasterDnsDiscoveryEnabled: false,
+  railgunBroadcasterDnsResolverUrls: [],
   railgunBroadcasterDirectPeers: [],
   providerResolverUrl: "",
   priceQuoteUrl: "",
@@ -206,6 +216,7 @@ export const endpointPresets: Record<EndpointPresetId, EndpointPreset> = {
       railgunSyncUrl:
         "https://rail-squid.squids.live/squid-railgun-ethereum-v2/v/v1/graphql",
       railgunArtifactUrl: BINDLE_RAILGUN_ARTIFACT_BASE_PATH,
+      railgunPoiListKeys: RAILGUN_MAINNET_POI_LIST_KEYS,
       broadcasterUrl: RAILGUN_PUBLIC_WAKU_BROADCASTER_NETWORK,
       railgunBroadcasterMode: "off",
       railgunBroadcasterEnabled: false,
@@ -214,6 +225,8 @@ export const endpointPresets: Record<EndpointPresetId, EndpointPreset> = {
         RAILGUN_PUBLIC_WAKU_BROADCASTER_PUBSUB_TOPIC,
       railgunBroadcasterDnsDiscoveryUrls:
         RAILGUN_PUBLIC_WAKU_BROADCASTER_DNS_DISCOVERY_URLS,
+      railgunBroadcasterDnsDiscoveryEnabled: true,
+      railgunBroadcasterDnsResolverUrls: RAILGUN_PUBLIC_WAKU_DNS_RESOLVER_URLS,
       railgunBroadcasterDirectPeers:
         RAILGUN_PUBLIC_WAKU_BROADCASTER_DIRECT_PEERS,
       bundlerUrl: "https://public.pimlico.io/v2/1/rpc",
@@ -419,7 +432,7 @@ export const summarizeOutbound = (
       ),
       value:
         policy.poiAggregatorUrls.length > 0
-          ? `${policy.poiAggregatorUrls.length} configured`
+          ? `${policy.poiAggregatorUrls.join(", ")}; list keys: ${policy.railgunPoiListKeys.join(", ") || "none"}`
           : "not connected"
     },
     {
@@ -448,11 +461,11 @@ export const summarizeOutbound = (
               policy.railgunBroadcasterTrustedFeeSigner
                 ? `trusted fee signer ${policy.railgunBroadcasterTrustedFeeSigner}`
                 : "trusted fee signer off",
-              policy.railgunBroadcasterDnsDiscoveryUrls.length > 0
-                ? `${policy.railgunBroadcasterDnsDiscoveryUrls.length} DNS discovery URL(s) visible; current SDK uses direct peers`
+              policy.railgunBroadcasterDnsDiscoveryEnabled
+                ? `DNS ENR trees: ${policy.railgunBroadcasterDnsDiscoveryUrls.join(", ") || "missing"}; DNS resolvers: ${policy.railgunBroadcasterDnsResolverUrls.join(", ") || "missing"}`
                 : "DNS discovery off",
               policy.railgunBroadcasterDirectPeers.length > 0
-                ? `${policy.railgunBroadcasterDirectPeers.length} direct peer(s)`
+                ? `direct peers: ${policy.railgunBroadcasterDirectPeers.join(", ")}`
                 : "direct peers off"
             ].join("; ")
     },

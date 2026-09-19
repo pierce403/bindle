@@ -12,6 +12,7 @@ import type { WalletState } from "../wallet/walletState";
 
 type SettingsPanelProps = {
   updateBusy: boolean;
+  walletMutationBlocked: boolean;
   theme: ThemeSelection;
   walletState: WalletState;
   accountExportStatus: string;
@@ -39,6 +40,7 @@ type SettingsPanelProps = {
 
 export function SettingsPanel({
   updateBusy,
+  walletMutationBlocked,
   theme,
   walletState,
   accountExportStatus,
@@ -93,6 +95,25 @@ export function SettingsPanel({
       <ThemeControls theme={theme} onChange={onThemeChange} />
 
       <VersionMenu busy={updateBusy} />
+
+      {walletState.railgunAddress ? (
+        <div className="settings-row">
+          <div>
+            <strong>Shielded wallet recovery format</strong>
+            <span>{walletState.railgunDerivationProvider === "legacy-noncanonical"
+              ? "Legacy recovery record (unsupported)"
+              : walletState.railgunDerivationVersion === "railgun-babyjubjub-v1"
+                ? "Standard RAILGUN"
+                : walletState.railgunDerivationVersion === null
+                  ? "Unsupported recovery format (wallet retained)"
+                  : "Bindle before v0.2"}</span>
+            <small>
+              Keep this format with your recovery phrase. Your existing address
+              is preserved; changing formats does not migrate funds.
+            </small>
+          </div>
+        </div>
+      ) : null}
 
       <div className="settings-row">
         <div>
@@ -202,7 +223,7 @@ export function SettingsPanel({
             className="secondary-action"
             type="button"
             onClick={() => importInputRef.current?.click()}
-            disabled={isExportingAccount || isImportingAccount}
+            disabled={walletMutationBlocked || isExportingAccount || isImportingAccount}
             title="Import account JSON"
           >
             <Upload size={17} aria-hidden="true" />
@@ -214,6 +235,7 @@ export function SettingsPanel({
             type="file"
             accept="application/json,.json"
             aria-label="Import account export JSON"
+            disabled={walletMutationBlocked}
             onChange={(event) => {
               const file = event.currentTarget.files?.[0];
               event.currentTarget.value = "";
@@ -333,6 +355,7 @@ export function SettingsPanel({
           className="secondary-action"
           type="button"
           onClick={onResetWallet}
+          disabled={walletMutationBlocked}
           title="Reset local wallet"
         >
           <RotateCcw size={17} aria-hidden="true" />

@@ -1,0 +1,60 @@
+--- a/dist/dns/dns_discovery.d.ts
++++ b/dist/dns/dns_discovery.d.ts
+@@ -1,6 +1,6 @@
+ import { PeerDiscovery, PeerDiscoveryEvents, TypedEventEmitter } from "@libp2p/interface";
+ import { peerDiscoverySymbol as symbol } from "@libp2p/interface";
+-import type { DiscoveryTrigger, DnsDiscOptions, DnsDiscoveryComponents } from "@waku/interfaces";
++import type { DiscoveryTrigger, DnsDiscOptions, DnsDiscoveryComponents, DnsClient } from "@waku/interfaces";
+ /**
+  * Parse options and expose function to return bootstrap peer addresses.
+  */
+@@ -9,7 +9,7 @@
+     private _started;
+     private _components;
+     private readonly _options;
+-    constructor(components: DnsDiscoveryComponents, options: DnsDiscOptions);
++    constructor(components: DnsDiscoveryComponents, options: DnsDiscOptions, dnsClient?: DnsClient);
+     /**
+      * Start discovery process
+      */
+@@ -22,4 +22,4 @@
+     get [symbol](): true;
+     get [Symbol.toStringTag](): string;
+ }
+-export declare function wakuDnsDiscovery(enrUrls: string[]): (components: DnsDiscoveryComponents) => PeerDiscoveryDns;
++export declare function wakuDnsDiscovery(enrUrls: string[], dnsClient?: DnsClient): (components: DnsDiscoveryComponents) => PeerDiscoveryDns;
+--- a/dist/dns/dns_discovery.js
++++ b/dist/dns/dns_discovery.js
+@@ -13,11 +13,12 @@
+     _started;
+     _components;
+     _options;
+-    constructor(components, options) {
++    constructor(components, options, dnsClient) {
+         super();
+         this._started = false;
+         this._components = components;
+         this._options = options;
++        this.dnsClient = dnsClient;
+         const { enrUrls } = options;
+         log.info("Use following EIP-1459 ENR Tree URLs: ", enrUrls);
+     }
+@@ -34,7 +35,7 @@
+             let { enrUrls } = this._options;
+             if (!Array.isArray(enrUrls))
+                 enrUrls = [enrUrls];
+-            const dns = await DnsNodeDiscovery.dnsOverHttp();
++            const dns = await DnsNodeDiscovery.dnsOverHttp(this.dnsClient);
+             this.nextPeer = dns.getNextPeer.bind(dns, enrUrls);
+         }
+         for await (const peerEnr of this.nextPeer()) {
+@@ -92,7 +93,7 @@
+         return DNS_DISCOVERY_TAG;
+     }
+ }
+-export function wakuDnsDiscovery(enrUrls) {
+-    return (components) => new PeerDiscoveryDns(components, { enrUrls });
++export function wakuDnsDiscovery(enrUrls, dnsClient) {
++    return (components) => new PeerDiscoveryDns(components, { enrUrls }, dnsClient);
+ }
+ //# sourceMappingURL=dns_discovery.js.map

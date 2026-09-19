@@ -1,4 +1,5 @@
 import { formatEther, formatUnits } from "viem";
+import type { BalanceEntry } from "@kohaku-eth/railgun";
 import type { ConnectionPolicy } from "../privacy/connectionPolicy";
 import { createExplicitRpcProvider } from "../privacy/adapters/rpcProvider";
 import { createKohakuIndexedDbDatabase } from "../privacy/storage/kohakuDatabase";
@@ -7,6 +8,7 @@ import { createVisibleMainnetClient } from "../wallet/mainnetClient";
 import { loadKohakuRailgunBrowserModule } from "./kohakuRailgunModule";
 import { unlockEncryptedRailgunWallet } from "./railgunWallet";
 import type { RailgunDerivationProvider } from "../wallet/walletState";
+import type { RailgunDerivationVersion } from "./railgunDerivation";
 import { createVisibleRailgunUtxoSyncer } from "./utxoSyncer";
 
 type KohakuRailgunTypes = typeof import("@kohaku-eth/railgun");
@@ -15,14 +17,10 @@ type KohakuBalanceModule = Pick<
   "RailgunBuilder" | "RailgunSigner" | "UtxoSyncer" | "chainConfig"
 >;
 
-type RailgunAssetId = {
-  type: string;
-  value?: `0x${string}`;
-};
-
 export type ShieldedEthBalance = {
   railgunAddress: string;
   derivationProvider: Extract<RailgunDerivationProvider, "kohaku-railgun">;
+  derivationVersion?: RailgunDerivationVersion;
   chainId: bigint;
   wei: bigint;
   formattedEth: string;
@@ -117,14 +115,15 @@ export const sumWrappedBaseTokenBalance = ({
   balances,
   wrappedBaseToken
 }: {
-  balances: Array<[RailgunAssetId, bigint]>;
+  balances: readonly BalanceEntry[];
   wrappedBaseToken: `0x${string}`;
 }): bigint =>
-  balances.reduce((total, [asset, amount]) => {
+  balances.reduce((total, { asset, amount, poiStatus }) => {
     if (
       asset.type !== "Erc20" ||
       !asset.value ||
-      asset.value.toLowerCase() !== wrappedBaseToken.toLowerCase()
+      asset.value.toLowerCase() !== wrappedBaseToken.toLowerCase() ||
+      (poiStatus !== undefined && poiStatus !== "Valid")
     ) {
       return total;
     }
@@ -136,7 +135,7 @@ export const summarizeWrappedBaseTokenBalance = ({
   balances,
   wrappedBaseToken
 }: {
-  balances: Array<[RailgunAssetId, bigint]>;
+  balances: readonly BalanceEntry[];
   wrappedBaseToken: `0x${string}`;
 }): {
   wei: bigint;
@@ -144,7 +143,7 @@ export const summarizeWrappedBaseTokenBalance = ({
   matchedWrappedBaseTokenBalances: number;
 } =>
   balances.reduce(
-    (summary, [asset, amount]) => {
+    (summary, { asset, amount, poiStatus }) => {
       const matches =
         asset.type === "Erc20" &&
         Boolean(asset.value) &&
@@ -154,7 +153,9 @@ export const summarizeWrappedBaseTokenBalance = ({
         rawBalanceCount: summary.rawBalanceCount + 1,
         matchedWrappedBaseTokenBalances:
           summary.matchedWrappedBaseTokenBalances + (matches ? 1 : 0),
-        wei: matches ? summary.wei + amount : summary.wei
+        wei: matches && (poiStatus === undefined || poiStatus === "Valid")
+          ? summary.wei + amount
+          : summary.wei
       };
     },
     {
@@ -296,7 +297,7 @@ export const fetchShieldedEthBalance = async (
       () => railgunProvider.balance(signer.address)
     );
     const summary = summarizeWrappedBaseTokenBalance({
-      balances: balances as Array<[RailgunAssetId, bigint]>,
+      balances,
       wrappedBaseToken: chain.wrappedBaseToken
     });
     options.onStatus?.(
@@ -311,6 +312,7 @@ export const fetchShieldedEthBalance = async (
     return {
       railgunAddress: signer.address,
       derivationProvider: "kohaku-railgun",
+      derivationVersion: unlockedWallet.derivationVersion,
       chainId: unlockedWallet.chainId,
       wei: summary.wei,
       formattedEth: formatShieldedEthBalance(summary.wei),

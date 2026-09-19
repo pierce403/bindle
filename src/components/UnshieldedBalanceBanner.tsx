@@ -82,6 +82,9 @@ export function UnshieldedBalanceBanner({
             <small>Sync may contact {syncDisclosure}</small>
           ) : null}
           {shieldDisclosure ? <small>{shieldDisclosure}</small> : null}
+          {canShield ? (
+            <small>Private sending and unshielding are currently unavailable in Bindle. Shielded funds cannot yet be spent here.</small>
+          ) : null}
           {canSweepAll && railgunAddress ? (
             <small>
               Destination: RAILGUN 0zk {shortRailgunAddress(railgunAddress)}

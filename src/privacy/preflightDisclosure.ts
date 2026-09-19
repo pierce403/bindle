@@ -67,18 +67,18 @@ const actionEndpointRequirements: Record<
     "ethereum-rpc": "required",
     "railgun-sync": "possible",
     "railgun-artifacts": "required",
-    "railgun-poi": "possible",
-    "erc4337-bundler": "required",
-    "erc4337-paymaster": "possible",
+    "railgun-poi": "required",
+    "railgun-broadcaster": "required",
+    "waku": "required",
     "provider-resolution": "possible"
   },
   "pay-review": {
     "ethereum-rpc": "required",
     "railgun-sync": "possible",
     "railgun-artifacts": "required",
-    "railgun-poi": "possible",
-    "erc4337-bundler": "required",
-    "erc4337-paymaster": "possible",
+    "railgun-poi": "required",
+    "railgun-broadcaster": "required",
+    "waku": "required",
     "provider-resolution": "possible",
     "price-quotes": "required"
   },
@@ -92,8 +92,9 @@ const actionEndpointRequirements: Record<
     "ethereum-rpc": "required",
     "railgun-sync": "possible",
     "railgun-artifacts": "required",
-    "railgun-poi": "possible",
-    "erc4337-bundler": "required",
+    "railgun-poi": "required",
+    "railgun-broadcaster": "required",
+    "waku": "required",
     "provider-resolution": "possible"
   },
   "unshield-review": {
@@ -102,9 +103,9 @@ const actionEndpointRequirements: Record<
     "helios-checkpoint": "possible",
     "railgun-sync": "possible",
     "railgun-artifacts": "required",
-    "railgun-poi": "possible",
-    "erc4337-bundler": "required",
-    "erc4337-paymaster": "possible"
+    "railgun-poi": "required",
+    "railgun-broadcaster": "required",
+    "waku": "required",
   },
   "shield-sweep": {
     "ethereum-rpc": "required",
@@ -161,4 +162,3 @@ export const getActionsUsingEndpoint = (
   }
   return actions;
 };
-

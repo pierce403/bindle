@@ -7,7 +7,8 @@ import {
   Server,
   Waypoints
 } from "lucide-react";
-import { type Dispatch, type SetStateAction, useMemo, useState } from "react";
+import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState } from "react";
+import { broadcasterPolicyKey } from "../railgun/broadcasterTransport";
 import {
   formatDebugMapSnapshot,
   scanPublicEndpointMap,
@@ -31,7 +32,7 @@ type RelaysPanelProps = {
   onRelayRegistryChange: Dispatch<SetStateAction<RailgunRelayRegistry>>;
 };
 
-type RelaySourceFilter = "all" | "kohaku-manager" | "raw-fee-ad";
+type RelaySourceFilter = "all" | "railgun-client" | "raw-fee-ad";
 type SignatureFilter = "all" | "verified" | "unverified";
 
 const shortAddress = (value: string): string =>
@@ -86,6 +87,12 @@ export function RelaysPanel({
   const [signatureFilter, setSignatureFilter] =
     useState<SignatureFilter>("all");
   const [availableOnly, setAvailableOnly] = useState(true);
+  const scanController = useRef<AbortController | null>(null);
+  const connectionKey = broadcasterPolicyKey(policy);
+  useEffect(() => {
+    setMapStatus("idle");
+    return () => { scanController.current?.abort(); };
+  }, [connectionKey]);
   const selectedRelay = selectedRailgunRelay(relayRegistry);
   const autoWatchEnabled =
     policy.wakuEnabled &&
@@ -94,10 +101,14 @@ export function RelaysPanel({
       policy.railgunBroadcasterMode === "custom-waku");
 
   const scanWakuMap = async () => {
+    scanController.current?.abort();
+    const controller = new AbortController();
+    scanController.current = controller;
     setMapStatus("Scanning Waku broadcasters");
 
     try {
-      const snapshot = await scanWakuBroadcasterMap(policy);
+      const snapshot = await scanWakuBroadcasterMap(policy, controller.signal);
+      if (controller.signal.aborted) return;
       setWakuMap(snapshot);
       onRelayRegistryChange((current) =>
         upsertRelaysFromWakuSnapshot({
@@ -112,6 +123,7 @@ export function RelaysPanel({
           : `Waku broadcaster map ${snapshot.status}`
       );
     } catch (error) {
+      if (controller.signal.aborted) return;
       setMapStatus(
         error instanceof Error ? error.message : "Waku broadcaster scan failed"
       );
@@ -213,14 +225,14 @@ export function RelaysPanel({
 
       if (
         signatureFilter === "verified" &&
-        relay.signatureStatus !== "kohaku-manager"
+        relay.signatureStatus !== "railgun-client"
       ) {
         return false;
       }
 
       if (
         signatureFilter === "unverified" &&
-        relay.signatureStatus !== "unverified-no-wallet-sdk"
+        relay.signatureStatus !== "unverified-observation"
       ) {
         return false;
       }
@@ -399,8 +411,8 @@ export function RelaysPanel({
                 <span>relay candidates</span>
               </div>
               <div>
-                <strong>{wakuMap.kohakuManagerSelections}</strong>
-                <span>Kohaku selected</span>
+                <strong>{wakuMap.broadcasterSelections}</strong>
+                <span>Client selected</span>
               </div>
             </div>
 
@@ -460,21 +472,21 @@ export function RelaysPanel({
                 >
                   <option value="all">All sources</option>
                   <option value="raw-fee-ad">Raw fee ads</option>
-                  <option value="kohaku-manager">Kohaku selected</option>
+                  <option value="railgun-client">Client selected</option>
                 </select>
               </label>
 
               <label>
-                <span>Signature</span>
+                <span>Quote verification</span>
                 <select
                   value={signatureFilter}
                   onChange={(event) =>
                     setSignatureFilter(event.target.value as SignatureFilter)
                   }
                 >
-                  <option value="all">All signatures</option>
-                  <option value="verified">Verified</option>
-                  <option value="unverified">Unverified</option>
+                  <option value="all">All verification states</option>
+                  <option value="verified">Client selected</option>
+                  <option value="unverified">Raw observations</option>
                 </select>
               </label>
 
@@ -513,14 +525,14 @@ export function RelaysPanel({
                       <div className="relay-row-actions">
                         <span
                           className={`source-badge ${
-                            relay.signatureStatus === "kohaku-manager"
+                            relay.signatureStatus === "railgun-client"
                               ? "info"
                               : "warning"
                           }`}
                         >
-                          {relay.signatureStatus === "kohaku-manager"
-                            ? "verified"
-                            : "unverified"}
+                          {relay.signatureStatus === "railgun-client"
+                            ? "client-selected quote"
+                            : "raw observation"}
                         </span>
                         <button
                           className="secondary-action"
@@ -545,6 +557,7 @@ export function RelaysPanel({
                         </span>
                       ))}
                     </div>
+                    <small>Rates show token base units per 10¹⁸ wei of gas cost.</small>
 
                     <div className="relay-detail-grid">
                       <div>

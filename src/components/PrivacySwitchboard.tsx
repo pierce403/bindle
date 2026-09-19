@@ -275,9 +275,9 @@ export function PrivacySwitchboard({
           }
         >
           <option value="USDC">USDC</option>
-          <option value="ETH">ETH</option>
+          <option value="ETH" disabled>ETH (use WETH)</option>
           <option value="WETH">WETH</option>
-          <option value="RAIL">RAIL</option>
+          <option value="RAIL" disabled>RAIL (set its custom token address)</option>
           <option value="custom">Custom token</option>
         </select>
       </label>
@@ -358,6 +358,12 @@ export function PrivacySwitchboard({
         </datalist>
       </label>
 
+      <label className="toggle-row">
+        <input type="checkbox" checked={policy.railgunBroadcasterDnsDiscoveryEnabled}
+          onChange={(event) => updateCustom({ ...policy, railgunBroadcasterDnsDiscoveryEnabled: event.currentTarget.checked })} />
+        <span>Enable broadcaster DNS discovery</span>
+      </label>
+
       <label className="field">
         <span>Broadcaster DNS discovery URLs</span>
         <textarea
@@ -373,10 +379,17 @@ export function PrivacySwitchboard({
           }
         />
         <small>
-          Visible for future support. The current Waku SDK build cannot use
-          custom DNS ENR trees without hidden defaults, so Bindle dials direct
-          peers instead.
+          Signed ENR trees used by the RAILGUN broadcaster client. Discovery
+          contacts the DNS resolvers below and peers announced by these trees.
         </small>
+      </label>
+
+      <label className="field">
+        <span>Broadcaster DNS resolvers</span>
+        <textarea value={listToText(policy.railgunBroadcasterDnsResolverUrls)}
+          placeholder="one HTTPS DNS JSON endpoint per line"
+          onChange={(event) => updateCustom({ ...policy, railgunBroadcasterDnsResolverUrls: textToList(event.currentTarget.value) })} />
+        <small>These services can see discovery queries and your network address. No hidden fallback resolver is used.</small>
       </label>
 
       <label className="field">
@@ -441,6 +454,14 @@ export function PrivacySwitchboard({
             </option>
           ))}
         </datalist>
+      </label>
+
+      <label className="field">
+        <span>RAILGUN POI list keys</span>
+        <textarea value={listToText(policy.railgunPoiListKeys)}
+          placeholder="one explicitly supported POI list key per line"
+          onChange={(event) => updateCustom({ ...policy, railgunPoiListKeys: textToList(event.currentTarget.value) })} />
+        <small>Advertised POI list compatibility for discovery. Private payment proofs for these lists are not yet supported.</small>
       </label>
 
       <label className="field">

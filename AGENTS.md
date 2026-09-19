@@ -2,555 +2,288 @@
 
 ## Self-Improvement Directive
 
-When working on Bindle, update this file whenever you learn something important
-that future agents should not have to rediscover. Capture both successful paths
-and failed experiments. Keep notes concrete, current, and scoped to this repo.
+Update this file when important repo-specific lessons are learned. Record
+verified build/test/preview/deploy commands, privacy rules, dependency pitfalls,
+failed approaches, collaborator preferences, and gaps. Consolidate obsolete or
+contradictory notes rather than appending logs. `FEATURES.md` owns the backlog.
 
-Record:
+## Persona and workflow
 
-- Verified build, test, preview, and deploy commands.
-- Product or privacy rules that affect implementation choices.
-- Common errors, dependency pitfalls, and known unsafe shortcuts.
-- Collaborator preferences that matter for future work.
-- Gaps that must stay visible until implemented.
+The harness identity is Codex. Introduce yourself by your assigned name on first
+reading this file with the human. Be direct, pragmatic, and explicit about
+tradeoffs. Prefer small, verifiable changes; empty real states beat fake UX.
 
-## Persona, Rapport, And Operating Context
+**Commit and push completed tasks to `main` immediately. Do not finish with
+completed work only in the working tree.** Work intended for the repository or
+`bindle.cash` must include `git commit` and `git push origin main`. Build before
+committing source/generated output, preserve unrelated work, and verify the
+published release. GitHub Pages publishes `main:/docs`; do not replace that path
+with an unrelated deployment system.
 
-The current harness identity is Codex. Agents using this file should introduce
-themselves by their assigned name when they first read it with the human.
+## Product and privacy rules
 
-Work style for this repo:
+- No fake balances, `0zk` addresses, liquidity, contacts, transactions, or
+  simulated successful broadcasts in the product. Test fixtures stay in tests.
+- Keep the wallet simple: one shielded balance, obvious actions, public-funding
+  warning, real activity, and bottom navigation. Addresses live in Receive.
+- ETH on Ethereum mainnet is the primary asset. Do not represent generic
+  cross-network Pay, Swap, or XMTP chat as implemented.
+- Passkey-backed public funding is first-run onboarding. The shielded recovery
+  phrase is currently an encrypted local interim key path; EOA/phrase recovery
+  remains advanced. Platform passkeys may sync through device-account providers.
+- Ordinary browser display mode is informational only. Wallet controls mount
+  only in the installed PWA. This UX gate is not a browser security boundary.
+- Every outbound dependency belongs in `ConnectionPolicy`, Connections, and
+  relevant preflight disclosure. Defaults must be labelled and replaceable.
+  No hidden endpoints, analytics, SDK bootstrap defaults, CDN imports, or
+  environment-only services. Public defaults can observe network metadata.
+- Private-origin submission must use only the RAILGUN broadcaster transport.
+  Never fall back to the public smart wallet, Coinbase, ERC-4337, Pimlico,
+  paymaster, EOA, or durable funding address. If prerequisites fail, stop.
+- Private change may return to `0zk` or an explicitly reviewed fresh ephemeral
+  settlement account. Never silently route it to a recipient/provider/public
+  funding account.
+- Send amounts are USD strings; `src/intents/conversion.ts` uses the active
+  Chainlink price from the synced balance to convert them to ETH/Wei.
+- No autonomous testing may risk real funds. Use deterministic fixtures, mocks
+  confined to tests, and read-only live diagnostics. No mainnet spend is part
+  of the modernization verification.
 
-- Be direct, pragmatic, and explicit about tradeoffs.
-- Do not ship simulated product state. Empty real states are better than fake UX.
-- Prefer small, verifiable changes that keep outbound services visible,
-  replaceable, and disclosed.
-- **CRITICAL WORKFLOW RULE**: Always commit and push (`git commit` and `git push origin main`) immediately after completing each task to ensure the live application (`bindle.cash`) is updated and changes are saved. Do not end a task without pushing to main.
-- Commit finished knowledge and implementation changes. Push `main` when the
-  change is meant to update the GitHub repo or `bindle.cash`.
+## Layout and architecture
 
-## Responsibilities
+- `src/`: Vite/React/strict TypeScript app; use lucide icons and scoped changes.
+- `src/privacy/`: connection policy, disclosure, Kohaku adapter/storage.
+- `src/railgun/`: wallet format, balances, proof boundary, broadcaster transport.
+- `src/intents/`: local recipient/route classification and conversion.
+- `src/pwa/`, `public/service-worker.js`: approved-release update lifecycle.
+- `public/`: source static content copied to `docs/` by builds, including CNAME,
+  proving artifacts, PWA assets, and `railgun-modernization.md`.
+- `docs/`: committed production output; `dist/` is ignored scratch output.
+- `FEATURES.md`: backlog; `PRIVACY.md`: trust boundaries; `README.md`: current
+  setup and architecture; modernization report: precise validation evidence.
 
-Agents working on Bindle are expected to:
+Kohaku owns wallet/state/proof APIs. The official RAILGUN broadcaster client owns
+Waku networking, signed fee ads, selection, and encrypted submission. Bindle owns
+policy, explicit translation/validation, UI, diagnostics, and recovery formats.
 
-- Preserve the no-silent-third-party-connections rule.
-- Keep GitHub Pages deployment working from `main:/docs`.
-- Keep the UI honest about what is real, missing, disabled, or experimental.
-- Verify builds before committing code or generated `docs` output.
-- Surface dependency and privacy risks plainly instead of hiding them.
-- Update this file when new project lessons become durable.
+Pinned packages: Kohaku RAILGUN `0.0.1-alpha.30`, provider `0.1.0-alpha.9`,
+plugins `0.0.1-alpha.13`; official broadcaster `9.1.1`, wallet `10.9.1`, and
+shared-models `8.0.1`. The old Kohaku Waku alias is removed. The official client's
+transitive Waku SDK is `0.0.36`; do not create a parallel Bindle Waku node.
+The wallet package supplies broadcaster protocol/crypto helpers only. Do not
+start its engine, let it own Bindle wallets, or infer that its substantial
+transitive graph has disappeared.
 
-## Project Overview
+## Wallet derivation safety
 
-Bindle is a statically hosted TypeScript wallet interface for private Ethereum
-payments through RAILGUN. It aims for extreme simplicity, Venmo-like usability,
-and privacy-oriented defaults.
+Historical Bindle used ethers secp256k1 BIP32 with RAILGUN path names, not the
+reference RAILGUN tree. Reference RAILGUN uses HMAC-SHA512 with `babyjubjub seed`
+and hardened hash chaining without secp256k1 child arithmetic. Same phrase,
+different account. See [upstream issue 243](https://github.com/ethereum/kohaku/issues/243).
 
-Current stack:
+- `src/railgun/railgunDerivation.ts` supports `bindle-ethers-bip32-v1` and
+  `railgun-babyjubjub-v1`. Missing stored/export versions ALWAYS mean historical
+  Bindle; never reinterpret existing `kohaku-railgun` metadata as canonical.
+- `derivationProvider` describes the adapter; `derivationVersion` describes the
+  mnemonic algorithm. Both historical and canonical accounts use Kohaku signers.
+- New creates use the canonical version. Bare phrase import explicitly chooses
+  Standard RAILGUN or Bindle before v0.2. Account exports preserve the version.
+- The encrypted payload and record metadata must agree; unknown versions and
+  derived-address mismatches fail closed. Validate an imported expected address
+  BEFORE overwriting IndexedDB. Failed recovery must preserve the old wallet.
+- Old unsupported SDK records remain `legacy-noncanonical` for quarantine;
+  never relabel them or imply funds moved. There is no automatic migration.
+- `tests/fixtures/railgunDerivation.ts` freezes public BIP-39 fixture outputs
+  from independent engine 9.7.0 (git `31bf5bb3dbceea284832f0a326a616bdfc8dd191`).
+  Alpha.22 and alpha.30 agree when given the same keys. Public spending/viewing
+  keys and addresses are tested; expected values must never be regenerated from
+  the implementation under test. Test-only engine projection resolves through
+  the locked wallet dependency, not stale extraneous root node_modules.
+- `tests/railgunWalletCompatibility.spec.ts` exercises real encrypted browser
+  storage, old unstamped records, round trips, and failed-import preservation.
+- Cache v2 includes address, provider, derivation version, and chain. Discarding
+  old display-only cache is allowed; wallet secrets/metadata must survive.
+- Unsupported public derivation metadata retains addresses and passkeys in a
+  blocked state. Creation and unconfirmed phrase imports use atomic IndexedDB
+  `add` so missing metadata or competing tabs cannot overwrite stored keys.
+  JSON imports inspect encrypted storage even when public metadata is absent,
+  require confirmation before replacement/deletion, and compare the reviewed
+  record revision inside the write transaction. A changed record requires fresh
+  review. Explicit wipe/regenerate still clears first.
+- Readiness verifies local secret/address/provider/format/chain consistency.
+  Shield repeats that check before deployment/RPC; a key-store marker is not
+  recovery proof. Invalidate balance requests when wallet/format/policy changes
+  and match both live and cached balances to the current wallet before painting.
+  Block create/import/replace/reset during submission and recheck active funding
+  and shielded identities after preparation, immediately before signing/sending.
+  `tests/walletSafety.spec.ts` covers late sync after import and corruption after
+  readiness with controlled local fixtures and no real outbound wallet traffic.
 
-- Vite, React, TypeScript.
-- Kohaku-first privacy toolkit adapter boundary, defaulting to the Kohaku
-  RAILGUN adapter.
-- Legacy RAILGUN Wallet SDK code and dependencies have been removed. Old
-  noncanonical derivation metadata is normalized only so those records stay
-  blocked safely.
-- GitHub Pages from `main:/docs`.
-- Manual PWA manifest and service worker from `public/`.
-- Custom domain: `bindle.cash`.
-- Target first-run onboarding: mobile PWA passkey creates a smart wallet, then
-  Bindle connects that account to shielded ETH through the privacy toolkit.
-  Seed phrases, EOA imports, and legacy noncanonical wallet records are
-  advanced compatibility or recovery flows, not the default UX.
-- Browser visits are informational only. `src/App.tsx` gates the wallet behind
-  installed PWA display mode and renders `BrowserLandingPage` otherwise.
-- Default theme: dark black/red paisley, with black/white and black/blue
-  palettes plus light/dark modes.
-- Product direction follows Zodl/Zashi-style simplicity: a single home balance,
-  obvious Receive/Send/Pay/Swap actions, an unshielded-balance warning, and
-  no fake activity. App-level sections use bottom navigation for wallet, node
-  connections, relay discovery, settings, and later chat; activity stays on
-  the wallet home.
+`railgunWallet.ts` stores AES-GCM encrypted phrases under a non-extractable
+browser-local WebCrypto key in IndexedDB `bindle-railgun-wallet-secrets`.
+localStorage holds only public metadata and key-store markers. Never put
+mnemonics, spending/viewing keys, WebAuthn private material, or service secrets
+there or in logs. This encryption does not defend against compromised same-origin
+code/devices. Passkey-backed wrapping remains pending. A repair/reset creates a
+new wallet and does not recover funds at the old address.
 
-Important directories:
+## Kohaku and broadcaster integration constraints
 
-- `src/`: source app code.
-- `src/railgun/`: browser RAILGUN engine adapter and artifact storage.
-- `src/privacy/`: outbound connection policy and privacy toolkit adapters.
-- `src/intents/`: local recipient route classification.
-- `src/theme/`: theme selection data.
-- `FEATURES.md`: canonical feature backlog and product TODO list.
-- `public/`: static files copied into builds, including `CNAME`.
-- `assets/bindle-logo-source.png`: generated source image for the app logo.
-- `public/manifest.webmanifest`, `public/service-worker.js`,
-  `public/logo.png`, `public/favicon-16.png`, `public/favicon-32.png`, and
-  `public/icons/`: PWA installability assets.
-- `docs/`: committed production build served by GitHub Pages.
-- `dist/`: ignored local scratch output if a one-off command writes there.
-- `scripts/generate-logo-source.mjs`: dependency-free raster compositor for the
-  rose paisley bandana logo source.
-- `scripts/generate-pwa-icons.mjs`: dependency-free PWA icon generator.
+- Import the generated binding from `@kohaku-eth/railgun/dist/pkg/index.js`.
+  Initialize WASM then `initLogging()` once per session; repeating logging init
+  panics. Package-root plugin imports previously pulled incompatible browser
+  dependencies. Revisit only with a verified build.
+- Do not call `createRailgunPlugin()` with hidden RPC/indexer/POI defaults.
+  Build the provider explicitly. Alpha.30 accepts a plain ChainConfig; override
+  `subsquidEndpoint` with the exact visible HTTP(S) URL, including custom mirrors.
+  Empty/unhealthy indexers use explicit RPC fallback. RPC-only log sync uses
+  bounded batches and may still hit provider limits.
+- Alpha.30 `balance()` returns `BalanceEntry[]`, not tuple pairs. Respect each
+  entry's POI status and do not inflate spendable balances from non-valid notes.
+- Rust builder methods may consume their WASM wrappers. Retain returned
+  wrappers and never free/reuse a consumed builder. Tests cover this ownership.
+- The prover's compiled GitHub artifact base is redirected by the controlling
+  service worker to `/railgun-artifacts/`. Require proxy readiness before
+  proving; custom origins remain blocked until a configurable loader exists.
+- `RailgunBroadcasterTransport` is the sole production transport. DNS ENR trees,
+  DNS JSON resolvers, secure WebSocket direct peers, shard, fee token, optional
+  trusted signer, POI lists, and enable switches all come from visible policy.
+- Default Waku is off. Its preset values include Rooted in Privacy discovery
+  and Cloudflare DNS JSON. Privacy max clears hosted values and automatic startup.
+  Discovery/peer exchange can contact peers learned from the selected network.
+- The visible POI list-key preset matches the published Kohaku mainnet list and
+  is only a broadcaster compatibility filter. Aggregator URLs remain empty;
+  selecting a list does not enable unsupported private-payment proofs or cause
+  a POI host call.
+- Pinned patches honor DNS-off and empty peer lists, disable implicit bootstrap,
+  inject visible resolvers, expose fresh fee observations, stop polling timers,
+  and avoid a second-engine nullifier lookup. Do not remove patches until
+  upstream supplies equivalent behavior. Signature verification stays enabled.
+- Narrow Buffer/stream browser compatibility is justified by actual upstream
+  imports. Do not restore broad crypto/Node polyfill bundles by default.
+- `wakuFeeAds.ts` is independent diagnostic parsing only. Relay registry rows
+  and raw ads never authorize spend. Refresh the official cache, obtain a fresh
+  selection, bind quote/policy to the operation, and revalidate before submit.
+- `privateTransactionBridge.ts` validates chain/target/calldata, nullifiers,
+  proof-bound parameters, fees, POI, and RelayAdapt metadata. Structural success
+  does not prove cryptographic readiness. `kohakuPrivateBuilder.ts` is prove-only.
+- Private Send/unshield/Pay remain blocked: alpha.30 has no pre-transaction POI
+  export, broadcaster fee-output binding, configurable proof-bound min gas price,
+  or supported native-ETH RelayAdapt/RelayAdapt7702 construction path. Its POI
+  processing happens after transactions are indexed. Do not fabricate missing
+  proofs/fees or enable submit merely because proof APIs exist.
+- A no-spend diagnostic reports capabilities and infrastructure independently.
+  It does not load user wallets, produce fake transaction hashes, or broadcast.
+  Do not make deterministic tests depend on public network uptime.
 
-## Product And Privacy Rules
+## Public funding and passkeys
 
-Hard product rules:
+`smartAccountAdapter.ts` uses Viem Coinbase Smart Wallet support for public
+funding/deposit operations via visible RPC/bundler policy. Resolve deployed owner
+indexes rather than assuming slot zero. Try saved public credential candidates.
+Do not force `internal` transport hints: synced passkeys may otherwise appear
+unavailable. USB/NFC/BLE hints belong only to explicit security-key mode; retry
+without hints when appropriate. An unavailable credential does not mean Bindle
+ever had its private material.
 
-- No simulated transaction feed.
-- No seeded contacts.
-- No fake balances, fake `0zk` addresses, or invented liquidity.
-- The wallet home should bias toward Zodl-like simplicity: one main balance,
-  obvious Receive/Send/Pay/Swap actions, an unshielded-balance warning, and
-  activity below.
-- The primary active asset is ETH on Ethereum mainnet, shielded with RAILGUN.
-  Pay across networks/currencies, swaps, and XMTP chat are future work until
-  wired honestly.
-- Default onboarding should be passkey-backed smart wallet creation from the
-  phone PWA. Do not make seed phrases, EOAs, browser extensions, or fake
-  wallet state the primary first-run path.
-- Do not expose wallet setup, balances, sends, shielding, or local wallet
-  controls from ordinary browser display mode.
-- No hidden endpoints, silent phone-home, or unlabelled hosted infrastructure.
-- Default endpoints are allowed only when they are visible in
-  `ConnectionPolicy`, shown in Connections, replaceable by the user, and
-  included in preflight disclosure before sensitive actions.
-- No hidden smart-wallet bundler, paymaster, passkey attestation, or recovery
-  endpoint.
-- Empty states are allowed only when they represent the real first-run state.
-- Controls that are not wired must either be removed or clearly disabled.
-- Send inputs accept amounts in USD rather than ETH. A conversion helper in `src/intents/conversion.ts` parses the USD string and uses the active Chainlink price feed (`visibleShieldedBalance?.price`) to convert it to equivalent ETH/Wei amounts. Submission pipelines convert the draft USD amount to ETH strings before sending.
+Shield deploys a counterfactual funding account if needed, then deposits the
+spendable public ETH after explicit review. Reserve ERC-4337 gas unless a visible
+paymaster sponsors it; exact zero-balance sweep otherwise is not promised.
+Invalidate shielded sync and retry after mining because note/indexer state may
+lag. Account exports cannot recover the public smart account without the same
+passkey/RP ID or a previously established on-chain recovery path.
 
-Current endpoint presets:
+## PWA lifecycle
 
-- Bindle default: Kohaku RAILGUN, direct RPC mode,
-  `https://ethereum-rpc.publicnode.com` for Ethereum RPC, and
-  `https://public.pimlico.io/v2/1/rpc` for the ERC-4337 bundler, plus
-  same-origin static RAILGUN proving artifacts at `/railgun-artifacts/`. These
-  are public defaults that can see network metadata; never imply they are
-  trustless or private.
-- Privacy max: hosted endpoints empty/off for users bringing local or
-  self-hosted infrastructure.
-- Custom: preserves user-entered values while editing each endpoint manually.
-- Local dev: localhost-style RPC and bundler endpoints.
+`registerServiceWorker.ts` owns discovery and persistent Approve/Ask/Reject;
+Ask is default. `useAppUpdates` defers install/reload during wallet actions and
+phrase review. Header version and Settings show current/pending version, full
+source commit, and build timestamp. Updates are same-origin and preserve wallets.
 
-Production work should preserve the policy shape: defaults may exist only as
-labelled, inspectable, replaceable preset values. No endpoint may be hidden in
-source code, SDK helper defaults, environment magic, CDN imports, or
-undocumented library defaults.
+Builds stamp worker/`build.json` consistently and hash every shell asset,
+including lazy JS/WASM; missing/mismatched assets fail install. Proving artifacts
+stay on demand. Keep the approved shell pointer in `bindle-release-selection-v1`
+independent of worker activation: closing all windows can activate a waiting
+worker without user approval. Never restore unconditional `skipWaiting`,
+controller-change reloads, or network-first shell navigation. Cache only
+same-origin GET resources, never sensitive RPC/broadcaster/provider POSTs.
 
-## Build, Preview, And Deploy Commands
+Missing artifact-proxy readiness directs users to Version settings; never
+silently unregister/upgrade the worker. Artifact-cache repair clears artifacts
+only. Storage eviction or an explicit site-data wipe removes the cached-release
+guarantee. `pnpm build` then `pnpm test:e2e tests/pwaUpdates.spec.ts` verifies
+real two-release lifecycle fixtures, restarts, offline launch, multiple windows,
+incomplete downloads, deferral, and localStorage/IndexedDB preservation.
 
-Install dependencies:
+## Build, test, preview, and deploy
 
 ```bash
 corepack enable
-pnpm install
-```
-
-Run local dev server:
-
-```bash
-pnpm dev
-```
-
-Build and typecheck:
-
-```bash
-pnpm build
+pnpm --version # must resolve 10.34.1, including nested build/test commands
+pnpm install --frozen-lockfile
 pnpm typecheck
-```
-
-Run browser onboarding tests:
-
-```bash
 pnpm test:e2e
-```
-
-Run a no-spend Kohaku RAILGUN Waku relay scan from the terminal:
-
-```bash
-pnpm scan:waku
-pnpm scan:waku -- --timeout 120000 --json
-```
-
-Regenerate PWA icons:
-
-```bash
-pnpm icons
-```
-
-Regenerate the rose paisley logo source and all PWA icons:
-
-```bash
-pnpm logo
-```
-
-Update GitHub Pages output after source changes:
-
-```bash
-pnpm icons
 pnpm build
+pnpm dev
+pnpm preview
+pnpm scan:railgun
+pnpm --silent scan:railgun -- --json
+pnpm scan:waku -- --json
 ```
 
-`pnpm build` writes directly to `docs`. Build metadata defaults to the current
-git commit timestamp so repeat builds of the same commit do not churn hashed
-assets; set `BINDLE_BUILD_TIME` explicitly only when a deployment-time label is
-intended.
+Playwright includes unit/integration tests; there is no separate `pnpm test`.
+The scan aliases use a local browser wrapper for the actual browser integration,
+and stop before any live transaction. Inspect JSON capability failures separately
+from external DNS/peer/broadcaster unavailability.
 
-Commit and push:
+`pnpm build` writes `docs/`. Its default timestamp is the source commit time to
+avoid reproducibility churn; set `BINDLE_BUILD_TIME` only for an intended override.
+`pnpm icons` regenerates public assets from `assets/bindle-logo-source.png`;
+`pnpm logo` first rebuilds that rose-paisley raster source. Keep source/generated
+output synchronized. Public source markdown is copied into docs by the build.
 
 ```bash
 git status --short --branch
-git add .
+git add <completed-files>
 git commit -m "Describe the change"
 git push origin main
-```
-
-Verify Pages:
-
-```bash
 curl -sS -I https://bindle.cash/
-curl -sS https://bindle.cash/
+curl -sS https://bindle.cash/build.json
 ```
 
-GitHub Pages is configured as legacy branch publishing from `main:/docs`; this
-avoids requiring GitHub workflow scope.
+Verify source commit/build metadata, served assets, and browser behavior; a push
+alone does not prove deployment. Use HTTPS remote
+`https://github.com/pierce403/bindle.git`. Git metadata writes may need sandbox
+escalation; the snap GitHub CLI may fail SSH. Workflow-file pushes require
+workflow scope; branch publishing avoids requiring an Actions deploy workflow.
 
-## Coding Conventions
+Tooling lessons:
 
-- Use TypeScript with strict compiler settings.
-- Keep edits scoped to the relevant surface; do not refactor unrelated modules.
-- Use structured state/types instead of ad hoc string checks when behavior grows.
-- Keep generated `docs` output in sync with the committed source build.
-- Use lucide icons for UI controls when an icon exists.
-- Do not add decorative UI that undermines the app's utilitarian wallet flow.
-- Do not use long-lived hidden endpoints or analytics scripts.
-- The service worker should only cache same-origin GET requests. Navigation
-  serves the approved release's cached shell so Ask/Reject cannot be bypassed
-  by reopening the app. Never cache wallet RPC, broadcaster, provider resolver,
-  or other sensitive POST traffic.
+- pnpm is pinned to `10.34.1`; npm/yarn installs are blocked. A runtime fallback
+  pnpm 11 may trigger an unwanted install/SQLite store failure. Use Corepack or
+  the cached pinned executable and ensure nested `pnpm` commands resolve a real
+  wrapper for it, not just a directory containing `pnpm.cjs`.
+  This session verified `/tmp/bindle-tools/pnpm` symlinked to
+  `/home/pierce/.cache/node/corepack/v1/pnpm/10.34.1/bin/pnpm.cjs`, with
+  `/tmp/bindle-tools` first in PATH, for nested build/test invocations.
+- Dependency lifecycle scripts are disabled; `minimumReleaseAge: 1440` holds
+  releases for 24 hours. Keep reviewed ignored build scripts and pinned security
+  overrides in sync with the actual lockfile. Do not run force audit fixes.
+- Playwright uses `localhost:5178`; WebAuthn rejects `127.0.0.1` as RP domain.
+  One worker avoids Chrome Crash Reports lock collisions. It prefers local
+  Chrome, then snap Chromium, then a managed browser. Browser/localhost access
+  may require command sandbox escalation.
+- Close Send/Pay modal backdrops before clicking navigation. Open Receive for
+  address assertions; addresses are intentionally absent from the home balance.
+- Use `rg`, `apply_patch`, strict TypeScript, and primary upstream sources.
+  Keep changes scoped. No `any` escape hatches at protocol boundaries.
 
-## Known Issues And Pitfalls
+## Future boundaries and harness compatibility
 
-- PWA updates: `src/pwa/registerServiceWorker.ts` owns update discovery and
-  local Approve/Ask/Reject preferences; Ask is the default. `useAppUpdates`
-  defers installation/reload during wallet actions and recovery-phrase review.
-  Settings > Version and the header version button expose current/pending
-  version, full commit, and build timestamp. Checks/downloads are same-origin.
-- `pnpm build` stamps the worker and `docs/build.json` with matching release
-  metadata and hashes every shell asset, including lazy JS/WASM. Installation
-  must fail on missing/mismatched assets; proving artifacts remain on demand.
-  Keep the approved shell pointer in `bindle-release-selection-v1` independent
-  of worker activation: browsers activate waiting workers after all windows
-  close, which must not imply app-update approval. Never restore unconditional
-  `skipWaiting`, controller-change reloads, or network-first shell navigation.
-- Artifact-proxy readiness fails with instructions to review Version settings
-  instead of silently unregistering/upgrading the worker. Artifact-cache repair
-  clears only proving artifacts. The header refresh now checks for app updates.
-  Wallet secrets/metadata are never cleared by an app update. Browser storage
-  eviction or an explicit site-data wipe removes the cached-version guarantee.
-- Verify PWA lifecycle changes with `pnpm build` followed by
-  `pnpm test:e2e tests/pwaUpdates.spec.ts`. These tests serve two production
-  release fixtures and exercise real workers, restart rejection, deferred
-  auto-approval, offline launch, incomplete downloads, multiple windows, and
-  localStorage/IndexedDB preservation. Vite dev uses an unpinned worker. The
-  September 19 update suite run passed 126 tests with the existing real-spend
-  acceptance test skipped; no paid/chain transactions were run.
-- In the Codex desktop runtime, the fallback `pnpm` may be version 11 and try an
-  unwanted install that fails with SQLite store permissions. Use the cached
-  pinned pnpm 10.34.1 executable (or Corepack), and ensure nested build/test
-  commands resolve that executable too. Browser tests require localhost binds
-  and Chrome access outside the restrictive command sandbox.
-- Kohaku RAILGUN is currently pinned to `@kohaku-eth/railgun@0.0.1-alpha.22`
-  with `@kohaku-eth/provider@0.1.0-alpha.8` and
-  `@kohaku-eth/plugins@0.0.1-alpha.8`.
-- The active `@kohaku-eth/railgun@0.0.1-alpha.22` plugin broadcast helper
-  builds a bundler/delegating-signer user operation. Do not use that path for
-  Bindle private-origin actions unless the delegating signer is proven to be a
-  neutral RAILGUN relay and not user-linkable.
-- Bindle aliases `@kohaku-eth/railgun@0.0.1-alpha.12` as
-  `@kohaku-eth/railgun-waku` only for the older Kohaku Waku broadcaster
-  transport (`JsBroadcasterManager`, `WakuAdapter`, fee quote, broadcast). This
-  is not the RAILGUN Wallet SDK and must not replace the Kohaku-canonical 0zk
-  derivation path.
-- The Waku relay path imports `@waku/sdk@0.0.36` directly. That SDK hardcodes
-  its DNS discovery trees, so `src/railgun/wakuBroadcaster.ts` keeps SDK DNS
-  discovery disabled and dials only the direct peers visible in
-  `ConnectionPolicy`, then uses peer exchange/cache after connecting.
-- Kohaku Waku `JsBroadcasterManager.bestBroadcasterForToken` is called by
-  Kohaku's own alpha.12 plugin with `BigInt(Date.now())`, so pass JavaScript
-  milliseconds, not Unix seconds.
-- Public RAILGUN Waku broadcasters are online on `/waku/2/rs/5/1`. A live
-  scan on June 6, 2026 observed and parsed current WETH/USDC fee ads, but the
-  installed Kohaku alpha.12 `JsBroadcasterManager` still returned no selectable
-  `JsBroadcaster`. Bindle now separates raw fee-ad discovery from Kohaku manager
-  selection in `src/railgun/wakuFeeAds.ts`, Debug Map, and
-  `pnpm scan:waku`. Private Pay remains blocked until a selectable
-  broadcaster/proved-operation path is available.
-- Do not use Kohaku's higher-level `createRailgunPlugin()` helper in Bindle
-  until indexer/POI endpoints are configurable. Its current implementation
-  wires a default Subsquid syncer, which violates Bindle's no-hidden-endpoints
-  rule.
-- `kassandraoftroy/kohaku-cli` is useful reference code but not a directly
-  copyable Bindle private relay path. As of its May 31, 2026 state it uses
-  `createRailgunPlugin(host, { rpcBatchSize: 450 })`; RAILGUN unshield calls
-  `setBundler(Bundler.pimlico(...))` and `setDelegatingSigner(...)`, and its UI
-  labels the route `Railgun (ERC-4337 bundler)`. That confirms the Kohaku alpha
-  can prepare/broadcast unshield through a bundler/delegating signer, but it is
-  not the Waku RAILGUN broadcaster path required for Bindle private-origin
-  Pay.
-- `kohaku-cli` wraps Kohaku provider `eth_getLogs` calls into small sequential
-  chunks, defaulting to 499 blocks with `KOHAKU_GETLOGS_MAX_BLOCK_SPAN` as an
-  override. This is a credible reference for mitigating browser RPCs that reject
-  large RAILGUN note-sync log scans.
-- `kassandraoftroy/derive-railgun-keys` documents the BabyJubJub RAILGUN HD
-  derivation used by `kohaku-cli`: spending `m/44'/1984'/0'/0'/i'`, viewing
-  `m/420'/1984'/0'/0'/i'`, HMAC seed string `babyjubjub seed`. Treat it as a
-  reference, not a Bindle dependency: the published package pulls older Kohaku
-  railgun alpha dependencies including Waku/snarkjs.
-- Bindle's Kohaku adapter imports the generated WASM binding file directly
-  from `@kohaku-eth/railgun/dist/pkg/index.js` and initializes it with the
-  default export plus `initLogging()`. Importing the package root pulled the
-  plugin facade into Vite, which pulled `viem/isows` and failed the production
-  build in this repo.
-- The current Kohaku adapter uses `RailgunBuilder.withUtxoSyncer(UtxoSyncer.rpc(...))`
-  so startup contacts only the active visible Ethereum RPC endpoint and
-  same-origin bundled WASM assets.
-- Kohaku's current alpha RAILGUN prover has
-  `https://github.com/Robert-MacWha/privacy-protocol-artifacts/raw/refs/heads/main/artifacts/`.
-  compiled in as its artifact base. Bindle mirrors the compressed `.br`
-  artifacts under `/railgun-artifacts/` and the service worker maps the
-  compiled third-party URL to that same-origin path before the request leaves
-  the controlled PWA. Do not allow Pay/private proof flows to proceed with a
-  custom artifact mirror until Kohaku exposes a configurable artifact loader.
-- Passkey-backed smart wallet work should stay behind the Kohaku/privacy
-  adapter boundary. Any ERC-4337 bundler, paymaster, passkey attestation, or
-  recovery service must be represented in `ConnectionPolicy` and preflight
-  disclosure before it is used.
-- Platform passkeys may sync through Apple, Google, Microsoft, or another
-  account provider depending on device settings. UX and docs must disclose that
-  tradeoff instead of presenting passkeys as purely local by default.
-- Bindle now has local wallet metadata in `src/wallet/walletState.ts`.
-  localStorage is only for non-secret metadata: wallet status, public addresses
-  if real, passkey-present boolean, credential id metadata, timestamps, and
-  errors. Do not store EOA private keys, mnemonics, RAILGUN viewing/spending
-  material, WebAuthn private material, or provider secrets there. The
-  `railgunKeyStore` field is only a marker that encrypted local key material
-  exists.
-- Bindle-owned RAILGUN wallet secrets live in
-  `src/railgun/railgunWallet.ts`. It derives spending/viewing keys from
-  Kohaku's `RailgunSigner.spendingKeyPath()` and `viewingKeyPath()`, computes
-  the real `0zk` address with `RailgunSigner.privateKey()`, and stores only an
-  encrypted recovery phrase in IndexedDB
-  (`bindle-railgun-wallet-secrets`) under a non-extractable browser-local
-  WebCrypto key. Do not reintroduce user-entered wallet passwords in onboarding;
-  passkey-backed key wrapping belongs at a later layer. Keep localStorage
-  limited to public metadata.
-- Local RAILGUN wallet records carry explicit `derivationProvider` metadata.
-  Existing version-2 records without that field are treated as
-  `kohaku-railgun` when the Kohaku-derived address matches. New default
-  create/import flows derive the 0zk address through Kohaku only and persist
-  `kohaku-railgun`. Old SDK-derived or otherwise noncanonical records are
-  normalized to `legacy-noncanonical` and must not be silently converted into
-  Kohaku accounts or used as proof that funds migrated.
-- Do not repair normal wallets into non-Kohaku 0zk accounts. The same
-  phrase/key index can derive different shielded accounts across derivation
-  implementations, so normal UI, balance sync, and private actions must use the
-  single Kohaku-canonical 0zk.
-- If saved `0zk` metadata points at a missing key-store marker, missing
-  IndexedDB secrets, or a legacy password-era record,
-  `RailgunKeyRecoveryPrompt` lets the user wipe only the incompatible RAILGUN
-  local state and regenerate a fresh browser-local `0zk`. Keep the warning that
-  this does not recover funds already shielded to the old address.
-- Passkey enrollment is wired through browser WebAuthn in `src/wallet/passkeys.ts`.
-  `src/wallet/smartAccountAdapter.ts` uses Viem's Coinbase Smart Wallet support
-  to derive a real passkey-backed ERC-4337 funding address and submit public ETH
-  user operations through explicit RPC/bundler endpoints. It resolves deployed
-  Coinbase Smart Wallet owner indexes from the on-chain owner list, so migrated
-  or re-enrolled passkeys do not need to be owner slot 0. Bindle stores multiple
-  public passkey owner records in local wallet metadata and tries saved
-  candidates when signing; a WebAuthn "no passkeys available" error means the
-  browser/authenticator could not find matching local credential material for
-  the requested RP ID, not that Bindle has access to or lost private key
-  material. Kohaku's upstream `pq-account` source is still not published as an
-  npm package or wired as the default adapter.
-- Do not force `internal` WebAuthn transport hints for platform passkeys.
-  Synced phone/computer passkeys may otherwise show "no passkeys available"
-  during smart-wallet signing. Bindle only hints USB/NFC/BLE for explicit
-  YubiKey/security-key mode and retries without transport hints when the
-  browser reports no credential.
-- Public smart-wallet funding balance sync lives in `src/wallet/publicBalance.ts`
-  and uses `src/wallet/mainnetClient.ts` so it can only call the visible
-  Ethereum mainnet RPC from `ConnectionPolicy`. The app may refresh this on load
-  when an RPC is configured because the selected RPC is currently inside
-  Bindle's normal-user trust boundary. Keep the endpoint visible in the UI.
-- Shield UI frames the passkey smart account as the public funding address and
-  the destination as the user's RAILGUN `0zk` address. The default Shield action
-  deploys the public smart account first if it is still counterfactual, then
-  shields the spendable synced public ETH balance. With no visible paymaster,
-  Bindle reserves ETH for ERC-4337 fees; exact zero-balance sweeps require
-  sponsorship. Do not reintroduce an EOA gas reserve, but do keep ERC-4337
-  bundler/paymaster policy visible because gas sponsorship or fee handling can
-  still make a sweep fail.
-- Cached shielded balances live in localStorage for paint-on-open only and must
-  stay keyed by `railgunAddress + derivationProvider + chainId`. Do not return
-  a cached Kohaku balance for a legacy noncanonical or unknown wallet record
-  that happens to have the same address string.
-- After a shield sweep, invalidate the shielded-balance auto-sync key and retry
-  RAILGUN balance sync after short delays. The public shield transaction can be
-  mined before the visible RAILGUN sync path/indexer returns the new private
-  note, so a single pre-shield sync is not enough.
-- Shield/unshield readiness lives in `src/railgun/shielding.ts`. Native ETH
-  shield call prep uses Kohaku's low-level `ShieldBuilder.shieldNative`, not the
-  higher-level helper that wires hidden Subsquid defaults. Recoverable local
-  RAILGUN key material now exists after shielded wallet create/import. Shield
-  submission is wired through `prepareNativeEthShieldCalls()` and
-  `sendSmartWalletCalls()` after explicit amount and endpoint review. Do not
-  bypass visible RPC/bundler policy.
-- Pay routes that spend from private RAILGUN balance are classified as
-  `railgun-private` in `src/intents/payFlow.ts`. Due to the unreliability of the public
-  Waku broadcaster network (expired advertisements, lack of valid JsBroadcaster), Bindle
-  now submits private payments directly through the user's public Coinbase Smart Wallet
-  (`sendSmartWalletCalls()`) using the Pimlico bundler, completely bypassing the Waku
-  broadcaster network. The smart-wallet adapter guard in `src/wallet/transactionOrigin.ts`
-  has been updated to permit this submission origin. This compromises sender-recipient
-  unlinkability (linking the public smart-account address to the private unshield/send transaction
-  on-chain) but guarantees reliable transaction execution with zero relayer fees. Bindle
-  should not expose a user-facing Public Pay mode; Pay starts from shielded RAILGUN balance.
-  Private Pay change may return privately to `0zk` or remain in a fresh
-  ephemeral settlement account for later sweep. Do not send Uniswap
-  leftover/slippage to the recipient, provider, durable public funding address,
-  passkey smart wallet, or any other public change address by default.
-- First-run setup is surfaced through `src/components/OnboardingWizard.tsx`.
-  Keep new wallet prerequisites in that state-driven flow so users are not
-  forced to discover setup steps by opening Receive or Connections manually.
-- `ConnectionPolicy` includes preset-aware fields for ERC-4337 bundler,
-  paymaster, passkey attestation, and wallet recovery. Defaults are allowed only
-  when labelled in presets and shown in Connections; hidden defaults remain
-  forbidden.
-- Explicit connection settings are persisted in
-  `src/privacy/connectionPolicyState.ts`. This is a local operator
-  convenience, and migration must not preserve hidden or unlabelled endpoints.
-- Full SDK purge removed `@railgun-community/wallet`,
-  `@railgun-community/shared-models`,
-  `@railgun-community/waku-broadcaster-client-web`, `level-js`, and their type
-  packages. `snarkjs` is now present through the Waku-enabled Kohaku alpha.12
-  provider/prover dependency path, not the removed RAILGUN Wallet SDK.
-- `src/railgun/wakuBroadcaster.ts` starts a Waku LightNode from visible policy
-  direct peers, constructs the Kohaku `JsBroadcasterManager`, selects a
-  broadcaster by fee token, and submits prepared private operations. It does
-  not yet construct the proved Pay/private operation itself.
-- Bindle auto-watches Waku for RAILGUN broadcaster fee ads when the installed
-  PWA is open and the visible Waku broadcaster preset is enabled. This is a
-  convenience feature, not a private spend: it must never create proofs, submit
-  transactions, touch the public smart wallet, use the user's 0zk, or call
-  Pimlico. The Relays tab is the inspect/choose surface for this app-wide relay
-  registry. Keep RAILGUN broadcasters and ERC-4337 bundlers separate in UI copy.
-- Saved RAILGUN broadcaster observations are hints, not authority. Every
-  `railgun-private` action path must refresh Waku ads immediately before a new
-  private transaction, update the relay registry from that fresh snapshot,
-  reject stale, unavailable, wrong-token, or raw-fee-ad-only candidates for live
-  submit, and pass the fresh `SelectedRailgunBroadcaster` through to the final
-  `waku-railgun-broadcaster` submit path. Do not use a saved registry row alone
-  for private submit.
-- `scripts/scan-kohaku-waku-relays.mjs` is the terminal equivalent of the
-  no-spend Waku broadcaster map. It initializes Kohaku alpha.12 WASM from local
-  bytes because Node cannot `fetch()` the package's file URL, dials only
-  visible direct peers by default, reports both raw RAILGUN fee ads and Kohaku
-  manager selections using millisecond timestamps, and stops the Waku node
-  before exit.
-- Bindle is pnpm-only. `packageManager` pins pnpm, `.npmrc` enables pnpm's
-  package-manager strict mode, and `scripts/require-pnpm.mjs` blocks npm/yarn
-  installs.
-- `package.json` uses pnpm overrides to keep Dependabot-alerted transitive
-  packages on patched versions: `underscore@1.13.8`, `uuid@11.1.1`, and
-  `ws@8.20.1`. The old `vite-plugin-node-polyfills` dependency was removed
-  because it pulled the unfixed `elliptic`/`crypto-browserify` graph and is no
-  longer needed after the RAILGUN Wallet SDK purge. Do not re-add broad Node
-  browser polyfills unless a current build failure proves a specific polyfill is
-  required.
-- `pnpm-workspace.yaml` sets `ignoreDepScripts: true` so dependency lifecycle
-  scripts do not execute during install, sets `minimumReleaseAge: 1440`, and
-  records the reviewed transitive dependency build scripts that pnpm should
-  continue to ignore.
-- The GitHub CLI snap may fail to use SSH in this environment. The remote is
-  HTTPS: `https://github.com/pierce403/bindle.git`.
-- Pushing workflow files requires GitHub `workflow` scope. This repo currently
-  avoids Actions-based Pages deployment.
-- `git` commands that write `.git` metadata may require sandbox escalation here.
-- PWA installability depends on `manifest.webmanifest`, 192x192 and 512x512 PNG
-  icons, and a service worker with a fetch handler.
-- Bindle's logo is generated raster art based on a black/red rose paisley
-  bandana cloth bundle. The canonical source is
-  `assets/bindle-logo-source.png`; `pnpm logo` regenerates that source from the
-  rose paisley texture, and `pnpm icons` regenerates the public logo, favicon
-  PNGs, and PWA icons.
-- Playwright is configured in `playwright.config.ts` and starts Vite on
-  `localhost:5178`. WebAuthn rejects `127.0.0.1` as an invalid RP domain in the
-  virtual-passkey test, so keep the e2e origin on `localhost`. It prefers
-  `/usr/bin/google-chrome`, then
-  `/snap/bin/chromium`, then Playwright's managed browser if one exists. The
-  suite runs with one worker to avoid local Chrome Crash Reports lock failures
-  during parallel WebAuthn launches.
-- Current onboarding specs include passing assertions for honest first-run
-  passkey gating, virtual-passkey enrollment without fake addresses, local
-  RAILGUN wallet creation with a real `0zk` address, visible default endpoints,
-  Privacy max clearing hosted endpoints, and a skipped acceptance spec for the
-  future real public-ETH shield sweep.
-- The main wallet screen (`BalancePanel`) has no public smart account or `0zk` addresses to keep it clean and focused. Instead, these addresses and their copy actions are housed inside the Receive modal overlay. Bottom navigation (`.bottom-nav`) is anchored absolutely to the bottom of the `.phone-frame` container, and the content container `.app-content` has a bottom padding of `96px` to keep scrollable elements accessible. In E2E onboarding tests, the Send modal must be closed before clicking navigation tabs to avoid click interception from the backdrop, and tests verifying wallet details must click "Receive" to make the `0zk` address visible.
-- Waku store peers may only have expired historical broadcaster advertisements (older than the 5-minute threshold). Because of this, the Rust `JsBroadcasterManager` can find no selectable broadcaster despite raw ads being parsed. Bindle supports a "Simulated Diagnostic Broadcaster" at `mock://simulated-broadcaster` which runs the real zk-SNARK proof generation locally but simulates the final broadcast step, returning a mock transaction hash. This enables end-to-end testing of the onboarding and proof creation flow without relying on active live Waku broadcaster announcements.
+Helios is unimplemented. Any future adapter must expose execution RPC,
+consensus/checkpoint endpoints and trust choices. It reduces RPC-response trust,
+not endpoint metadata leakage. Product gaps stay in `FEATURES.md`.
 
-## Current Missing Product Work
-
-Track product TODOs in `FEATURES.md`. Keep that file current rather than
-duplicating the backlog here.
-
-## Helios Notes
-
-Helios can reduce trust in a centralized RPC, but it does not remove outbound
-networking. The official project describes it as a Rust/WASM light client
-suitable for embedding in wallets and dapps, while still requiring an execution
-RPC that supports `eth_getProof` and consensus/checkpoint data.
-
-Treat Helios as a future adapter behind the same visible connection policy.
-Helios can reduce trust in RPC responses, but it does not hide metadata from
-the endpoint. Do not enable Helios defaults unless execution RPC, consensus RPC,
-checkpoint, and checkpoint source/value are visible in Connections and
-preflight disclosure.
-
-## Tooling Preferences
-
-- Prefer `rg` for repository search.
-- Prefer inspectable CLI workflows over manual hidden steps.
-- Use `apply_patch` for manual file edits.
-- Use official docs or primary sources for fast-moving dependency/platform
-  questions.
-- Keep dependency changes pinned and explain why versions move.
-
-## Memory And Skills Structure
-
-No project-local `MEMORY.md`, `SKILLS.md`, or skill directory exists yet. If
-durable memory or reusable workflows become useful, add a compact index first
-and document it here.
-
-## Harness Compatibility
-
-`AGENTS.md` is canonical. If another agent harness needs its own instruction
-file, prefer a symlink to this file so instructions do not diverge:
-
-```bash
-ln -s AGENTS.md CLAUDE.md
-ln -s AGENTS.md GEMINI.md
-```
-
-Only add those symlinks when they are actually needed by the workflow.
-
-## Rapport And Reflection
-
-Collaborator cues observed so far:
-
-- Strong preference for privacy-first defaults and minimizing outbound leaks.
-- Strong preference against sample UX or fake state.
-- Wants honest first-run onboarding, especially with ETH shielding.
-- Values direct articulation of what is missing and what tradeoffs remain.
-
-Keep this file concise. When it grows, consolidate repeated lessons rather than
-appending stale logs.
+`AGENTS.md` is canonical. Other harness files should be symlinks only when
+needed (`ln -s AGENTS.md CLAUDE.md`, likewise GEMINI.md). No project-local memory
+or skill directory exists. Add a compact index before introducing one.

@@ -1,47 +1,127 @@
-# Privacy Policy (PRIVACY.md)
+# Bindle privacy and trust boundaries
 
-This document outlines the privacy design, network connection policies, and metadata protection trade-offs implemented in Bindle.
+Bindle runs as a static PWA served by GitHub Pages at `bindle.cash`. It does not
+add analytics, session replay, or automatic crash reporting. Static hosting and
+the external services chosen in Connections can still observe IP addresses,
+request timing, and other network metadata. Static hosting is not anonymity.
 
-## Core Privacy Stance
+## Visible connections
 
-Bindle is designed to protect user financial metadata by default. Unlike traditional web wallets, Bindle does not run backend servers, track user IP addresses, deploy telemetry, or use silent third-party analytics. The application is statically hosted (GitHub Pages, `bindle.cash`) and executes entirely inside the user's local browser sandbox.
+Every network service must be represented in `ConnectionPolicy`, visible in
+Connections, replaceable by the user, and included in the relevant action's
+preflight disclosure. Defaults may be convenient but may not be hidden.
 
-### 1. No-Silent-Third-Party-Connections Policy
-* **Explicit Connection Settings**: Bindle is prohibited from initiating network connections to unlisted or unlabelled third-party servers.
-* **Inspectable & Replaceable Endpoints**: Every external service (Ethereum RPC, ERC-4337 bundler, paymaster, or Railgun UTXO indexer) must be defined in the `ConnectionPolicy` registry and visible in the Connections panel.
-* **Preflight Disclosures**: Before performing sensitive actions (such as shielding, sending, or checking balances), Bindle presents a preflight modal disclosing every endpoint that will be contacted during the transaction.
+| Connection | Information it can observe |
+| --- | --- |
+| Ethereum RPC | Network metadata, chain-state requests, public funding addresses, transaction queries |
+| RAILGUN indexer | Network metadata and note-sync requests |
+| ERC-4337 bundler/paymaster | Public smart-account operations and funding/deposit activity |
+| Waku DNS resolver | Network metadata and queried ENR tree names |
+| Waku peers/broadcasters | Connections, timing, protocol messages, broadcaster requests |
+| Explicit POI services | Proof requests/submissions and associated protocol metadata |
+| Static host | App, update, and proving-artifact downloads |
 
-### 2. Same-Origin Proving Artifacts
-* **Local proving artifacts**: Railgun private transactions require compiling zk-SNARK proving keys. Instead of pulling these large files from external unvetted CDNs or raw GitHub repositories, Bindle hosts these compressed `.br` artifacts directly on-origin under `/railgun-artifacts/`.
-* **Service Worker Rewriting**: The local service worker intercepts outbound SDK requests for artifacts and routes them exclusively to the same-origin static path, preventing IP metadata leakage to third-party CDNs.
+Public funding balance refresh and toolkit startup can occur automatically when
+the visible policy permits them. Waku discovery is off in the default preset.
+Enabling it allows no-spend advertisement watching in the installed PWA. The
+editable preset lists Rooted in Privacy ENR trees/direct peers and a Cloudflare
+DNS JSON resolver; neither the official broadcaster client nor its Waku SDK
+may silently introduce different bootstrap/resolver defaults. DNS can be turned
+off while retaining explicit direct peers. Discovery and peer exchange can
+contact peers learned from the chosen network, not just the initial peers.
 
-### 3. Installed PWA Boundary
-* **Informational Browser Mode**: To prevent accidental balance exposure or metadata leakage from casual browser visits, Bindle's wallet dashboard, onboarding wizard, and settings panels are entirely inaccessible in ordinary browser mode.
-* **Display Mode Gate**: The interface operates only when installed as a Progressive Web App (PWA) and launched in standalone display mode.
+Privacy max clears hosted services and disables automatic toolkit/network
+startup. Local or self-hosted services reduce dependence on third parties but
+still have network and device trust boundaries. RPC trust reduction through
+Helios remains unimplemented and does not imply metadata protection.
 
----
+The visible mainnet POI list key filters broadcaster compatibility only. POI
+aggregator URLs are empty by default, and private-payment proofs for these lists
+are not yet supported. A selected list does not trigger a POI service request.
 
-## The Waku Relayer Transition & Privacy Trade-off
+## Private submission must fail closed
 
-### Background: Waku Broadcasters vs. Direct Submission
-In a standard RAILGUN setup, private transactions are broadcasted to the peer-to-peer Waku network, where independent Waku Broadcasters pick them up and submit them to the blockchain. Because the Broadcaster pays the on-chain gas fee (reimbursed by the user in WETH or USDC from their private balance), there is no on-chain link between the user's public Ethereum address and the private transaction.
+Kohaku owns RAILGUN wallet/state and proof APIs. The official RAILGUN broadcaster
+client owns Waku discovery, signed fee advertisements, selection, and encrypted
+submission. Bindle validates the policy and normalized transaction between them.
+The upstream wallet package is present only for broadcaster protocol/crypto
+helpers; Bindle does not start a second wallet engine.
 
-### The Problem
-The public Waku relayer network and its fee advertisement system have proven highly unreliable. Peer discovery is slow, fee ads expire frequently, and the Kohaku manager struggles to select a valid `JsBroadcaster`. This results in transaction submission failures where users cannot send or unshield their funds.
+Private Send, unshield, and Private Pay cannot currently be submitted. Kohaku
+alpha.30 does not expose the required pre-transaction POI proof export,
+broadcaster fee-output binding, or configurable proof-bound minimum gas price.
+Native ETH unshield additionally lacks the exposed RelayAdapt construction
+path. Existing transaction/proof APIs and synthetic test payloads do not prove
+that these missing prerequisites are ready.
 
-### The Solution: Direct Smart-Wallet Submission
-To ensure Bindle remains functional and reliable, we have re-wired the private transaction submission pipeline to match the direct submission approach used by reference tools like `kohaku-cli`. 
+Private-origin operations must never fall back to the public Coinbase Smart
+Wallet, ERC-4337, Pimlico, a paymaster, an EOA, or a durable funding address.
+Using those accounts would link the public submitter to the private operation.
+The former direct-submission fallback has been removed. Only public funding,
+account deployment, and reviewed shield deposits may use the public smart-wallet
+path. No real private transaction was broadcast during modernization testing.
 
-When you submit a private send or unshield:
-1. The zk-SNARK proof is generated locally by Kohaku in your browser.
-2. Instead of broadcasting the payload to Waku, Bindle submits the transaction data directly via your public Coinbase Smart Wallet (using the visible ERC-4337 bundler).
-3. The transaction is executed on-chain with zero relayer fees deducted from your private balance.
+The local relay registry contains observations, not authority to spend. A future
+enabled private submission must obtain fresh compatible signed fees, review
+the selected broadcaster and fee, bind them to the proved transaction, and
+revalidate availability immediately before submission. Stale cached entries or
+unverified/raw advertisement parsing cannot substitute for that process.
 
-### Privacy Trade-off & Metadata Disclosure
-By submitting private operations directly through your public smart wallet, you accept the following privacy characteristics:
+Even a correct broadcaster path does not promise absolute anonymity. RPC and
+network metadata, recipients, public settlement legs, timing, and user actions
+can reveal information. Swap change may remain private or in an explicitly
+reviewed fresh settlement account; it must not silently return to a public
+funding wallet, recipient, or provider.
 
-* **No Sender-Recipient Unlinkability**: The on-chain transaction will be submitted by your public smart-wallet contract address. Any observer monitoring the blockchain can link your public smart wallet to the Railgun private transfer or unshield.
-* **What Remains Shielded**: Your internal Railgun pool balance, UTXO history, and exact source notes remain protected by zk-SNARKs. Only the final on-chain submission origin (your public Coinbase Smart Wallet address) is linked.
-* **No Relayer Fees**: Bypassing Waku broadcasters eliminates the need to pay high relayer gas fee premiums in WETH or USDC. You only pay standard ERC-4337 gas fees through your smart wallet.
+## Recovery and local storage
 
-This design favors functional success, speed, and cost efficiency over absolute sender anonymity. Users who require maximum metadata anonymity should utilize local command-line tools like `kohaku-cli` configured with local/tor relayer infrastructure.
+- localStorage contains public wallet/passkey metadata, connection preferences,
+  update preferences, local diagnostic observations, and display-only cached
+  balances. Public addresses and cached amounts remain sensitive to anyone
+  with access to the browser profile, despite not being signing keys.
+- Bindle-owned RAILGUN phrases are AES-GCM encrypted in
+  `bindle-railgun-wallet-secrets` IndexedDB under a non-extractable local
+  WebCrypto key. Runtime code unlocks spending/viewing material only when
+  required. It must never be written into localStorage or diagnostic logs.
+- Browser-local encryption does not defend against malicious same-origin code,
+  browser compromise, extensions with sufficient access, or a compromised
+  device. Passkey-backed RAILGUN wrapping and session lock controls are pending.
+- WebAuthn private material remains with the authenticator. Platform passkeys
+  may sync through Apple, Google, Microsoft, or another account provider,
+  depending on device settings. Public credential IDs, RP IDs, and public keys
+  are stored for account reconstruction.
+- Account JSON exports containing recovery phrases are sensitive. They cannot
+  export a passkey private key. Public smart-account recovery still requires
+  the same credential/RP ID or a previously established on-chain recovery path.
+
+Wallet derivation is explicitly versioned. Historical Bindle accounts use
+`bindle-ethers-bip32-v1`; new canonical accounts use `railgun-babyjubjub-v1`.
+The same phrase produces different addresses between these formats. Missing
+old record/export versions stay historical. Imports preserve the selected
+format and verify an exported address before replacing secrets. There is no
+automatic fund migration. Old unsupported records remain blocked.
+
+Balances are cached separately by address, provider, derivation version, and
+chain. Discarding a display cache does not change the wallet. Explicit local
+reset removes local recovery data and does not recover on-chain funds; save
+the phrase and its format before funding or clearing browser storage.
+
+## Proving artifacts and app updates
+
+Proving artifacts are mirrored at same-origin `/railgun-artifacts/`. Kohaku's
+compiled external artifact URL is intercepted by the approved controlling
+service worker and mapped to the mirror. Proof readiness requires that worker;
+an unavailable worker or unsupported custom artifact origin blocks the flow.
+There is no permitted fallback to an undisclosed external artifact host.
+
+App updates check and download from the same origin. The version menu exposes
+version, full source commit, and build time, with Approve/Ask/Reject preferences.
+An approved release's cached shell remains selected across restarts; activating
+a waiting worker by closing the app is not update consent. Updates defer during
+wallet operations/recovery review and preserve wallet storage. Site-data removal
+or browser eviction can remove the cached-release guarantee.
+
+The worker caches only same-origin GET resources, never sensitive RPC,
+broadcaster, resolver, or provider POST traffic. Installing as a PWA gates the
+wallet UI, but display mode is a usability boundary rather than protection from
+malicious browser code or scripts served by a compromised host.

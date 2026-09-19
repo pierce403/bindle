@@ -1,0 +1,544 @@
+--- a/dist/fees/handle-fees-message.js
++++ b/dist/fees/handle-fees-message.js
+@@ -1,5 +1,4 @@
+ import { verifyBroadcasterSignature, getRailgunWalletAddressData, } from '@railgun-community/wallet';
+-import crypto from 'crypto';
+ import { contentTopics } from '../waku/waku-topics.js';
+ import { BroadcasterDebug } from '../utils/broadcaster-debug.js';
+ import { BroadcasterConfig } from '../models/broadcaster-config.js';
+@@ -29,7 +28,7 @@
+     const feeExpired = expirationFeeTimestamp.getTime() < expirationFeeMsec;
+     return timestampExpired && feeExpired;
+ };
+-export const handleBroadcasterFeesMessage = async (chain, message, contentTopic) => {
++export const handleBroadcasterFeesMessage = async (chain, message, contentTopic, isCurrent = () => true) => {
+     try {
+         if (!isDefined(message.payload)) {
+             BroadcasterDebug.log('Skipping Broadcaster fees message: NO PAYLOAD');
+@@ -48,9 +47,8 @@
+             BroadcasterDebug.log('Skipping fee message. Timestamp Expired.');
+             return;
+         }
+-        if (!isDefined(crypto.subtle) && BroadcasterConfig.IS_DEV) {
+-            BroadcasterDebug.log('Skipping Broadcaster fee validation in DEV. `crypto.subtle` does not exist (not secure: use https or localhost). ');
+-            updateFeesForBroadcaster(chain, feeMessageData);
++        if (!isDefined(globalThis.crypto?.subtle)) {
++            BroadcasterDebug.log('Broadcaster signature verification requires a secure browser context.');
+             return;
+         }
+         if (invalidBroadcasterVersion(feeMessageData.version)) {
+@@ -60,7 +58,7 @@
+         const { railgunAddress } = feeMessageData;
+         const { viewingPublicKey } = getRailgunWalletAddressData(railgunAddress);
+         const verified = await verifyBroadcasterSignature(signature, data, viewingPublicKey);
+-        if (!verified) {
++        if (!verified || !isCurrent()) {
+             return;
+         }
+         updateFeesForBroadcaster(chain, feeMessageData);
+--- a/dist/models/broadcaster-config.js
++++ b/dist/models/broadcaster-config.js
+@@ -3,6 +3,8 @@
+     static IS_DEV = false;
+     static enableHealthcheckLogs = false;
+     static trustedFeeSigner;
++    static dnsClient;
++    static findTransactionByNullifiers;
+     static feeExpirationTimeout = 120_000;
+     static historicalLookBackTime = 1 * 60 * 1000;
+     static authorizedFeeVariancePercentageLower = 0.10;
+@@ -60,6 +62,11 @@
+             ]),
+         ];
+         this.storePeers = storePeers;
++        if (options.useDNSDiscovery === false) {
++            this.useDNSDiscovery = false;
++            this.customDNS = { onlyCustom: true, enrTreePeers: [] };
++            return;
++        }
+         if (dnsDiscoveryUrls.length > 0) {
+             this.useDNSDiscovery = true;
+             this.customDNS = {
+@@ -76,13 +83,13 @@
+             }
+             : {
+                 onlyCustom: true,
+-                enrTreePeers: [WAKU_RAILGUN_DEFAULT_ENR_TREE_URL],
++                enrTreePeers: [],
+             };
+     }
+     static shouldUseDefaultBootstrap() {
+         const hasCustomDnsPeers = Boolean(this.customDNS?.enrTreePeers.length);
+         const hasDirectPeers = this.additionalDirectPeers.length > 0;
+-        return !hasCustomDnsPeers && !hasDirectPeers;
++        return false; // Bindle: no implicit SDK bootstrap endpoints.
+     }
+     static setHealthcheckLoggingEnabled(enabled) {
+         this.enableHealthcheckLogs = enabled;
+--- a/dist/models/export-models.d.ts
++++ b/dist/models/export-models.d.ts
+@@ -2,6 +2,8 @@
+ import type { CustomDNSConfig } from './broadcaster-config.js';
+ export type BroadcasterOptions = {
+     trustedFeeSigner: string | string[];
++    dnsClient?: { resolveTXT(domain: string): Promise<string[]> };
++    findTransactionByNullifiers?: (chain: Chain, nullifiers: string[]) => Promise<string | undefined>;
+     poiActiveListKeys?: string[];
+     enableHealthcheckLogs?: boolean;
+     pubSubTopic?: string;
+--- a/dist/transact/broadcaster-transaction.js
++++ b/dist/transact/broadcaster-transaction.js
+@@ -1,4 +1,4 @@
+-import { getRailgunWalletAddressData, encryptDataWithSharedKey, getCompletedTxidFromNullifiers, } from '@railgun-community/wallet';
++import { getRailgunWalletAddressData, encryptDataWithSharedKey, } from '@railgun-community/wallet';
+ import { poll, BroadcasterTransactRequestType, } from '@railgun-community/shared-models';
+ import { BroadcasterConfig } from '../models/broadcaster-config.js';
+ import { bytesToHex } from '../utils/conversion.js';
+@@ -68,8 +68,7 @@
+     }
+     async findMatchingNullifierTxid() {
+         try {
+-            const { txid } = await getCompletedTxidFromNullifiers(this.txidVersionForInputs, this.chain, this.nullifiers);
+-            return txid;
++            return await BroadcasterConfig.findTransactionByNullifiers?.(this.chain, this.nullifiers);
+         }
+         catch (cause) {
+             if (!(cause instanceof Error)) {
+--- a/dist/waku-broadcaster-client.d.ts
++++ b/dist/waku-broadcaster-client.d.ts
+@@ -1,6 +1,6 @@
+ import { Chain, SelectedBroadcaster } from '@railgun-community/shared-models';
+ import { BroadcasterConnectionStatusCallback, BroadcasterDebugger, BroadcasterOptions } from './models/export-models.js';
+-import type { LightNode } from '@waku/sdk';
++import type { LightNode, IDecodedMessage } from '@waku/sdk';
+ export declare class WakuBroadcasterClient {
+     private static chain;
+     private static statusCallback;
+@@ -12,6 +12,8 @@
+     static isStarted(): boolean;
+     static setHealthcheckLoggingEnabled(enabled: boolean): void;
+     static setChain(chain: Chain): Promise<void>;
++    static getFeeMessages(): IDecodedMessage[];
++    static refreshFees(): Promise<void>;
+     static getContentTopics(): string[];
+     static getMeshPeerCount(): number;
+     static getPubSubPeerCount(): number;
+--- a/dist/waku-broadcaster-client.js
++++ b/dist/waku-broadcaster-client.js
+@@ -14,7 +14,10 @@
+     static started = false;
+     static isRestarting = false;
+     static pollDelay = 3_000;
++    static pollTimer;
++    static lifecycleGeneration = 0;
+     static async start(chain, broadcasterOptions, statusCallback, broadcasterDebugger) {
++        const generation = ++this.lifecycleGeneration;
+         this.chain = chain;
+         this.statusCallback = statusCallback;
+         WakuBroadcasterWakuCore.setBroadcasterOptions(broadcasterOptions);
+@@ -41,6 +44,7 @@
+         try {
+             this.started = false;
+             await WakuBroadcasterWakuCore.initWaku(chain);
++            if (generation !== this.lifecycleGeneration) throw new Error("Broadcaster startup cancelled.");
+             this.started = true;
+             this.pollStatus();
+         }
+@@ -52,8 +56,11 @@
+         }
+     }
+     static async stop() {
++        ++this.lifecycleGeneration;
++        this.started = false;
++        clearTimeout(this.pollTimer);
++        this.pollTimer = undefined;
+         await WakuBroadcasterWakuCore.disconnect();
+-        this.started = false;
+         this.updateStatus();
+     }
+     static isStarted() {
+@@ -69,6 +76,16 @@
+         WakuBroadcasterClient.chain = chain;
+         await WakuObservers.setObserversForChain(WakuBroadcasterWakuCore.waku, chain);
+         WakuBroadcasterClient.updateStatus();
++    }
++    static getFeeMessages() {
++        const topic = contentTopics.fees(this.chain);
++        return WakuObservers.observedMessages.filter(message => message.contentTopic === topic);
++    }
++    static async refreshFees() {
++        if (!this.started) throw new Error("Broadcaster client is not started.");
++        BroadcasterFeeCache.resetCache(this.chain);
++        WakuObservers.resetMessageHistory();
++        await WakuBroadcasterWakuCore.retrieveHistoricalForTopic(contentTopics.fees(this.chain));
+     }
+     static getContentTopics() {
+         return WakuObservers.getCurrentContentTopics();
+@@ -126,9 +143,10 @@
+             return;
+         }
+         this.isRestarting = true;
++        const generation = this.lifecycleGeneration;
+         try {
+             BroadcasterDebug.log('Restarting Waku...');
+-            await WakuBroadcasterWakuCore.reinitWaku(this.chain);
++            await WakuBroadcasterWakuCore.reinitWaku(this.chain, () => this.started && generation === this.lifecycleGeneration);
+             this.isRestarting = false;
+         }
+         catch (cause) {
+@@ -140,12 +158,15 @@
+         }
+     }
+     static async pollStatus() {
++        if (!this.started) return;
++        const generation = this.lifecycleGeneration;
+         const status = this.updateStatus();
+         if (BroadcasterConfig.enableHealthcheckLogs) {
+             await this.logHealthcheck(status);
+         }
+-        await delay(WakuBroadcasterClient.pollDelay);
+-        this.pollStatus();
++        if (this.started && generation === this.lifecycleGeneration) {
++            this.pollTimer = setTimeout(() => void this.pollStatus(), WakuBroadcasterClient.pollDelay);
++        }
+     }
+     static updateStatus() {
+         const status = BroadcasterStatus.getBroadcasterConnectionStatus(this.chain);
+--- a/dist/waku/waku-broadcaster-peer-discovery-core-base.js
++++ b/dist/waku/waku-broadcaster-peer-discovery-core-base.js
+@@ -25,7 +25,7 @@
+         };
+     }
+     static buildDnsPeerDiscovery(enrTreePeers) {
+-        return this.createDnsPeerDiscovery(enrTreePeers);
++        return this.createDnsPeerDiscovery(enrTreePeers, BroadcasterConfig.dnsClient);
+     }
+     static getDnsDiscoveryUrls() {
+         return getDnsDiscoveryUrls(this.getEnrTrees(), BroadcasterConfig.customDNS);
+@@ -60,9 +60,7 @@
+         return new Set(connections.map((connection) => this.formatDiscoveryPeerId(connection?.remotePeer)));
+     }
+     static getConfiguredBootstrapPeerIds() {
+-        const directPeers = BroadcasterConfig.additionalDirectPeers.length
+-            ? BroadcasterConfig.additionalDirectPeers
+-            : this.getDefaultPeers();
++        const directPeers = BroadcasterConfig.additionalDirectPeers;
+         return new Set(directPeers
+             .map(peer => peer.match(/\/p2p\/([^/]+)$/)?.[1])
+             .filter(isDefined));
+@@ -90,9 +88,11 @@
+         this.admittedPeerExchangePeerIds.delete(peerId);
+     }
+     static createDialingDnsPeerDiscovery(enrTreePeers) {
++        const generation = this.connectionGeneration;
+         return (components) => {
+-            const discovery = this.createDnsPeerDiscovery(enrTreePeers)(components);
++            const discovery = this.createDnsPeerDiscovery(enrTreePeers, BroadcasterConfig.dnsClient)(components);
+             const onPeer = ((event) => {
++                if (generation !== this.connectionGeneration) return;
+                 this.queueDiscoveredPeer(event.detail);
+                 void this.dialDiscoveredPeers([event.detail]);
+             });
+@@ -157,7 +157,9 @@
+         this.hasError = true;
+     }
+     static createLoggedPeerExchangeDiscovery() {
++        const generation = this.connectionGeneration;
+         return createLoggedPeerExchangeDiscovery({
++            shouldContinue: () => generation === this.connectionGeneration,
+             createPeerExchangeDiscovery: () => this.createPeerExchangeDiscovery(),
+             getAdmittedPeerExchangePeerIds: () => this.admittedPeerExchangePeerIds,
+             getKnownPeerIds: peerStore => this.getKnownPeerIds(peerStore),
+@@ -171,6 +173,7 @@
+         });
+     }
+     static async connect() {
++        const generation = this.connectionGeneration = (this.connectionGeneration ?? 0) + 1;
+         try {
+             this.hasError = false;
+             this.resetPlatformDiscoveryState();
+@@ -178,19 +181,19 @@
+             const libp2pOptions = this.getBaseLibp2pOptions();
+             if (BroadcasterConfig.useDNSDiscovery) {
+                 const enrTreePeers = this.getDnsDiscoveryUrls();
++                if (!enrTreePeers.length || !BroadcasterConfig.dnsClient) {
++                    throw new Error("DNS discovery requires explicit ENR trees and a DNS client.");
++                }
+                 libp2pOptions.peerDiscovery = [
+                     this.buildDnsPeerDiscovery(enrTreePeers),
+                     this.createLoggedPeerExchangeDiscovery(),
+                 ];
+-            }
+-            const defaultPeers = this.getDefaultPeers();
+-            const directPeers = BroadcasterConfig.additionalDirectPeers.length
+-                ? BroadcasterConfig.additionalDirectPeers
+-                : defaultPeers;
+-            const storePeers = BroadcasterConfig.storePeers.length
+-                ? BroadcasterConfig.storePeers
+-                : defaultPeers;
+-            this.waku = await this.createWakuNode({
++            } else {
++                libp2pOptions.peerDiscovery = [this.createLoggedPeerExchangeDiscovery()];
++            }
++            const directPeers = BroadcasterConfig.additionalDirectPeers;
++            const storePeers = BroadcasterConfig.storePeers;
++            const createdWaku = await this.createWakuNode({
+                 autoStart: false,
+                 defaultBootstrap: BroadcasterConfig.shouldUseDefaultBootstrap(),
+                 bootstrapPeers: directPeers,
+@@ -201,17 +204,31 @@
+                 },
+                 ...this.getConnectionManagerOptions(),
+             });
+-            const waku = this.waku;
++            if (generation !== this.connectionGeneration) {
++                await createdWaku.stop();
++                throw new Error("Waku startup cancelled.");
++            }
++            this.waku = createdWaku;
++            const waku = createdWaku;
+             if (!waku) {
+                 throw new Error('Waku node was not created');
+             }
+             await this.afterNodeCreated();
+             this.applyConnectionLimitGuard();
+             await this.beforeNodeStart();
++            if (generation !== this.connectionGeneration) throw new Error("Waku startup cancelled.");
+             await waku.start();
++            if (generation !== this.connectionGeneration) {
++                await waku.stop();
++                throw new Error("Waku startup cancelled.");
++            }
+             await this.afterNodeStart();
+             BroadcasterDebug.log('Waiting for remote peer.');
+             await waku.waitForPeers([Protocols.Filter, Protocols.LightPush, Protocols.Store], this.peerDiscoveryTimeout);
++            if (generation !== this.connectionGeneration) {
++                await waku.stop();
++                throw new Error("Waku startup cancelled.");
++            }
+             BroadcasterDebug.log(this.getConnectedLogMessage());
+             this.hasError = false;
+         }
+--- a/dist/waku/waku-broadcaster-waku-core-base.js
++++ b/dist/waku/waku-broadcaster-waku-core-base.js
+@@ -24,8 +24,11 @@
+                 return;
+             }
+             WakuObservers.resetCurrentChain();
+-            await WakuObservers.setObserversForChain(this.waku, chain);
+-            this.pollHistoricalTopics();
++            const waku = this.waku;
++            const generation = this.connectionGeneration;
++            const isCurrent = () => this.waku === waku && generation === this.connectionGeneration;
++            await WakuObservers.setObserversForChain(waku, chain, isCurrent);
++            if (isCurrent()) void this.pollHistoricalTopics();
+         }
+         catch (err) {
+             if (!(err instanceof Error)) {
+@@ -37,8 +40,10 @@
+     }
+     static async pollHistoricalTopics() {
+         BroadcasterDebug.log("Polling historical messages");
++        const generation = this.connectionGeneration;
+         const topics = WakuObservers.getCurrentContentTopics();
+         for (const topic of topics) {
++            if (generation !== this.connectionGeneration) return;
+             await this.retrieveHistoricalForTopic(topic);
+         }
+         await delay(10_000);
+@@ -46,11 +51,12 @@
+     static setWakuRestartCallback(callback) {
+         this.restartCallback = callback;
+     }
+-    static async reinitWaku(chain) {
++    static async reinitWaku(chain, shouldContinue = () => true) {
+         if (isDefined(this.waku) &&
+             this.waku.isStarted()) {
+             await this.disconnect();
+         }
++        if (!shouldContinue()) return;
+         BroadcasterFeeCache.resetCache(chain);
+         BroadcasterDebug.log(`Reinit Waku, ${++this.restartCount}`);
+         await this.initWaku(chain);
+@@ -60,6 +66,8 @@
+     }
+     static setBroadcasterOptions(broadcasterOptions) {
+         BroadcasterConfig.trustedFeeSigner = broadcasterOptions.trustedFeeSigner;
++        BroadcasterConfig.dnsClient = broadcasterOptions.dnsClient;
++        BroadcasterConfig.findTransactionByNullifiers = broadcasterOptions.findTransactionByNullifiers;
+         BroadcasterConfig.configureWakuNetwork({
+             clusterId: broadcasterOptions.clusterId,
+             shardId: broadcasterOptions.shardId,
+@@ -83,9 +91,14 @@
+         }
+     }
+     static async disconnect() {
+-        await WakuObservers.unsubscribe(this.waku);
+-        await this.waku?.stop();
++        this.connectionGeneration = (this.connectionGeneration ?? 0) + 1;
++        const waku = this.waku ?? this.stoppingWaku;
++        this.stoppingWaku = waku;
+         this.waku = undefined;
++        const results = await Promise.allSettled([WakuObservers.unsubscribe(waku), waku?.stop()]);
++        if (results[1].status === "fulfilled" && this.stoppingWaku === waku) this.stoppingWaku = undefined;
++        const errors = results.filter(result => result.status === "rejected").map(result => result.reason);
++        if (errors.length) throw new AggregateError(errors, "Waku cleanup failed.");
+     }
+     static connect() {
+         throw new Error("Method 'connect' must be implemented.");
+@@ -145,7 +158,9 @@
+         }
+     }
+     static async retrieveHistoricalForTopic(topic) {
+-        if (!this.waku) {
++        const waku = this.waku;
++        const generation = this.connectionGeneration;
++        if (!waku) {
+             return;
+         }
+         const callback = WakuObservers.getCallbackForTopic(topic);
+@@ -166,19 +181,21 @@
+             };
+             const lastMessage = WakuObservers.getLastMessage(topic);
+             if (lastMessage) {
+-                const cursor = this.waku.store.createCursor(lastMessage);
++                const cursor = waku.store.createCursor(lastMessage);
+                 options.paginationCursor = cursor;
+             }
+             else {
+                 options.timeStart = startTime;
+                 options.timeEnd = endTime;
+             }
+-            const generator = this.waku.store.queryGenerator([decoder], options);
++            const generator = waku.store.queryGenerator([decoder], options);
+             for await (const messagesPromises of generator) {
++                if (generation !== this.connectionGeneration) return;
+                 messagesPromises.reverse();
+                 for (const messagePromise of messagesPromises) {
+                     if (isDefined(messagePromise)) {
+                         const message = await messagePromise;
++                        if (generation !== this.connectionGeneration) return;
+                         if (isDefined(message)) {
+                             callback(message);
+                         }
+--- a/dist/waku/waku-observers.js
++++ b/dist/waku/waku-observers.js
+@@ -9,6 +9,7 @@
+ import { BroadcasterConfig } from '../models/broadcaster-config.js';
+ export class WakuObservers {
+     static currentChain;
++    static observerGeneration = 0;
+     static currentContentTopics = [];
+     static currentSubscriptions = [];
+     static messageCache = new Set();
+@@ -24,7 +25,10 @@
+         return `${timestamp}-${payload}`;
+     }
+     static wrapCallbackWithCache(callback) {
++        const generation = this.observerGeneration;
++        const isCurrent = () => generation === this.observerGeneration;
+         return (message) => {
++            if (!isCurrent()) return;
+             if (!message.payload) {
+                 return;
+             }
+@@ -43,10 +47,10 @@
+             if (this.observedMessages.length > this.MAX_CACHE_SIZE) {
+                 this.observedMessages.shift();
+             }
+-            callback(message);
++            callback(message, isCurrent);
+         };
+     }
+-    static setObserversForChain = async (waku, chain) => {
++    static setObserversForChain = async (waku, chain, shouldContinue = () => true) => {
+         if (!waku) {
+             return;
+         }
+@@ -58,7 +62,8 @@
+         WakuObservers.currentChain = chain;
+         await this.removeAllObservers(waku);
+         BroadcasterDebug.log('Removed all observers');
+-        await this.addChainObservers(waku, chain);
++        if (!shouldContinue()) return;
++        await this.addChainObservers(waku, chain, shouldContinue);
+         BroadcasterDebug.log(`Waku listening for events on chain: ${chain.type}:${chain.id}`);
+     };
+     static resetCurrentChain = () => {
+@@ -76,6 +81,7 @@
+         this.checkSubscriptionsHealth(waku);
+     };
+     static async unsubscribe(waku) {
++        ++this.observerGeneration;
+         if (isDefined(waku) && isDefined(waku?.filter) && isDefined(this.currentSubscriptions)) {
+             waku.filter.unsubscribeAll();
+         }
+@@ -91,7 +97,7 @@
+         const contentTopicTransactResponse = contentTopics.transactResponse(chain);
+         const feesDecoder = createDecoder(contentTopicFees, BroadcasterConfig.getWakuRoutingInfo());
+         const transactResponseDecoder = createDecoder(contentTopicTransactResponse, BroadcasterConfig.getWakuRoutingInfo());
+-        const feesCallback = this.wrapCallbackWithCache((message) => handleBroadcasterFeesMessage(chain, message, contentTopicFees));
++        const feesCallback = this.wrapCallbackWithCache((message, isCurrent) => handleBroadcasterFeesMessage(chain, message, contentTopicFees, isCurrent));
+         const transactResponseCallback = this.wrapCallbackWithCache((message) => BroadcasterTransactResponse.handleBroadcasterTransactionResponseMessage(message));
+         return [
+             {
+@@ -106,11 +112,11 @@
+             },
+         ];
+     };
+-    static addChainObservers = async (waku, chain) => {
++    static addChainObservers = async (waku, chain, shouldContinue = () => true) => {
+         if (!isDefined(waku.filter)) {
+             return;
+         }
+-        await this.addSubscriptions(chain, waku).catch(err => {
++        await this.addSubscriptions(chain, waku, shouldContinue).catch(err => {
+             BroadcasterDebug.log(`Error adding Observers. ${err.message}`);
+             return undefined;
+         });
+@@ -139,7 +145,8 @@
+         });
+         WakuObservers.currentContentTopics.push(transportTopic);
+     }
+-    static async addSubscriptions(chain, waku) {
++    static async addSubscriptions(chain, waku, shouldContinue = () => true) {
++        if (!shouldContinue()) return;
+         if (!isDefined(chain) || !isDefined(waku)) {
+             BroadcasterDebug.log('AddSubscription: No Waku or Chain defined.');
+             return;
+@@ -149,8 +156,10 @@
+         const newTopics = topics.filter(topic => !this.currentContentTopics.includes(topic));
+         this.currentContentTopics.push(...newTopics);
+         for (const params of subscriptionParams) {
++            if (!shouldContinue()) return;
+             const { decoder, callback } = params;
+             await waku.filter.subscribe(decoder, callback);
++            if (!shouldContinue()) return;
+             this.currentSubscriptions?.push({
+                 params,
+             });
+--- a/dist/waku/waku-peer-discovery.js
++++ b/dist/waku/waku-peer-discovery.js
+@@ -23,7 +23,7 @@
+         maxConnections,
+     },
+ });
+-export const createLoggedPeerExchangeDiscovery = ({ createPeerExchangeDiscovery, getAdmittedPeerExchangePeerIds, getKnownPeerIds: getKnownPeerIdsImpl = getKnownPeerIds, getPeerInfoId, mapNewPeerInfo = peerInfo => peerInfo, maxBootstrapPeers, maxConnections, onBeforeSelectPeerInfos, onPeerInfosSelected, peerExchangeAttemptBuffer = 0, }) => {
++export const createLoggedPeerExchangeDiscovery = ({ createPeerExchangeDiscovery, getAdmittedPeerExchangePeerIds, getKnownPeerIds: getKnownPeerIdsImpl = getKnownPeerIds, getPeerInfoId, mapNewPeerInfo = peerInfo => peerInfo, maxBootstrapPeers, maxConnections, onBeforeSelectPeerInfos, onPeerInfosSelected, peerExchangeAttemptBuffer = 0, shouldContinue = () => true, }) => {
+     return (components) => {
+         const discovery = createPeerExchangeDiscovery()(components);
+         const originalQuery = discovery.query?.bind(discovery);
+@@ -31,11 +31,13 @@
+             return discovery;
+         }
+         discovery.query = async (peerId) => {
++            if (!shouldContinue()) return;
+             const knownBefore = await getKnownPeerIdsImpl(components?.peerStore);
+             const originalPeerExchangeQuery = discovery.peerExchange?.query?.bind(discovery.peerExchange);
+             if (typeof originalPeerExchangeQuery === 'function') {
+                 discovery.peerExchange.query = async (params) => {
+                     const result = await originalPeerExchangeQuery(params);
++                    if (!shouldContinue()) return { ...result, peerInfos: [] };
+                     const peerInfos = result?.peerInfos ?? [];
+                     const knownBeforeLookup = new Set(knownBefore);
+                     const knownPeerInfos = [];

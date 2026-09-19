@@ -112,3 +112,38 @@ test("uses account identifiers in export filenames", () => {
     /^bindle-account-000000-\d{4}-\d{2}-\d{2}\.json$/
   );
 });
+
+test("preserves explicit canonical recovery versions and labels historical exports", () => {
+  const makeExport = (derivationVersion?: "railgun-babyjubjub-v1") => createBindleAccountExport({
+    wallet: { ...wallet, railgunDerivationVersion: derivationVersion },
+    railgunWallet: {
+      railgunAddress: wallet.railgunAddress!,
+      derivationProvider: "kohaku-railgun",
+      ...(derivationVersion ? { derivationVersion } : {}),
+      recoveryPhrase: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      keyIndex: 0,
+      chainId: "1",
+      exportedFrom: "browser-local"
+    }
+  });
+  const canonical = parseBindleAccountExport(JSON.stringify(makeExport("railgun-babyjubjub-v1")));
+  expect(canonical.railgunWallet?.derivationVersion).toBe("railgun-babyjubjub-v1");
+  expect(canonical.wallet.railgunDerivationVersion).toBe("railgun-babyjubjub-v1");
+  const historical = parseBindleAccountExport(JSON.stringify(makeExport()));
+  expect(historical.railgunWallet?.derivationVersion).toBe("bindle-ethers-bip32-v1");
+  expect(historical.wallet.railgunDerivationVersion).toBe("bindle-ethers-bip32-v1");
+  expect(canonical.warnings.join(" ")).toContain("different accounts from the same phrase");
+});
+
+test("rejects unknown recovery algorithms rather than silently reinterpreting a phrase", () => {
+  const accountExport = createBindleAccountExport({ wallet, railgunWallet: null });
+  const serialized = JSON.stringify({ ...accountExport,
+    railgunWallet: {
+      railgunAddress: wallet.railgunAddress,
+      derivationProvider: "kohaku-railgun", derivationVersion: "future-algorithm",
+      recoveryPhrase: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      keyIndex: 0, chainId: "1", exportedFrom: "browser-local"
+    }
+  });
+  expect(() => parseBindleAccountExport(serialized)).toThrow("Unsupported RAILGUN wallet derivation");
+});

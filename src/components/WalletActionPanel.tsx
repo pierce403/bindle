@@ -218,7 +218,7 @@ export function WalletActionPanel({
   const payProofProgress = buildPayProofProgress({
     intentReady: canReviewPayIntent,
     endpointsReady: requiredEndpointsReady,
-    routeReady: paySwapRouteReady,
+    routeReady: paySwapRouteReady && privatePayReadiness.ready,
     proofReady: payProofPercent >= 100,
     submitting: isSubmittingPay,
     missingEndpointLabels: missingRequiredEndpoints.map(
@@ -244,12 +244,12 @@ export function WalletActionPanel({
       : null,
     hasRecoverableRailgunKeyMaterial &&
     walletState.railgunDerivationProvider === "legacy-noncanonical"
-      ? "This 0zk was created with an older non-Kohaku derivation path and is not Kohaku-canonical. Create or import a Kohaku 0zk before private actions."
+      ? "This wallet's derivation is unsupported. Changing its address or metadata cannot migrate funds."
       : null,
     hasRecoverableRailgunKeyMaterial &&
     walletState.railgunDerivationProvider !== "kohaku-railgun" &&
     walletState.railgunDerivationProvider !== "legacy-noncanonical"
-      ? "Private Pay requires a Kohaku-canonical 0zk wallet."
+      ? "Private Pay requires a supported, versioned Kohaku wallet."
       : null,
     kohakuPrivateActionsPendingMessage,
     paySwapRoutePlan?.changeDisposition &&
@@ -808,10 +808,10 @@ export function WalletActionPanel({
                 </div>
                 <div>
                   <strong>Private submission</strong>
-                  <span>ERC-4337 Bundler</span>
+                  <span>RAILGUN Waku broadcaster only</span>
                 </div>
                 <div>
-                  <strong>Bundler status</strong>
+                  <strong>Broadcaster status</strong>
                   <span>{privatePayReadiness.status}</span>
                 </div>
                 <div>
@@ -1064,12 +1064,15 @@ export function WalletActionPanel({
               <button
                 className="primary-action wide"
                 type="button"
-                disabled={!canReviewShielded || isSubmittingPay}
+                disabled={!canReviewShielded || isSubmittingPay || !privatePayReadiness.ready}
                 onClick={onSubmitPay}
               >
                 <Send size={18} aria-hidden="true" />
                 {isSubmittingPay ? "Submitting" : "Submit private send"}
               </button>
+              {!privatePayReadiness.ready ? (
+                <p className="status-message">{privatePayReadiness.message}</p>
+              ) : null}
               {payStatus ? (
                 <p className="status-message pay-status-message">{payStatus}</p>
               ) : null}

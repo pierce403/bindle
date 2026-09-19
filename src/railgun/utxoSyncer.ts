@@ -5,11 +5,8 @@ type UtxoSyncerInstance = import("@kohaku-eth/railgun").UtxoSyncer;
 type UtxoSyncerClass = typeof import("@kohaku-eth/railgun").UtxoSyncer;
 
 type KohakuUtxoSyncerModule = {
-  UtxoSyncer: UtxoSyncerClass;
+  UtxoSyncer: Pick<UtxoSyncerClass, "rpc" | "subsquid" | "chained">;
 };
-
-const normalizeEndpoint = (value: string): string =>
-  value.trim().replace(/\/+$/, "");
 
 const checkSyncIndexerHealthy = async (url: string): Promise<boolean> => {
   const controller = new AbortController();
@@ -52,13 +49,15 @@ export const createVisibleRailgunUtxoSyncer = async ({
     return rpcSyncer;
   }
 
-  const chainSyncUrl = chain.subsquidEndpoint;
-
-  if (normalizeEndpoint(configuredSyncUrl) !== normalizeEndpoint(chainSyncUrl)) {
+  let endpoint: URL;
+  try {
+    endpoint = new URL(configuredSyncUrl);
+    if (!["http:", "https:"].includes(endpoint.protocol) || endpoint.username || endpoint.password) {
+      throw new Error("Unsupported indexer URL");
+    }
+  } catch {
     rpcSyncer.free();
-    throw new Error(
-      `Custom RAILGUN sync indexer is configured, but this Kohaku adapter can only route the chain default Subsquid endpoint in this build. Set RAILGUN sync indexer to ${chainSyncUrl} or clear it to use RPC-only sync.`
-    );
+    throw new Error("RAILGUN sync indexer must be an explicit HTTP(S) URL without embedded credentials.");
   }
 
   onStatus?.("Checking RAILGUN Subsquid sync indexer health...");
@@ -71,7 +70,9 @@ export const createVisibleRailgunUtxoSyncer = async ({
 
   onStatus?.("Using visible RAILGUN Subsquid sync indexer with RPC fallback (batch size: 500)");
   return kohaku.UtxoSyncer.chained([
-    kohaku.UtxoSyncer.subsquid(chain),
+    // alpha.30 accepts a plain ChainConfig; override the compiled default with
+    // the exact visible policy endpoint, including user-selected mirrors.
+    kohaku.UtxoSyncer.subsquid({ ...chain, subsquidEndpoint: configuredSyncUrl }),
     rpcSyncer
   ]);
 };

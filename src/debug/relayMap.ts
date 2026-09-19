@@ -3,8 +3,9 @@ import type { ConnectionPolicy } from "../privacy/connectionPolicy";
 import { UNISWAP_V4_WETH_ADDRESS } from "../intents/uniswapV4PayRoute";
 import {
   ensureRailgunWakuBroadcasterTransport,
+  broadcasterPolicyKey,
+  type RailgunBroadcasterTransport,
   selectRawRailgunWakuBroadcasterAd,
-  selectRailgunWakuBroadcaster,
   stopRailgunWakuBroadcasterTransport
 } from "../railgun/wakuBroadcaster";
 import { isPimlicoBundlerUrl } from "../wallet/userOperationGas";
@@ -23,7 +24,7 @@ export type FeeTokenProbe = {
   tokenAddress: string;
   broadcasterFound: boolean;
   rawAdFound?: boolean;
-  selectionSource?: "kohaku-manager" | "raw-fee-ad" | null;
+  selectionSource?: "railgun-client" | "raw-fee-ad" | null;
   selectedBroadcasterRailgunAddress: string | null;
   feesId: string | null;
   feePerUnitGas: string | null;
@@ -38,7 +39,7 @@ export type WakuBroadcasterMapSnapshot = {
   network: "ethereum-mainnet";
   status: RelayMapStatus;
   elapsedMs: number;
-  transport: "kohaku-waku" | "unavailable";
+  transport: "railgun-waku" | "unavailable";
   pubsubTopic: string | null;
   wakuPeerCount: number | null;
   requiredProtocols: {
@@ -48,7 +49,7 @@ export type WakuBroadcasterMapSnapshot = {
   };
   rawFeeMessagesObserved: number;
   rawFeeAdsParsed: number;
-  kohakuManagerSelections: number;
+  broadcasterSelections: number;
   feeTokens: FeeTokenProbe[];
   discoveredBroadcasters: Array<{
     railgunAddress: string;
@@ -68,7 +69,7 @@ export type WakuBroadcasterMapSnapshot = {
     requiredPoiListKeys?: string[];
     reliability?: number;
     receivedAt?: number | null;
-    selectionSource?: "kohaku-manager" | "raw-fee-ad";
+    selectionSource?: "railgun-client" | "raw-fee-ad";
     signatureStatus?: string;
     raw?: unknown;
   }>;
@@ -254,97 +255,40 @@ const unavailableWakuSnapshot = ({
   },
   rawFeeMessagesObserved: 0,
   rawFeeAdsParsed: 0,
-  kohakuManagerSelections: 0,
+  broadcasterSelections: 0,
   feeTokens: [],
   discoveredBroadcasters: [],
   notes: [
     ...noSpendNotes,
-    "Installed Kohaku package did not complete Waku broadcaster discovery. Bindle needs the Kohaku Waku adapter path or a standalone Waku client before private actions can submit."
+    "The official RAILGUN broadcaster client did not complete discovery through the configured network policy."
   ],
   error
 });
 
-export const scanWakuBroadcasterMap = async (
-  policy: ConnectionPolicy
+const performWakuBroadcasterMapScan = async (
+  policy: ConnectionPolicy,
+  signal: AbortSignal
 ): Promise<WakuBroadcasterMapSnapshot> => {
   const startedAt = Date.now();
-
-  if (policy.broadcasterUrl === "mock://simulated-broadcaster") {
-    return {
-      createdAt: new Date().toISOString(),
-      chainId: 1,
-      network: "ethereum-mainnet",
-      status: "connected",
-      elapsedMs: Date.now() - startedAt,
-      transport: "kohaku-waku",
-      pubsubTopic: "mock-simulated",
-      wakuPeerCount: 0,
-      requiredProtocols: {
-        filter: "ready",
-        lightPush: "ready",
-        store: "ready"
-      },
-      rawFeeMessagesObserved: 0,
-      rawFeeAdsParsed: 0,
-      kohakuManagerSelections: 1,
-      feeTokens: [
-        {
-          symbol: "WETH",
-          tokenAddress: UNISWAP_V4_WETH_ADDRESS,
-          broadcasterFound: true,
-          rawAdFound: true,
-          selectionSource: "kohaku-manager",
-          selectedBroadcasterRailgunAddress: "0zk1mockbroadcasterxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-          feesId: "mockfees",
-          feePerUnitGas: "0",
-          signatureStatus: "verified",
-          error: null
-        }
-      ],
-      discoveredBroadcasters: [
-        {
-          railgunAddress: "0zk1mockbroadcasterxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-          supportedFeeTokens: ["WETH", "USDC"],
-          feeTokenQuotes: [
-            {
-              symbol: "WETH",
-              tokenAddress: UNISWAP_V4_WETH_ADDRESS,
-              feePerUnitGas: "0"
-            },
-            {
-              symbol: "USDC",
-              tokenAddress: mainnetUsdcAddress,
-              feePerUnitGas: "0"
-            }
-          ],
-          feesId: "mockfees",
-          identifier: "Simulated Diagnostic Broadcaster",
-          version: "8.2.3",
-          availableWallets: 1,
-          feeExpiration: Date.now() + 86400 * 1000,
-          reliability: 100,
-          selectionSource: "kohaku-manager",
-          signatureStatus: "verified"
-        }
-      ],
-      notes: ["Using Simulated Diagnostic Broadcaster. Transactions will be simulated locally."],
-      error: null
-    };
-  }
+  let transport: RailgunBroadcasterTransport | null = null;
+  const cancel = () => transport?.cancel();
 
   const notes = [
     ...noSpendNotes,
-    "The current Waku SDK build uses visible direct peers; custom DNS ENR trees are shown for policy visibility but not dialed."
+    "The official RAILGUN client owns discovery through the visible DNS ENR trees, DNS resolvers, and direct peers. Raw observations are not submission authority."
   ];
 
   try {
-    const transport = await ensureRailgunWakuBroadcasterTransport({
+    transport = await ensureRailgunWakuBroadcasterTransport({
       policy,
-      onStatus: () => undefined
+      onStatus: () => undefined,
+      signal
     });
-    const wakuPeerCount = await transport.adapter.peerCount();
-    await transport.adapter.waitForRawFeeAds(15_000);
-    const rawFeeAdSnapshot = transport.adapter.getRawFeeAdSnapshot();
+    signal.addEventListener("abort", cancel, { once: true });
+    if (signal.aborted) { transport.cancel(); throw new Error("Waku scan cancelled by connection policy."); }
+    const rawFeeAdSnapshot = await transport.refresh(15_000);
+    const wakuPeerCount = await transport.peerCount();
+    const requiredProtocols = await transport.protocolSnapshot();
     const discoveredByRailgunAddress = new Map<
       string,
       WakuBroadcasterMapSnapshot["discoveredBroadcasters"][number]
@@ -411,7 +355,7 @@ export const scanWakuBroadcasterMap = async (
     }
 
     const feeTokenResults: FeeTokenProbe[] = [];
-    let kohakuManagerSelections = 0;
+    let broadcasterSelections = 0;
 
     for (const feeToken of feeTokensForPolicy(policy)) {
       let tokenAddress: Address;
@@ -435,27 +379,24 @@ export const scanWakuBroadcasterMap = async (
 
       const rawSelected = selectRawRailgunWakuBroadcasterAd({
         feeAds: rawFeeAdSnapshot.parsedAds,
-        feeTokenAddress: tokenAddress
+        feeTokenAddress: tokenAddress,
+        activePoiListKeys: policy.railgunPoiListKeys
       });
 
       try {
-        const selected = await selectRailgunWakuBroadcaster({
-          manager: transport.manager,
-          feeTokenAddress: tokenAddress,
-          onStatus: () => undefined
-        });
-        kohakuManagerSelections += 1;
+        const selected = await transport.select({ feeTokenAddress: tokenAddress, refresh: false });
+        broadcasterSelections += 1;
 
         feeTokenResults.push({
           ...feeToken,
           tokenAddress,
           broadcasterFound: true,
           rawAdFound: Boolean(rawSelected),
-          selectionSource: "kohaku-manager",
+          selectionSource: "railgun-client",
           selectedBroadcasterRailgunAddress: selected.railgunAddress,
           feesId: selected.tokenFee.feesID,
           feePerUnitGas: selected.tokenFee.perUnitGas,
-          signatureStatus: "kohaku-manager",
+          signatureStatus: "railgun-client",
           rawTokenFee: selected.tokenFee,
           error: null
         });
@@ -468,8 +409,16 @@ export const scanWakuBroadcasterMap = async (
           existing.supportedFeeTokens = mergeUnique(existing.supportedFeeTokens, [
             feeToken.symbol
           ]);
-          existing.selectionSource = "kohaku-manager";
-          existing.signatureStatus = "kohaku-manager";
+          existing.selectionSource = "railgun-client";
+          existing.signatureStatus = "railgun-client";
+          existing.feeTokenQuotes = mergeFeeTokenQuotes(existing.feeTokenQuotes ?? [], [{
+            symbol: feeToken.symbol, tokenAddress, feePerUnitGas: selected.tokenFee.perUnitGas
+          }]);
+          existing.feesId = selected.tokenFee.feesID;
+          existing.feeExpiration = selected.tokenFee.expiration;
+          existing.availableWallets = selected.tokenFee.availableWallets;
+          existing.relayAdapt = selected.tokenFee.relayAdapt;
+          existing.reliability = selected.tokenFee.reliability;
         } else {
           discoveredByRailgunAddress.set(selected.railgunAddress, {
             railgunAddress: selected.railgunAddress,
@@ -482,8 +431,8 @@ export const scanWakuBroadcasterMap = async (
               }
             ],
             feesId: selected.tokenFee.feesID,
-            selectionSource: "kohaku-manager",
-            signatureStatus: "kohaku-manager",
+            selectionSource: "railgun-client",
+            signatureStatus: "railgun-client",
             raw: selected.tokenFee
           });
         }
@@ -501,7 +450,7 @@ export const scanWakuBroadcasterMap = async (
             signatureStatus: rawSelected.signatureStatus,
             rawTokenFee: rawSelected,
             error:
-              "Raw Waku fee ad observed, but Kohaku did not return a selectable JsBroadcaster yet."
+              "Raw Waku fee ad observed, but the official client did not accept it for selection. Check signature, freshness, POI lists, fee signer, and supported version."
           });
 
           const existing = discoveredByRailgunAddress.get(
@@ -577,17 +526,13 @@ export const scanWakuBroadcasterMap = async (
       network: "ethereum-mainnet",
       status,
       elapsedMs: Date.now() - startedAt,
-      transport: "kohaku-waku",
+      transport: "railgun-waku",
       pubsubTopic: transport.pubsubTopic,
       wakuPeerCount,
-      requiredProtocols: {
-        filter: "ready",
-        lightPush: "ready",
-        store: "ready"
-      },
+      requiredProtocols,
       rawFeeMessagesObserved: rawFeeAdSnapshot.observedMessages,
       rawFeeAdsParsed: rawFeeAdSnapshot.parsedAds.length,
-      kohakuManagerSelections,
+      broadcasterSelections,
       feeTokens: feeTokenResults,
       discoveredBroadcasters: Array.from(discoveredByRailgunAddress.values())
         .map((broadcaster) => ({
@@ -601,8 +546,8 @@ export const scanWakuBroadcasterMap = async (
         ),
       notes: [
         ...notes,
-        rawFeeAdSnapshot.parsedAds.length > 0 && kohakuManagerSelections === 0
-          ? "Raw current RAILGUN fee ads were observed, but the installed Kohaku Waku manager did not expose a selectable JsBroadcaster. Private Pay remains blocked until that compatibility gap is fixed."
+        rawFeeAdSnapshot.parsedAds.length > 0 && broadcasterSelections === 0
+          ? "Raw RAILGUN fee ads were observed but none passed official client compatibility checks. Active POI lists, signature, version, fee trust, and advertisement expiry affect selection."
           : null,
         rawFeeAdSnapshot.parseErrors.length > 0
           ? `Fee-ad parse errors: ${rawFeeAdSnapshot.parseErrors.slice(-3).join("; ")}`
@@ -628,8 +573,32 @@ export const scanWakuBroadcasterMap = async (
           : "error"
     };
   } finally {
-    await stopRailgunWakuBroadcasterTransport();
+    signal.removeEventListener("abort", cancel);
+    if (transport) await stopRailgunWakuBroadcasterTransport(transport);
   }
+};
+
+const pendingWakuScans = new Map<string, { controller: AbortController; promise: Promise<WakuBroadcasterMapSnapshot> }>();
+let scanQueue: Promise<unknown> = Promise.resolve();
+/** Manual and app-wide observations share one scoped scan, never two static clients. */
+export const scanWakuBroadcasterMap = async (policy: ConnectionPolicy, signal?: AbortSignal): Promise<WakuBroadcasterMapSnapshot> => {
+  const key = broadcasterPolicyKey(policy);
+  let pending = pendingWakuScans.get(key);
+  if (!pending) {
+    const controller = new AbortController();
+    const snapshotPolicy = structuredClone(policy);
+    const promise = scanQueue.then(() => performWakuBroadcasterMapScan(snapshotPolicy, controller.signal));
+    pending = { controller, promise };
+    pendingWakuScans.set(key, pending);
+    scanQueue = promise.catch(() => undefined);
+    void promise.finally(() => { if (pendingWakuScans.get(key)?.promise === promise) pendingWakuScans.delete(key); }).catch(() => undefined);
+  }
+  const current = pending;
+  const cancel = () => current.controller.abort();
+  signal?.addEventListener("abort", cancel, { once: true });
+  if (signal?.aborted) cancel();
+  try { return await current.promise; }
+  finally { signal?.removeEventListener("abort", cancel); }
 };
 
 export const scanPublicEndpointMap = async (

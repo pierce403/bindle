@@ -1,0 +1,617 @@
+{
+  "schemaVersion": 1,
+  "scope": "No-spend browser diagnostics; public discovery observations are time-limited, not submission authority. No real proofs or transactions were submitted.",
+  "runs": {
+    "local": {
+      "schemaVersion": 1,
+      "startedAt": "2026-09-19T13:57:13.402Z",
+      "completedAt": "2026-09-19T13:57:14.759Z",
+      "mode": "local",
+      "policy": {
+        "pubsubTopic": "/waku/2/rs/5/1",
+        "dnsEnabled": true,
+        "enrTrees": [
+          "enrtree://APMYHUVNQWHJNPI5L2KQ765EMCKUAMRWPUH3U2QIKPK6XEV3OW442@discovery.rootedinprivacy.com"
+        ],
+        "dnsResolvers": [
+          "https://cloudflare-dns.com/dns-query"
+        ],
+        "directPeers": [
+          "/dns4/relay-a.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmMkCL9Y4R6V8eyTfHRfPA9JUBSnsJXwiUvgUJHU7N9AsR",
+          "/dns4/relay-b.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAm1XAZUTsZcbvLBWe9MR2QxEJ1oowv5VgZavwiwTEx4uPC",
+          "/dns4/client-edge.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmS8YbNhE1rJGBQ3VaubZjM1iAR7zVvtLf6CrEB3Hc9Krr"
+        ],
+        "feeToken": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+        "activePoiListKeys": [
+          "efc6ddb59c098a13fb2b618fdae94c1c3a807abc8fb1837c93620c9143ee9e88"
+        ]
+      },
+      "kohaku": {
+        "status": "ready",
+        "detail": "Kohaku 0.0.1-alpha.30 WASM loaded in this browser."
+      },
+      "walletIndependentInitialization": {
+        "status": "ready",
+        "detail": "In-memory provider built with an explicit RPC syncer; no signers registered, persistent databases opened, or RPC calls made."
+      },
+      "indexedDb": {
+        "status": "pass-isolated-database",
+        "detail": "Production database adapter passed set/get/delete in a fresh diagnostic database; existing app databases are never opened."
+      },
+      "utxoSync": {
+        "status": "pass-controlled-empty-state",
+        "detail": "Real Kohaku UTXO sync completed with one injected empty log response at the deployment block. This is a mocked RPC fixture, not live mainnet history or a wallet balance."
+      },
+      "nativeEthShieldConstruction": {
+        "status": "pass-no-submission",
+        "detail": "Real alpha.30 ShieldBuilder produced RelayAdapt native-ETH calldata for one wei to a public unfunded test fixture. No account signs or submits it."
+      },
+      "derivationCompatibility": {
+        "status": "pass",
+        "detail": "4 public test vectors match the independently pinned reference addresses. No test wallet is saved or queried."
+      },
+      "proofApi": {
+        "status": "available-not-executed",
+        "detail": "Public RailgunProvider.build and transfer/unshield builder APIs exist. No spendable notes or proof-generation success are claimed."
+      },
+      "poiApi": {
+        "status": "blocked",
+        "detail": "Kohaku alpha.30 exposes post-transaction POI processing, but no pre-transaction POI proof export for the broadcaster payload."
+      },
+      "transactionBridge": {
+        "status": "public-fields-only",
+        "detail": "Mainnet transact ABI decoder preserves target, calldata, nullifiers and proof-bound parameters; required pre-POI and fee-output binding are unavailable."
+      },
+      "submissionPayload": {
+        "status": "blocked",
+        "detail": "No real broadcaster payload can be constructed without pre-transaction POI and a verified private fee output. Deterministic fixture tests cover serialization separately."
+      },
+      "waku": {
+        "status": "not-attempted-local-mode",
+        "detail": "External networking is disabled for this run."
+      },
+      "wakuProtocols": {
+        "status": "not-attempted-local-mode",
+        "detail": "External networking is disabled for this run."
+      },
+      "dnsDiscovery": {
+        "status": "not-attempted-local-mode",
+        "detail": "External networking is disabled for this run."
+      },
+      "directPeers": {
+        "status": "not-attempted-local-mode",
+        "detail": "External networking is disabled for this run."
+      },
+      "feeQuotes": {
+        "status": "not-attempted-local-mode",
+        "detail": "External networking is disabled for this run."
+      },
+      "broadcasterSelection": {
+        "status": "not-attempted-local-mode",
+        "detail": "External networking is disabled for this run."
+      },
+      "broadcastersFound": 0,
+      "compatibleBroadcasters": 0,
+      "compatibleFeeQuotes": 0,
+      "peerConnections": [],
+      "selected": null,
+      "capabilities": {
+        "version": "0.0.1-alpha.30",
+        "proofApi": "available",
+        "transactionPublicFields": "abi-decodable",
+        "poiApi": "post-transaction-only",
+        "preTransactionPoiExport": false,
+        "broadcasterFeeOutputVerification": false,
+        "configurableBoundGasPrice": false,
+        "relayAdaptBuilder": false,
+        "relayAdapt7702Builder": false,
+        "liveSubmissionReady": false,
+        "blockers": [
+          "Kohaku alpha.30 exposes post-transaction POI processing, but no pre-transaction POI proof export for the broadcaster payload.",
+          "Kohaku alpha.30 has no public broadcaster fee-output binding or configurable proof-bound minimum gas price API.",
+          "Native ETH unshield requires RelayAdapt; the public Kohaku transaction builder only supports transfer and ERC-20 unshield."
+        ]
+      },
+      "liveSubmission": "intentionally-not-attempted",
+      "errors": [],
+      "localChecksPassed": true,
+      "browserErrors": [],
+      "networkEvidence": {
+        "externalRequestCount": 0,
+        "externalRequestKinds": [],
+        "blockedRequests": []
+      }
+    },
+    "direct": {
+      "schemaVersion": 1,
+      "startedAt": "2026-09-19T13:57:23.693Z",
+      "completedAt": "2026-09-19T13:57:33.754Z",
+      "mode": "live",
+      "policy": {
+        "pubsubTopic": "/waku/2/rs/5/1",
+        "dnsEnabled": false,
+        "enrTrees": [
+          "enrtree://APMYHUVNQWHJNPI5L2KQ765EMCKUAMRWPUH3U2QIKPK6XEV3OW442@discovery.rootedinprivacy.com"
+        ],
+        "dnsResolvers": [
+          "https://cloudflare-dns.com/dns-query"
+        ],
+        "directPeers": [
+          "/dns4/relay-a.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmMkCL9Y4R6V8eyTfHRfPA9JUBSnsJXwiUvgUJHU7N9AsR",
+          "/dns4/relay-b.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAm1XAZUTsZcbvLBWe9MR2QxEJ1oowv5VgZavwiwTEx4uPC",
+          "/dns4/client-edge.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmS8YbNhE1rJGBQ3VaubZjM1iAR7zVvtLf6CrEB3Hc9Krr"
+        ],
+        "feeToken": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+        "activePoiListKeys": [
+          "efc6ddb59c098a13fb2b618fdae94c1c3a807abc8fb1837c93620c9143ee9e88"
+        ]
+      },
+      "kohaku": {
+        "status": "ready",
+        "detail": "Kohaku 0.0.1-alpha.30 WASM loaded in this browser."
+      },
+      "walletIndependentInitialization": {
+        "status": "ready",
+        "detail": "In-memory provider built with an explicit RPC syncer; no signers registered, persistent databases opened, or RPC calls made."
+      },
+      "indexedDb": {
+        "status": "pass-isolated-database",
+        "detail": "Production database adapter passed set/get/delete in a fresh diagnostic database; existing app databases are never opened."
+      },
+      "utxoSync": {
+        "status": "pass-controlled-empty-state",
+        "detail": "Real Kohaku UTXO sync completed with one injected empty log response at the deployment block. This is a mocked RPC fixture, not live mainnet history or a wallet balance."
+      },
+      "nativeEthShieldConstruction": {
+        "status": "pass-no-submission",
+        "detail": "Real alpha.30 ShieldBuilder produced RelayAdapt native-ETH calldata for one wei to a public unfunded test fixture. No account signs or submits it."
+      },
+      "derivationCompatibility": {
+        "status": "pass",
+        "detail": "4 public test vectors match the independently pinned reference addresses. No test wallet is saved or queried."
+      },
+      "proofApi": {
+        "status": "available-not-executed",
+        "detail": "Public RailgunProvider.build and transfer/unshield builder APIs exist. No spendable notes or proof-generation success are claimed."
+      },
+      "poiApi": {
+        "status": "blocked",
+        "detail": "Kohaku alpha.30 exposes post-transaction POI processing, but no pre-transaction POI proof export for the broadcaster payload."
+      },
+      "transactionBridge": {
+        "status": "public-fields-only",
+        "detail": "Mainnet transact ABI decoder preserves target, calldata, nullifiers and proof-bound parameters; required pre-POI and fee-output binding are unavailable."
+      },
+      "submissionPayload": {
+        "status": "blocked",
+        "detail": "No real broadcaster payload can be constructed without pre-transaction POI and a verified private fee output. Deterministic fixture tests cover serialization separately."
+      },
+      "waku": {
+        "status": "connected",
+        "detail": "3 actual Waku peer connections."
+      },
+      "wakuProtocols": {
+        "status": "ready",
+        "detail": "Connected peer protocol advertisements: Filter ready, LightPush ready, Store ready. No message is published by this diagnostic."
+      },
+      "dnsDiscovery": {
+        "status": "disabled",
+        "detail": "DNS discovery is disabled in this scan policy."
+      },
+      "directPeers": {
+        "status": "connected",
+        "detail": "3 live connections match configured direct peer IDs."
+      },
+      "feeQuotes": {
+        "status": "verified",
+        "detail": "104 current fee-token offers accepted by the official client."
+      },
+      "broadcasterSelection": {
+        "status": "selected",
+        "detail": "A fresh official-client broadcaster fee quote was selected. Proof/submission readiness is checked separately and remains blocked."
+      },
+      "broadcastersFound": 23,
+      "compatibleBroadcasters": 23,
+      "compatibleFeeQuotes": 104,
+      "peerConnections": [
+        {
+          "peerId": "16Uiu2HAmS8YbNhE1rJGBQ3VaubZjM1iAR7zVvtLf6CrEB3Hc9Krr",
+          "remoteAddress": "/dns4/client-edge.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmS8YbNhE1rJGBQ3VaubZjM1iAR7zVvtLf6CrEB3Hc9Krr"
+        },
+        {
+          "peerId": "16Uiu2HAm1XAZUTsZcbvLBWe9MR2QxEJ1oowv5VgZavwiwTEx4uPC",
+          "remoteAddress": "/dns4/relay-b.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAm1XAZUTsZcbvLBWe9MR2QxEJ1oowv5VgZavwiwTEx4uPC"
+        },
+        {
+          "peerId": "16Uiu2HAmMkCL9Y4R6V8eyTfHRfPA9JUBSnsJXwiUvgUJHU7N9AsR",
+          "remoteAddress": "/dns4/relay-a.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmMkCL9Y4R6V8eyTfHRfPA9JUBSnsJXwiUvgUJHU7N9AsR"
+        }
+      ],
+      "selected": {
+        "submitter": "waku-railgun-broadcaster",
+        "chain": {
+          "type": 0,
+          "id": 1
+        },
+        "policyKey": "{\"enabled\":true,\"mode\":\"custom-waku\",\"pubsubTopic\":\"/waku/2/rs/5/1\",\"dnsEnabled\":false,\"trees\":[\"enrtree://APMYHUVNQWHJNPI5L2KQ765EMCKUAMRWPUH3U2QIKPK6XEV3OW442@discovery.rootedinprivacy.com\"],\"resolvers\":[\"https://cloudflare-dns.com/dns-query\"],\"peers\":[\"/dns4/relay-a.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmMkCL9Y4R6V8eyTfHRfPA9JUBSnsJXwiUvgUJHU7N9AsR\",\"/dns4/relay-b.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAm1XAZUTsZcbvLBWe9MR2QxEJ1oowv5VgZavwiwTEx4uPC\",\"/dns4/client-edge.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmS8YbNhE1rJGBQ3VaubZjM1iAR7zVvtLf6CrEB3Hc9Krr\"],\"trustedFeeSigner\":\"\",\"poiListKeys\":[\"efc6ddb59c098a13fb2b618fdae94c1c3a807abc8fb1837c93620c9143ee9e88\"]}",
+        "selectedAt": 1789826253647,
+        "railgunAddress": "0zk1qy867m2juhup0k4mmj3neyvln0culkg3mql9692kds8ppmcgxma9xunpd9kxwatwq8pzet7m6093gsu2tav7d2rxu47fgrd0ndmc4ne8ng7pxjugdd6tzv62uf8",
+        "tokenFee": {
+          "feesID": "feqfyagizn26b4oy",
+          "token": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+          "perUnitGas": "800000000000000000",
+          "recipient": "0zk1qy867m2juhup0k4mmj3neyvln0culkg3mql9692kds8ppmcgxma9xunpd9kxwatwq8pzet7m6093gsu2tav7d2rxu47fgrd0ndmc4ne8ng7pxjugdd6tzv62uf8",
+          "expiration": 1789826378314,
+          "availableWallets": 2,
+          "relayAdapt": "0xAc9f360Ae85469B27aEDdEaFC579Ef2d052aD405",
+          "reliability": 1
+        }
+      },
+      "capabilities": {
+        "version": "0.0.1-alpha.30",
+        "proofApi": "available",
+        "transactionPublicFields": "abi-decodable",
+        "poiApi": "post-transaction-only",
+        "preTransactionPoiExport": false,
+        "broadcasterFeeOutputVerification": false,
+        "configurableBoundGasPrice": false,
+        "relayAdaptBuilder": false,
+        "relayAdapt7702Builder": false,
+        "liveSubmissionReady": false,
+        "blockers": [
+          "Kohaku alpha.30 exposes post-transaction POI processing, but no pre-transaction POI proof export for the broadcaster payload.",
+          "Kohaku alpha.30 has no public broadcaster fee-output binding or configurable proof-bound minimum gas price API.",
+          "Native ETH unshield requires RelayAdapt; the public Kohaku transaction builder only supports transfer and ERC-20 unshield."
+        ]
+      },
+      "liveSubmission": "intentionally-not-attempted",
+      "errors": [],
+      "localChecksPassed": true,
+      "browserErrors": [],
+      "networkEvidence": {
+        "externalRequestCount": 6,
+        "externalRequestKinds": [
+          "waku-websocket"
+        ],
+        "blockedRequests": []
+      }
+    },
+    "mixed": {
+      "schemaVersion": 1,
+      "startedAt": "2026-09-19T13:57:58.828Z",
+      "completedAt": "2026-09-19T13:58:12.571Z",
+      "mode": "live",
+      "policy": {
+        "pubsubTopic": "/waku/2/rs/5/1",
+        "dnsEnabled": true,
+        "enrTrees": [
+          "enrtree://APMYHUVNQWHJNPI5L2KQ765EMCKUAMRWPUH3U2QIKPK6XEV3OW442@discovery.rootedinprivacy.com"
+        ],
+        "dnsResolvers": [
+          "https://cloudflare-dns.com/dns-query"
+        ],
+        "directPeers": [
+          "/dns4/relay-a.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmMkCL9Y4R6V8eyTfHRfPA9JUBSnsJXwiUvgUJHU7N9AsR",
+          "/dns4/relay-b.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAm1XAZUTsZcbvLBWe9MR2QxEJ1oowv5VgZavwiwTEx4uPC",
+          "/dns4/client-edge.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmS8YbNhE1rJGBQ3VaubZjM1iAR7zVvtLf6CrEB3Hc9Krr"
+        ],
+        "feeToken": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+        "activePoiListKeys": [
+          "efc6ddb59c098a13fb2b618fdae94c1c3a807abc8fb1837c93620c9143ee9e88"
+        ]
+      },
+      "kohaku": {
+        "status": "ready",
+        "detail": "Kohaku 0.0.1-alpha.30 WASM loaded in this browser."
+      },
+      "walletIndependentInitialization": {
+        "status": "ready",
+        "detail": "In-memory provider built with an explicit RPC syncer; no signers registered, persistent databases opened, or RPC calls made."
+      },
+      "indexedDb": {
+        "status": "pass-isolated-database",
+        "detail": "Production database adapter passed set/get/delete in a fresh diagnostic database; existing app databases are never opened."
+      },
+      "utxoSync": {
+        "status": "pass-controlled-empty-state",
+        "detail": "Real Kohaku UTXO sync completed with one injected empty log response at the deployment block. This is a mocked RPC fixture, not live mainnet history or a wallet balance."
+      },
+      "nativeEthShieldConstruction": {
+        "status": "pass-no-submission",
+        "detail": "Real alpha.30 ShieldBuilder produced RelayAdapt native-ETH calldata for one wei to a public unfunded test fixture. No account signs or submits it."
+      },
+      "derivationCompatibility": {
+        "status": "pass",
+        "detail": "4 public test vectors match the independently pinned reference addresses. No test wallet is saved or queried."
+      },
+      "proofApi": {
+        "status": "available-not-executed",
+        "detail": "Public RailgunProvider.build and transfer/unshield builder APIs exist. No spendable notes or proof-generation success are claimed."
+      },
+      "poiApi": {
+        "status": "blocked",
+        "detail": "Kohaku alpha.30 exposes post-transaction POI processing, but no pre-transaction POI proof export for the broadcaster payload."
+      },
+      "transactionBridge": {
+        "status": "public-fields-only",
+        "detail": "Mainnet transact ABI decoder preserves target, calldata, nullifiers and proof-bound parameters; required pre-POI and fee-output binding are unavailable."
+      },
+      "submissionPayload": {
+        "status": "blocked",
+        "detail": "No real broadcaster payload can be constructed without pre-transaction POI and a verified private fee output. Deterministic fixture tests cover serialization separately."
+      },
+      "waku": {
+        "status": "connected",
+        "detail": "3 actual Waku peer connections."
+      },
+      "wakuProtocols": {
+        "status": "ready",
+        "detail": "Connected peer protocol advertisements: Filter ready, LightPush ready, Store ready. No message is published by this diagnostic."
+      },
+      "dnsDiscovery": {
+        "status": "txt-resolved",
+        "detail": "Configured resolvers returned ENR root TXT records. The official client validates and discovers peers; a TXT response alone does not prove a working relay connection."
+      },
+      "directPeers": {
+        "status": "connected",
+        "detail": "2 live connections match configured direct peer IDs."
+      },
+      "feeQuotes": {
+        "status": "verified",
+        "detail": "343 current fee-token offers accepted by the official client."
+      },
+      "broadcasterSelection": {
+        "status": "selected",
+        "detail": "A fresh official-client broadcaster fee quote was selected. Proof/submission readiness is checked separately and remains blocked."
+      },
+      "broadcastersFound": 47,
+      "compatibleBroadcasters": 47,
+      "compatibleFeeQuotes": 343,
+      "peerConnections": [
+        {
+          "peerId": "16Uiu2HAm1XAZUTsZcbvLBWe9MR2QxEJ1oowv5VgZavwiwTEx4uPC",
+          "remoteAddress": "/dns4/relay-b.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAm1XAZUTsZcbvLBWe9MR2QxEJ1oowv5VgZavwiwTEx4uPC"
+        },
+        {
+          "peerId": "16Uiu2HAmS8YbNhE1rJGBQ3VaubZjM1iAR7zVvtLf6CrEB3Hc9Krr",
+          "remoteAddress": "/dns4/client-edge.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmS8YbNhE1rJGBQ3VaubZjM1iAR7zVvtLf6CrEB3Hc9Krr"
+        },
+        {
+          "peerId": "16Uiu2HAmNPCetmCFdVrFknNThKm5Kt6WsTEKAVaFeUN6J5x4WGpW",
+          "remoteAddress": "/dns4/seed-b.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmNPCetmCFdVrFknNThKm5Kt6WsTEKAVaFeUN6J5x4WGpW"
+        }
+      ],
+      "selected": {
+        "submitter": "waku-railgun-broadcaster",
+        "chain": {
+          "type": 0,
+          "id": 1
+        },
+        "policyKey": "{\"enabled\":true,\"mode\":\"custom-waku\",\"pubsubTopic\":\"/waku/2/rs/5/1\",\"dnsEnabled\":true,\"trees\":[\"enrtree://APMYHUVNQWHJNPI5L2KQ765EMCKUAMRWPUH3U2QIKPK6XEV3OW442@discovery.rootedinprivacy.com\"],\"resolvers\":[\"https://cloudflare-dns.com/dns-query\"],\"peers\":[\"/dns4/relay-a.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmMkCL9Y4R6V8eyTfHRfPA9JUBSnsJXwiUvgUJHU7N9AsR\",\"/dns4/relay-b.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAm1XAZUTsZcbvLBWe9MR2QxEJ1oowv5VgZavwiwTEx4uPC\",\"/dns4/client-edge.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmS8YbNhE1rJGBQ3VaubZjM1iAR7zVvtLf6CrEB3Hc9Krr\"],\"trustedFeeSigner\":\"\",\"poiListKeys\":[\"efc6ddb59c098a13fb2b618fdae94c1c3a807abc8fb1837c93620c9143ee9e88\"]}",
+        "selectedAt": 1789826292393,
+        "railgunAddress": "0zk1qygfpqycdsk4ldakg09hr6n9zndgcyxamufq089ud37kk23ze4yerrv7j6fe3z53lu62vy79awth6gewkmh93nus9sc5t30v58ldxud4ymywwa7ay4mlwqqntyn",
+        "tokenFee": {
+          "feesID": "td2ua2nsrafylxk3",
+          "token": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+          "perUnitGas": "800000000000000000",
+          "recipient": "0zk1qygfpqycdsk4ldakg09hr6n9zndgcyxamufq089ud37kk23ze4yerrv7j6fe3z53lu62vy79awth6gewkmh93nus9sc5t30v58ldxud4ymywwa7ay4mlwqqntyn",
+          "expiration": 1789826436647,
+          "availableWallets": 2,
+          "relayAdapt": "0xAc9f360Ae85469B27aEDdEaFC579Ef2d052aD405",
+          "reliability": 1
+        }
+      },
+      "capabilities": {
+        "version": "0.0.1-alpha.30",
+        "proofApi": "available",
+        "transactionPublicFields": "abi-decodable",
+        "poiApi": "post-transaction-only",
+        "preTransactionPoiExport": false,
+        "broadcasterFeeOutputVerification": false,
+        "configurableBoundGasPrice": false,
+        "relayAdaptBuilder": false,
+        "relayAdapt7702Builder": false,
+        "liveSubmissionReady": false,
+        "blockers": [
+          "Kohaku alpha.30 exposes post-transaction POI processing, but no pre-transaction POI proof export for the broadcaster payload.",
+          "Kohaku alpha.30 has no public broadcaster fee-output binding or configurable proof-bound minimum gas price API.",
+          "Native ETH unshield requires RelayAdapt; the public Kohaku transaction builder only supports transfer and ERC-20 unshield."
+        ]
+      },
+      "liveSubmission": "intentionally-not-attempted",
+      "errors": [],
+      "localChecksPassed": true,
+      "browserErrors": [],
+      "networkEvidence": {
+        "externalRequestCount": 10,
+        "externalRequestKinds": [
+          "dns",
+          "waku-websocket"
+        ],
+        "blockedRequests": []
+      }
+    },
+    "dns": {
+      "schemaVersion": 1,
+      "startedAt": "2026-09-19T13:58:30.103Z",
+      "completedAt": "2026-09-19T13:58:56.486Z",
+      "mode": "live",
+      "policy": {
+        "pubsubTopic": "/waku/2/rs/5/1",
+        "dnsEnabled": true,
+        "enrTrees": [
+          "enrtree://APMYHUVNQWHJNPI5L2KQ765EMCKUAMRWPUH3U2QIKPK6XEV3OW442@discovery.rootedinprivacy.com"
+        ],
+        "dnsResolvers": [
+          "https://cloudflare-dns.com/dns-query"
+        ],
+        "directPeers": [],
+        "feeToken": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+        "activePoiListKeys": [
+          "efc6ddb59c098a13fb2b618fdae94c1c3a807abc8fb1837c93620c9143ee9e88"
+        ]
+      },
+      "kohaku": {
+        "status": "ready",
+        "detail": "Kohaku 0.0.1-alpha.30 WASM loaded in this browser."
+      },
+      "walletIndependentInitialization": {
+        "status": "ready",
+        "detail": "In-memory provider built with an explicit RPC syncer; no signers registered, persistent databases opened, or RPC calls made."
+      },
+      "indexedDb": {
+        "status": "pass-isolated-database",
+        "detail": "Production database adapter passed set/get/delete in a fresh diagnostic database; existing app databases are never opened."
+      },
+      "utxoSync": {
+        "status": "pass-controlled-empty-state",
+        "detail": "Real Kohaku UTXO sync completed with one injected empty log response at the deployment block. This is a mocked RPC fixture, not live mainnet history or a wallet balance."
+      },
+      "nativeEthShieldConstruction": {
+        "status": "pass-no-submission",
+        "detail": "Real alpha.30 ShieldBuilder produced RelayAdapt native-ETH calldata for one wei to a public unfunded test fixture. No account signs or submits it."
+      },
+      "derivationCompatibility": {
+        "status": "pass",
+        "detail": "4 public test vectors match the independently pinned reference addresses. No test wallet is saved or queried."
+      },
+      "proofApi": {
+        "status": "available-not-executed",
+        "detail": "Public RailgunProvider.build and transfer/unshield builder APIs exist. No spendable notes or proof-generation success are claimed."
+      },
+      "poiApi": {
+        "status": "blocked",
+        "detail": "Kohaku alpha.30 exposes post-transaction POI processing, but no pre-transaction POI proof export for the broadcaster payload."
+      },
+      "transactionBridge": {
+        "status": "public-fields-only",
+        "detail": "Mainnet transact ABI decoder preserves target, calldata, nullifiers and proof-bound parameters; required pre-POI and fee-output binding are unavailable."
+      },
+      "submissionPayload": {
+        "status": "blocked",
+        "detail": "No real broadcaster payload can be constructed without pre-transaction POI and a verified private fee output. Deterministic fixture tests cover serialization separately."
+      },
+      "waku": {
+        "status": "failed",
+        "detail": "Official Waku startup timed out after 24926ms."
+      },
+      "wakuProtocols": {
+        "status": "not-observed",
+        "detail": "Startup or refresh did not finish; connected protocol capabilities are unknown."
+      },
+      "dnsDiscovery": {
+        "status": "txt-resolved",
+        "detail": "Configured resolvers returned ENR root TXT records. The official client validates and discovers peers; a TXT response alone does not prove a working relay connection."
+      },
+      "directPeers": {
+        "status": "not-configured",
+        "detail": "No direct fallback peers were configured."
+      },
+      "feeQuotes": {
+        "status": "not-observed",
+        "detail": "Startup or refresh did not finish; no conclusion about current broadcaster availability is possible."
+      },
+      "broadcasterSelection": {
+        "status": "not-attempted",
+        "detail": "No completed refresh is available for selecting a current broadcaster."
+      },
+      "broadcastersFound": 0,
+      "compatibleBroadcasters": 0,
+      "compatibleFeeQuotes": 0,
+      "peerConnections": [],
+      "selected": null,
+      "capabilities": {
+        "version": "0.0.1-alpha.30",
+        "proofApi": "available",
+        "transactionPublicFields": "abi-decodable",
+        "poiApi": "post-transaction-only",
+        "preTransactionPoiExport": false,
+        "broadcasterFeeOutputVerification": false,
+        "configurableBoundGasPrice": false,
+        "relayAdaptBuilder": false,
+        "relayAdapt7702Builder": false,
+        "liveSubmissionReady": false,
+        "blockers": [
+          "Kohaku alpha.30 exposes post-transaction POI processing, but no pre-transaction POI proof export for the broadcaster payload.",
+          "Kohaku alpha.30 has no public broadcaster fee-output binding or configurable proof-bound minimum gas price API.",
+          "Native ETH unshield requires RelayAdapt; the public Kohaku transaction builder only supports transfer and ERC-20 unshield."
+        ]
+      },
+      "liveSubmission": "intentionally-not-attempted",
+      "errors": [
+        "Official Waku startup timed out after 24926ms."
+      ],
+      "localChecksPassed": true,
+      "browserErrors": [],
+      "networkEvidence": {
+        "externalRequestCount": 6,
+        "externalRequestKinds": [
+          "dns"
+        ],
+        "blockedRequests": []
+      }
+    }
+  },
+  "signedEnrObservations": [
+    {
+      "peerId": "16Uiu2HAmMkCL9Y4R6V8eyTfHRfPA9JUBSnsJXwiUvgUJHU7N9AsR",
+      "multiaddrs": [
+        "/ip4/104.207.139.10/tcp/30304/p2p/16Uiu2HAmMkCL9Y4R6V8eyTfHRfPA9JUBSnsJXwiUvgUJHU7N9AsR",
+        "/ip4/104.207.139.10/udp/30304/p2p/16Uiu2HAmMkCL9Y4R6V8eyTfHRfPA9JUBSnsJXwiUvgUJHU7N9AsR"
+      ],
+      "shardInfo": {
+        "clusterId": 5,
+        "shards": [
+          1
+        ]
+      },
+      "waku2": {
+        "relay": true,
+        "store": false,
+        "filter": true,
+        "lightPush": true
+      },
+      "ip": "104.207.139.10"
+    },
+    {
+      "peerId": "16Uiu2HAm1XAZUTsZcbvLBWe9MR2QxEJ1oowv5VgZavwiwTEx4uPC",
+      "multiaddrs": [
+        "/ip4/45.76.230.253/tcp/30304/p2p/16Uiu2HAm1XAZUTsZcbvLBWe9MR2QxEJ1oowv5VgZavwiwTEx4uPC",
+        "/ip4/45.76.230.253/udp/30304/p2p/16Uiu2HAm1XAZUTsZcbvLBWe9MR2QxEJ1oowv5VgZavwiwTEx4uPC"
+      ],
+      "shardInfo": {
+        "clusterId": 5,
+        "shards": [
+          1
+        ]
+      },
+      "waku2": {
+        "relay": true,
+        "store": false,
+        "filter": true,
+        "lightPush": true
+      },
+      "ip": "45.76.230.253"
+    },
+    {
+      "peerId": "16Uiu2HAmS8YbNhE1rJGBQ3VaubZjM1iAR7zVvtLf6CrEB3Hc9Krr",
+      "multiaddrs": [
+        "/ip4/45.76.18.7/tcp/30304/p2p/16Uiu2HAmS8YbNhE1rJGBQ3VaubZjM1iAR7zVvtLf6CrEB3Hc9Krr",
+        "/ip4/45.76.18.7/udp/30304/p2p/16Uiu2HAmS8YbNhE1rJGBQ3VaubZjM1iAR7zVvtLf6CrEB3Hc9Krr"
+      ],
+      "shardInfo": {
+        "clusterId": 5,
+        "shards": [
+          1
+        ]
+      },
+      "waku2": {
+        "relay": true,
+        "store": true,
+        "filter": true,
+        "lightPush": true
+      },
+      "ip": "45.76.18.7"
+    }
+  ]
+}

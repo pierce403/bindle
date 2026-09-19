@@ -1,9 +1,22 @@
 import { expect, test } from "@playwright/test";
 import { createHash, createHmac, createPrivateKey, createPublicKey } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { HDNodeWallet, Mnemonic } from "ethers";
 import * as kohaku from "../node_modules/@kohaku-eth/railgun/dist/pkg/index.js";
 import { publicTestMnemonic, railgunDerivationFixtures } from "./fixtures/railgunDerivation";
+import { deriveRailgunKeys, parseRailgunDerivationVersion } from "../src/railgun/railgunDerivation";
+
+// Test-only reference projection. Engine is transitive to the broadcaster's
+// protocol wallet dependency, never imported by Bindle's wallet implementation.
+// The utility has no public package subpath, so keep this exception here.
+const require = createRequire(import.meta.url);
+const referenceWalletRequire = createRequire(require.resolve("@railgun-community/wallet"));
+const referenceEngineRoot = dirname(referenceWalletRequire.resolve("@railgun-community/engine"));
+const { getPublicSpendingKey } = require(join(referenceEngineRoot, "utils/keys-utils.js")) as {
+  getPublicSpendingKey: (privateKey: Uint8Array) => [bigint, bigint];
+};
 
 // An independent test-only transcription of the reference engine's hardened
 // hash tree. Frozen expected values above came from the actual reference engine,
@@ -50,10 +63,18 @@ for (const fixture of railgunDerivationFixtures) {
       : canonicalReferenceKey(publicTestMnemonic, path);
     const spendingKey = derive(spendingPath);
     const viewingKey = derive(viewingPath);
+    const bindleKeys = deriveRailgunKeys({
+      recoveryPhrase: publicTestMnemonic,
+      keyIndex: fixture.keyIndex,
+      derivationVersion: fixture.derivationVersion
+    });
+    expect(Buffer.from(bindleKeys.spendingKey.slice(2), "hex").equals(spendingKey)).toBe(true);
+    expect(Buffer.from(bindleKeys.viewingKey.slice(2), "hex").equals(viewingKey)).toBe(true);
     // SHA-256 commitments pin each test key without serializing private keys.
     expect(createHash("sha256").update(spendingKey).digest("hex")).toBe(fixture.spendingKeySha256);
     expect(createHash("sha256").update(viewingKey).digest("hex")).toBe(fixture.viewingKeySha256);
     expect(publicViewingKey(viewingKey)).toBe(fixture.viewingPublicKey);
+    expect(getPublicSpendingKey(spendingKey).map(String)).toEqual(fixture.spendingPublicKey);
     const signer = kohaku.RailgunSigner.privateKey(
       `0x${spendingKey.toString("hex")}`,
       `0x${viewingKey.toString("hex")}`,
@@ -75,5 +96,19 @@ test("historical Bindle and canonical RAILGUN accounts are never interchangeable
     expect(historical.railgunAddress).not.toBe(canonical.railgunAddress);
     expect(historical.viewingPublicKey).not.toBe(canonical.viewingPublicKey);
     expect(historical.spendingPublicKey).not.toEqual(canonical.spendingPublicKey);
+  }
+});
+
+test("only missing historical versions default and invalid indices fail closed", () => {
+  expect(parseRailgunDerivationVersion(undefined)).toBe("bindle-ethers-bip32-v1");
+  for (const invalidVersion of [null, "", "future-version", 1]) {
+    expect(() => parseRailgunDerivationVersion(invalidVersion)).toThrow("Unsupported RAILGUN");
+  }
+  for (const keyIndex of [-1, 0.5, 2147483648, NaN]) {
+    expect(() => deriveRailgunKeys({
+      recoveryPhrase: publicTestMnemonic,
+      keyIndex,
+      derivationVersion: "railgun-babyjubjub-v1"
+    })).toThrow("RAILGUN key index");
   }
 });

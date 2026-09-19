@@ -42,16 +42,18 @@ test("Pay is disabled when Waku Broadcaster is not configured", () => {
 
   expect(readiness.ready).toBe(false);
   expect(readiness.status).toBe("off");
-  expect(readiness.message).toBe("Configure a Waku Broadcaster before shielded pay.");
+  expect(readiness.message).toMatch(/Enable the RAILGUN Waku broadcaster/);
 });
 
-test("Pay is enabled when Waku Broadcaster is configured", () => {
+test("configured Waku never implies private proof readiness", () => {
   const readiness = getRailgunBroadcasterReadiness({
     ...defaultConnectionPolicy,
-    broadcasterUrl: "mock://simulated-broadcaster"
+    railgunBroadcasterEnabled: true,
+    railgunBroadcasterMode: "waku-public-network",
+    wakuEnabled: true
   });
 
-  expect(readiness.ready).toBe(true);
+  expect(readiness.ready).toBe(false);
   expect(readiness.status).toBe("configured");
-  expect(readiness.message).toMatch(/Waku Broadcaster configured/i);
+  expect(readiness.message).toMatch(/pre-transaction POI proof export/i);
 });

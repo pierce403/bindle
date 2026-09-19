@@ -1,127 +1,61 @@
 import { expect, test } from "@playwright/test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join } from "node:path";
 
-const readJson = <T>(path: string): T =>
-  JSON.parse(readFileSync(path, "utf8")) as T;
-
-const listFiles = (directory: string): string[] =>
-  readdirSync(directory).flatMap((entry) => {
-    const path = join(directory, entry);
-    return statSync(path).isDirectory() ? listFiles(path) : [path];
-  });
-
-const removedRuntimePackages = [
-  "@railgun-community/wallet",
-  "@railgun-community/shared-models",
-  "@railgun-community/waku-broadcaster-client-web",
-  "level-js"
-];
-
-test("removed RAILGUN SDK packages are not direct dependencies", () => {
-  const packageJson = readJson<{
-    dependencies?: Record<string, string>;
-    devDependencies?: Record<string, string>;
-    optionalDependencies?: Record<string, string>;
-  }>("package.json");
-  const allDependencies = {
-    ...packageJson.dependencies,
-    ...packageJson.devDependencies,
-    ...packageJson.optionalDependencies
-  };
-
-  for (const packageName of removedRuntimePackages) {
-    expect(allDependencies, packageName).not.toHaveProperty(packageName);
-  }
+const listFiles = (directory: string): string[] => readdirSync(directory).flatMap((entry) => {
+  const path = join(directory, entry);
+  return statSync(path).isDirectory() ? listFiles(path) : [path];
 });
+const packageJson = JSON.parse(readFileSync("package.json", "utf8")) as {
+  dependencies: Record<string, string>;
+  devDependencies: Record<string, string>;
+  pnpm: { overrides: Record<string, string>; patchedDependencies: Record<string, string> };
+};
 
-test("removed RAILGUN SDK graph is absent from the lockfile", () => {
+test("one Kohaku generation owns wallet and proof functionality", () => {
+  expect(packageJson.dependencies["@kohaku-eth/railgun"]).toBe("0.0.1-alpha.30");
+  expect(packageJson.dependencies).not.toHaveProperty("@kohaku-eth/railgun-waku");
+  expect(packageJson.dependencies).not.toHaveProperty("@waku/sdk");
   const lockfile = readFileSync("pnpm-lock.yaml", "utf8");
+  expect(lockfile).not.toContain("@kohaku-eth/railgun@0.0.1-alpha.12");
+  expect(lockfile).not.toContain("@kohaku-eth/railgun@0.0.1-alpha.22");
+});
 
-  for (const packageName of removedRuntimePackages) {
-    expect(lockfile, packageName).not.toContain(packageName);
+test("official browser transport is pinned with auditable policy patches", () => {
+  expect(packageJson.dependencies["@railgun-community/waku-broadcaster-client-web"]).toBe("9.1.1");
+  expect(packageJson.dependencies["@railgun-community/shared-models"]).toBe("8.0.1");
+  expect(packageJson.dependencies["@railgun-community/wallet"]).toBe("10.9.1");
+  for (const [name, path] of Object.entries(packageJson.pnpm.patchedDependencies)) {
+    expect(name).toMatch(/^@(?:railgun-community\/waku-broadcaster-client-web|waku\/discovery)@/);
+    expect(readFileSync(path, "utf8")).toContain("--- a/dist/");
+  }
+  expect(Object.keys(packageJson.pnpm.patchedDependencies)).toHaveLength(2);
+});
+
+test("the app never starts a second RAILGUN wallet engine or imports the old alias", () => {
+  for (const path of listFiles("src").filter((path) => /\.(ts|tsx)$/.test(path))) {
+    const source = readFileSync(path, "utf8");
+    expect(source, path).not.toMatch(/startRailgunEngine|loadWalletByID|@kohaku-eth\/railgun-waku/);
+    expect(source, path).not.toMatch(/(?:from\s*|import\()["']@railgun-community\/wallet/);
   }
 });
 
-test("Kohaku Waku relay dependency is explicit and not the Wallet SDK", () => {
-  const packageJson = readJson<{
-    dependencies?: Record<string, string>;
-  }>("package.json");
-
-  expect(packageJson.dependencies).toHaveProperty("@kohaku-eth/railgun-waku");
-  expect(packageJson.dependencies?.["@kohaku-eth/railgun-waku"]).toBe(
-    "npm:@kohaku-eth/railgun@0.0.1-alpha.12"
-  );
-  expect(packageJson.dependencies).toHaveProperty("@waku/sdk", "0.0.36");
+test("browser compatibility uses only the exact shims proven necessary", () => {
+  expect(packageJson.dependencies).toMatchObject({ buffer: "6.0.3", process: "0.11.10", "stream-browserify": "3.0.0" });
+  expect(packageJson.devDependencies).not.toHaveProperty("vite-plugin-node-polyfills");
+  // The official wallet helper dependency retains these Node-only transitive
+  // packages in the lockfile; Vite's build guard rejects them in rendered chunks.
+  expect(packageJson.dependencies).not.toHaveProperty("crypto-browserify");
+  expect(packageJson.dependencies).not.toHaveProperty("elliptic");
+  const config = readFileSync("vite.config.ts", "utf8");
+  expect(config).toContain("crypto-browserify");
+  expect(config).toContain("elliptic");
 });
 
-test("Dependabot-alerted transitive packages are patched or absent", () => {
-  const packageJson = readJson<{
-    pnpm?: { overrides?: Record<string, string> };
-    devDependencies?: Record<string, string>;
-  }>("package.json");
+test("existing patched transitive packages remain pinned", () => {
+  expect(packageJson.pnpm.overrides).toMatchObject({ underscore: "1.13.8", uuid: "11.1.1", ws: "8.20.1" });
   const lockfile = readFileSync("pnpm-lock.yaml", "utf8");
-
-  expect(packageJson.pnpm?.overrides).toMatchObject({
-    underscore: "1.13.8",
-    uuid: "11.1.1",
-    ws: "8.20.1"
-  });
-  expect(packageJson.devDependencies).not.toHaveProperty(
-    "vite-plugin-node-polyfills"
-  );
-
-  for (const vulnerablePackage of [
-    "underscore@1.13.6",
-    "uuid@9.0.1",
-    "ws@8.17.1",
-    "ws@8.18.3",
-    "elliptic@6.6.1",
-    "crypto-browserify@3.12.1",
-    "vite-plugin-node-polyfills"
-  ]) {
-    expect(lockfile, vulnerablePackage).not.toContain(vulnerablePackage);
-  }
-
-  for (const patchedPackage of [
-    "underscore@1.13.8",
-    "uuid@11.1.1",
-    "ws@8.20.1"
-  ]) {
-    expect(lockfile, patchedPackage).toContain(patchedPackage);
-  }
-});
-
-test("source does not import removed RAILGUN SDK packages", () => {
-  const files = listFiles("src").filter((path) => /\.(ts|tsx)$/.test(path));
-
-  for (const path of files) {
-    const source = readFileSync(path, "utf8");
-    for (const packageName of removedRuntimePackages) {
-      expect(source, `${path} imports ${packageName}`).not.toContain(
-        `from "${packageName}`
-      );
-      expect(source, `${path} imports ${packageName}`).not.toContain(
-        `import("${packageName}`
-      );
-    }
-  }
-});
-
-test("normal app flows do not reference SDK fallback or repair language", () => {
-  const migrationFiles = new Set([
-    "src/railgun/railgunWallet.ts",
-    "src/wallet/accountExport.ts",
-    "src/wallet/walletState.ts"
-  ]);
-  const files = listFiles("src")
-    .filter((path) => /\.(ts|tsx)$/.test(path))
-    .filter((path) => !migrationFiles.has(relative(".", path)));
-
-  for (const path of files) {
-    const source = readFileSync(path, "utf8");
-    expect(source, `${path} references SDK fallback`).not.toMatch(
-      /Wallet SDK fallback|SDK compatibility|SDK repair|railgunWalletSdk|railgun-wallet-sdk/i
-    );
+  for (const vulnerable of ["underscore@1.13.6", "uuid@9.0.1", "ws@8.17.1", "ws@8.18.3"]) {
+    expect(lockfile, vulnerable).not.toContain(vulnerable);
   }
 });

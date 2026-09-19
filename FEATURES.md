@@ -1,363 +1,140 @@
-# Bindle Feature Backlog
+# Bindle feature backlog
 
-This file is the canonical TODO list for product and protocol work. Keep items
-honest: no fake balances, fake `0zk` addresses, simulated activity, seeded
-contacts, hidden endpoints, analytics, silent phone-home, or unlabelled hosted
-infrastructure.
+This is the canonical product/protocol TODO list. Empty real states are better
+than fake balances, invented addresses, simulated activity, or seeded contacts.
+Completed implementation does not imply a funded mainnet transaction was tested.
+See [modernization evidence](public/railgun-modernization.md) for validation.
 
-## Done
+## Implemented
 
-- [x] Add PWA update prompts with version, full source commit, and build time;
-      persist Approve / Ask (default) / Reject in Settings > Version. Keep the
-      approved shell across reloads, restarts, and offline use, and defer
-      installation/reload during wallet actions and recovery-phrase review.
-- [x] Make mobile PWA onboarding default to a passkey-backed smart wallet,
-      not a seed phrase or browser extension.
-- [x] Evaluate Kohaku's smart-wallet/account path for passkey-backed accounts
-      before adding direct lifecycle state around any legacy RAILGUN backend.
-- [x] Implement local wallet/intents state above the privacy toolkit boundary.
-- [x] Track real wallet status, smart-wallet address, real `0zk` address,
-      created/imported timestamp, passkey-present boolean,
-      mnemonic-present boolean, and last error.
-- [x] Persist only appropriate local metadata, with the storage boundary
-      documented in code.
-- [x] Add explicit ERC-4337 bundler and paymaster policy before any
-      smart-wallet flow can submit transactions through those services.
-- [x] First-run PWA flow presents "Create Bindle with passkey" as the primary
-      wallet creation action.
-- [x] Show a public information/install page outside PWA display mode and mount
-      the wallet only inside the installed PWA.
-- [x] Add a wallet-tab onboarding wizard that detects incomplete local setup and
-      steps through passkey, endpoint configuration, toolkit startup, and
-      shielded-wallet creation/import.
-- [x] Add passkey availability detection and a clear fallback for unsupported
-      browsers without silently changing the custody model.
-- [x] Show smart-wallet address and shielded `0zk` address as distinct things
-      when both exist or are pending.
-- [x] Add copy controls that render only for real wallet addresses.
-- [x] Add endpoint disclosure/preflight groundwork for send review.
-- [x] Gate Review on wallet presence, toolkit readiness, configured RPC,
-      valid recipient, valid amount, and required endpoint readiness.
-- [x] Add Viem Coinbase Smart Wallet adapter for passkey-backed ERC-4337
-      funding address derivation on Ethereum mainnet.
-- [x] Add public ETH smart-wallet payment submission through explicit
-      RPC/bundler endpoints with optional configured paymaster.
-- [x] Add a Receive Public funding flow that can create and copy the real
-      smart-wallet funding address.
-- [x] Add explicit public ETH balance sync for the smart-wallet funding address
-      through the selected visible Ethereum RPC.
-- [x] Refresh public ETH balance on app load when a visible Ethereum RPC is
-      configured.
-- [x] Show recent top-level public native ETH funding transfers in Activity by
-      scanning real Ethereum blocks through the selected visible RPC.
-- [x] Reserve the top headline balance for shielded balance in USD instead of
-      showing unshielded funding ETH as the primary wallet balance.
-- [x] Add explicit shielded ETH balance sync through Kohaku using local RAILGUN
-      keys and the selected visible Ethereum RPC.
-- [x] Price the synced shielded ETH headline in USD via Chainlink ETH/USD over
-      the same visible Ethereum RPC.
-- [x] Add shield/unshield readiness tests that keep funded public ETH blocked
-      until recoverable `0zk` wallet state, sync, and the relevant visible
-      submission prerequisites exist.
-- [x] Add a Kohaku native ETH shield-call builder behind the local RAILGUN
-      boundary, without using Kohaku's hidden default Subsquid helper.
-- [x] Add recoverable RAILGUN spending/viewing key lifecycle using Kohaku
-      derivation paths and encrypted local recovery phrase storage.
-- [x] Build RAILGUN wallet create/import around Kohaku low-level RAILGUN
-      primitives instead of direct app state around a legacy wallet backend.
-- [x] Store the RAILGUN recovery phrase encrypted in IndexedDB under a
-      browser-local WebCrypto key; localStorage stores only non-secret public
-      metadata.
-- [x] Show the real `0zk` address in Balance and Receive once created/imported.
-- [x] Add a local reset path that clears wallet metadata and Bindle-owned
-      encrypted RAILGUN secrets.
-- [x] Add visible endpoint presets for Bindle default, Privacy max, Custom, and
-      Local dev.
-- [x] Persist explicit user/operator endpoint settings locally while preserving
-      preset selection.
-- [x] Label each outbound connection as default, custom, local, or off.
-- [x] Add preflight disclosure rows that include endpoint source and value.
-- [x] Add same-origin static RAILGUN proving artifacts to `ConnectionPolicy`,
-      Connections, and Pay preflight disclosure.
-- [x] Mirror Kohaku's compressed RAILGUN `.br` proving artifacts into the static
-      site and proxy Kohaku's compiled artifact URL to `/railgun-artifacts/`
-      through the PWA service worker.
-- [x] Validate decimal ETH amount as greater than zero.
-- [x] Validate recipient shape for `0zk`, `0x`, and `.eth`.
-- [x] Add tests that verify default endpoints are visible, Privacy max clears
-      hosted endpoints, Custom preserves user values, and disclosure covers
-      every audited outbound class.
-- [x] Submit native ETH shield transactions from the passkey smart wallet using
-      Kohaku shield-call data and visible ERC-4337 RPC/bundler policy.
-- [x] Default Shield to deploying the public smart account when it is still
-      counterfactual, then sweeping the spendable synced public funding balance
-      into the user's RAILGUN `0zk` address through the visible public
-      smart-wallet/4337 path. Exact zero-balance sweep requires a visible
-      paymaster; otherwise Bindle reserves ETH for ERC-4337 fees.
-- [x] Use visible Pimlico bundler gas-price RPC for ERC-4337 User Operation
-      fee fields so default funding-address sweeps and other public
-      smart-wallet submissions are not underpriced. Pimlico remains a public
-      funding-wallet path only, not a private RAILGUN relay.
-- [x] Prompt users to replace missing or password-era local RAILGUN key records
-      with a fresh browser-local `0zk` while preserving the passkey funding
-      wallet.
-- [x] Convert Kohaku RAILGUN WASM traps into persistent, readable toolkit
-      errors without suggesting an unsafe legacy fallback.
-- [x] Add a browser-local Debug tab with persistent wallet/toolkit error logs
-      and stack traces for transient RAILGUN/Kohaku failures.
-- [x] Add Debug Map with user-triggered, no-spend RAILGUN/Waku broadcaster
-      discovery and separate public-edge RPC/bundler/paymaster/sync endpoint
-      checks.
-- [x] Guard Kohaku RAILGUN WASM initialization so `initLogging` runs once per
-      PWA session instead of trapping during shield prep after wallet creation.
-- [x] Auto-start the privacy toolkit after a real `0zk` wallet exists when the
-      selected visible preset allows it.
-- [x] Classify RAILGUN shielded-sync `eth_getLogs` browser fetch failures as
-      visible RPC capability/connectivity problems and route users back to
-      Connections instead of the wallet key repair flow.
-- [x] Add Settings account export/import JSON for local wallet metadata and
-      RAILGUN recovery phrase recovery, while documenting that WebAuthn passkey
-      private material cannot be exported.
-- [x] Add account-export reclaim metadata that distinguishes full shielded
-      `0zk` recovery from public smart-account recovery that requires the same
-      synced passkey credential.
-- [x] Replace the CSS/SVG-style paisley approximation with a rose-forward
-      monochrome raster paisley texture that CSS tints red, blue, or white per
-      theme.
-- [x] Add `passkeyRpId` wallet metadata so migrated `bindle.me` passkeys can be
-      used from `bindle.cash` through Related Origin Requests.
-- [x] Scaffold a separate `bindle-migration` static bridge app for `bindle.me`
-      that imports account exports, creates replacement passkeys, and submits
-      explicit add-owner UserOperations.
-- [x] Add a Pay intent builder for mainnet ETH/WETH/common ERC-20 targets with
-      local asset search, payment request QR/paste import, route review, and
-      endpoint preflight disclosure.
-- [x] Present Pay route review, proof progress, blockers, and submit state in a
-      modal sheet instead of inserting the review below the form.
-- [x] Add explicit Private Pay route handling on Ethereum mainnet: classify the
-      source as `railgun-private`, disclose RAILGUN 0zk source,
-      broadcaster/Waku status, fee token/fee, Uniswap v4 route provider when a
-      swap is needed, target token, recipient, and chain, and fail closed
-      instead of submitting the private leg through ERC-4337.
-- [x] Record local RAILGUN wallet derivation metadata, normalize old
-      `kohaku-railgun-alpha` records to `kohaku-railgun`, and label old
-      noncanonical records as `legacy-noncanonical`.
-- [x] Remove the legacy RAILGUN Wallet SDK dependency graph and code path so
-      normal create/import and Private Pay review cannot derive or repair
-      toward a second non-Kohaku `0zk`.
-- [x] Keep Private Pay change handling explicit: accept private return to 0zk
-      or leftover funds in a fresh ephemeral settlement account for later sweep,
-      while blocking recipient, provider, or durable funding-wallet change.
-- [x] Add a standalone Kohaku/Waku broadcaster transport that starts a Waku
-      LightNode from visible `ConnectionPolicy` peers, selects a RAILGUN
-      broadcaster by fee token, and submits prepared private operations only as
-      `waku-railgun-broadcaster`.
+- [x] Installed-PWA wallet boundary with an informational browser landing page.
+- [x] Passkey-first onboarding with real credential/public-key metadata,
+      funding-address creation, shielded-wallet creation/import, and a persisted
+      setup-complete flag. Advanced recovery remains separate from normal setup.
+- [x] Coinbase Smart Wallet funding address, deployed-owner lookup, multiple
+      passkey candidates, related-origin RP metadata, and security-key controls.
+- [x] Public funding balance and recent top-level native ETH activity through
+      the visible RPC; shielded headline balance and Chainlink USD pricing.
+- [x] Encrypted browser-local RAILGUN recovery phrases in IndexedDB, public-only
+      localStorage metadata, account JSON recovery, and explicit local reset.
+- [x] Recovery-format versioning: existing unstamped Bindle accounts preserve
+      `bindle-ethers-bip32-v1`; new wallets use reference
+      `railgun-babyjubjub-v1`. Bare phrase imports choose the original format;
+      JSON imports validate the expected address before replacing secrets.
+- [x] Fixed public address/spending/viewing vectors, historical encrypted-record
+      opening, import/export round trips, invalid-version rejection, and
+      failed-import data preservation tests.
+- [x] Balance-cache isolation by address, provider, derivation version, and chain.
+- [x] Unsupported wallet metadata stays visible and blocked; atomic creation
+      preserves existing keys, stale sync results are discarded, and Shield
+      verifies secret/address/format/chain consistency before any funding call.
+- [x] Explicit warning and repair path for missing/password-era shielded local
+      records, preserving the passkey wallet without claiming fund recovery.
+- [x] Public native-ETH shield call preparation through Kohaku and reviewed
+      public smart-wallet submission; deploy counterfactual accounts first and
+      reserve ERC-4337 fees unless a visible paymaster sponsors the sweep.
+- [x] Post-shield note-sync retries and meaningful sync/error states.
+- [x] Visible Bindle default, Privacy max, Custom, and Local dev presets;
+      endpoint persistence, labels, action disclosure, and connection audit rows.
+- [x] Explicit RPC and custom HTTP(S) indexer note sync with RPC fallback;
+      the exact visible endpoint overrides Kohaku's compiled Subsquid default.
+- [x] Same-origin proving artifacts, artifact-proxy readiness checks, and repair
+      that does not clear wallet data or silently approve an app update.
+- [x] PWA version/full source commit/build time display, Approve/Ask/Reject,
+      persistent approved-release shell, offline/restart behavior, update
+      deferral during sensitive wallet work, and integrity-checked shell assets.
+- [x] One Kohaku RAILGUN generation (`alpha.30`); remove the old Waku alias.
+- [x] Official broadcaster client owns Waku lifecycle, signed fee handling,
+      selection, and prepared submission; no second RAILGUN wallet engine starts.
+- [x] Visible DNS ENR discovery plus direct peers and explicit DNS JSON resolver
+      policy, including DNS-disabled and no-default-bootstrap behavior.
+- [x] Keep relay registry/raw ads observational; fresh official fee state,
+      compatibility checks, and quote revalidation govern selection.
+- [x] Normalized Kohaku-to-broadcaster transaction boundary preserving contract,
+      calldata, nullifiers, POI, gas/fee, chain, and RelayAdapt metadata, with
+      strict validation and no public-account submission fallback.
+- [x] Prove-only transfer/ERC-20-unshield builder using public Kohaku APIs and
+      correct ownership of consumed WASM wrappers. API tests are not live proofs.
+- [x] Precise private readiness gate for missing pre-transaction POI export,
+      fee-output binding, proof-bound gas-price control, and native RelayAdapt.
+- [x] Browser-based `scan:railgun` / `scan:waku` no-spend diagnostic with JSON,
+      capability/fixture checks and independently reported live discovery status.
+- [x] Privacy invariant and deterministic transport/bridge tests, separate from
+      optional live infrastructure checks. Production mock-success paths removed.
+- [x] Private Pay route review: asset search, QR/paste request parsing, endpoint
+      disclosure, proof progress, slippage, and private/ephemeral change policy.
+- [x] Explicit onchain Uniswap v4 quote source and review of non-USDC targets.
+- [x] Local diagnostic logs, readable WASM/RPC errors, and theme/PWA assets.
 
-## Now
+## Required before private spending can be enabled
 
-- [x] Keep mnemonic import as an advanced compatibility/recovery path rather
-      than the primary first-run flow.
-- [x] Persist a non-secret local setup-complete flag after public smart-account
-      metadata and browser-local RAILGUN key storage are both present, so the
-      onboarding wizard does not flash during toolkit auto-start on later PWA
-      launches.
-- [ ] Replace the interim browser-local RAILGUN key encryption with
-      passkey-backed wrapping when WebAuthn PRF support is usable across target
-      browsers.
-- [x] Add a visible RAILGUN sync-indexer default and use Kohaku chained
-      Subsquid-plus-RPC sync when that visible endpoint matches the chain config.
-- [ ] Add fully configurable custom RAILGUN indexer routing once Kohaku exposes
-      a browser API for non-default sync URLs.
-- [ ] Replace the service-worker artifact proxy with a direct custom artifact
-      loader once Kohaku exposes a browser API for artifact origins.
-- [ ] Add a Kohaku-compatible browser smart-account adapter once `pq-account` or
-      equivalent passkey ERC-4337 address derivation is available.
-- [ ] Reproduce and report/fix the upstream Kohaku RAILGUN WASM initialization
-      `unreachable` trap so the default adapter can start reliably.
-- [x] Investigate Kohaku private broadcast support and keep private unshield,
-      transfer, swap, and Private Pay disabled when the active path would use
-      the user's public smart wallet, ERC-4337 bundler, Pimlico, paymaster, or
-      EOA.
-- [x] Add non-SDK RAILGUN Waku broadcaster discovery, fee quote, and prepared
-      private-operation submission plumbing without reintroducing the RAILGUN
-      Wallet SDK.
-- [x] Add a local relay map scan that can confirm whether Waku peers and
-      fee-token broadcasters are discoverable from the installed PWA without
-      generating proofs, submitting transactions, or touching the public smart
-      wallet.
-- [x] Add current-format RAILGUN Waku fee-ad parsing so Debug Map and
-      `pnpm scan:waku` distinguish raw public broadcaster ads from Kohaku
-      manager selections.
-- [x] Auto-watch Waku relay fee ads from the installed app when the visible
-      Waku broadcaster preset is enabled, keep a local non-secret broadcaster
-      registry, and auto-select the first compatible RAILGUN broadcaster
-      candidate. This is Bindle's discovery path for private RAILGUN relays,
-      not a public smart-wallet or Pimlico submission path.
-- [x] Add a fresh Waku broadcaster preflight helper for every
-      `railgun-private` action path. Saved broadcaster observations are hints
-      only; Private Pay now refreshes Waku ads, updates the registry, rejects
-      stale/unavailable/raw-only candidates for live submit, and shows which
-      readiness pieces were solved before stopping at the known Kohaku
-      private-operation builder blocker.
-- [ ] Fix or replace the installed Kohaku alpha.12 `JsBroadcasterManager`
-      selection gap: raw WETH/USDC fee ads are visible on Waku, but the manager
-      currently returns no selectable `JsBroadcaster`.
-- [ ] Add non-SDK signature verification for broadcaster fee ads, or get the
-      verified selectable broadcaster directly from an updated Kohaku-native
-      API, before raw fee ads are allowed to drive live private spending.
-- [x] Wire direct shielded ETH send (transfer and unshield) using the alpha.22
-      prover, Waku broadcaster selection, and broadcaster fee payments.
-- [ ] Build the Kohaku-derived proved private operation that can be handed to
-      the Waku broadcaster transport, with change either returned privately to
-      0zk or kept in a fresh ephemeral settlement account for later sweep,
-      before enabling live Private Pay (with Uniswap swapping) submission.
+- [ ] Expose and validate Kohaku pre-transaction POI proofs required by the
+      official broadcaster, with explicit POI list and aggregator policy.
+- [ ] Bind the reviewed broadcaster fee recipient, amount, and fee token into
+      the proved outputs; verify the binding rather than trusting metadata.
+- [ ] Set and validate the proof-bound minimum gas price required by the
+      broadcaster without modifying proved calldata after construction.
+- [ ] Provide a supported RelayAdapt/RelayAdapt7702 builder for native ETH
+      unshield and settlement, preserving nullifiers and proof-bound fields.
+- [ ] Complete real local proof/POI generation and a complete validated
+      submission payload from safe test fixtures; do not equate API presence
+      with successful proof construction.
+- [ ] Enable reviewed private transfer/unshield only after every prerequisite
+      is implemented. A real mainnet spend needs separate explicit authorization.
+- [ ] Implement full Private Pay settlement and swap execution, fee selection,
+      transaction tracking, slippage bounds, and private/ephemeral change return.
+- [ ] Implement generic ERC-20 quotes/execution beyond current route-review and
+      limited quote/calldata helpers. Do not imply invented liquidity.
 
-## Privacy And Connectivity
+## Recovery, privacy, and reliability
 
-- [ ] Keep all outbound endpoints visible in `ConnectionPolicy`.
-- [ ] Add an outbound connection audit view that shows every configured endpoint
-      and which wallet action can use it.
-- [ ] Keep Privacy max startup at zero configured hosted endpoints.
-- [ ] Add per-endpoint enable/disable controls so configured endpoints are not
-      automatically active in every flow.
-- [ ] Show a preflight disclosure summary before any action that can reveal a
-      public address, RPC URL, resolver query, broadcaster request, or provider
-      route.
-- [x] Add explicit artifact download origin policy before downloading RAILGUN
-      proving artifacts.
-- [x] Add explicit RAILGUN Waku Broadcaster policy for private-source Pay.
-- [ ] Add explicit provider resolver policy for outgoing decloaked routes.
-- [ ] Add Kohaku custom POI endpoint wiring only when endpoints are visible in
-      the selected preset or user/operator configured.
-- [ ] Add Helios provider adapter behind `ConnectionPolicy`.
-- [ ] Test Kohaku/RAILGUN provider calls against Helios before enabling it.
-- [ ] Add explicit default Helios consensus RPC and checkpoint presets only
-      after their network dependencies and privacy tradeoffs are visible in
-      Connections and preflight disclosure.
-- [ ] Investigate Portal Network as a future decentralized data/provider
-      adapter for Ethereum state, history, or light-client-style reads. Keep it
-      behind `ConnectionPolicy`, disclose peer/network activity in preflight,
-      and do not present it as metadata-private until tested.
+- [ ] Add passkey-backed RAILGUN secret wrapping when WebAuthn PRF works across
+      target browsers, without losing the existing recovery path.
+- [ ] Add wallet lock/unlock and local session timeout controls.
+- [ ] Add a Kohaku-compatible passkey smart-account adapter when a usable
+      public account API replaces the current Viem funding adapter.
+- [ ] Replace artifact URL interception with a configurable upstream loader.
+- [ ] Verify the complete proving-artifact set against independently trusted
+      upstream digests; shell integrity and a mirror self-test are separate.
+- [ ] Audit local diagnostic exports for secret/identifier exposure and provide
+      user-controlled redaction. Never add automatic telemetry.
+- [ ] Extend clipboard/import warnings for compromised browsers, extensions,
+      devices, and phrase exports; keep the recovery format with each backup.
+- [ ] Add CSP guidance compatible with static hosting and required WASM.
+- [ ] Track vulnerabilities and bundle size in the broadcaster wallet/engine
+      dependency graph; keep lifecycle scripts disabled and versions pinned.
+- [ ] Upstream or retire narrowly pinned broadcaster/discovery/browser patches
+      when supported APIs preserve the same privacy and lifecycle guarantees.
+- [ ] Broaden service-worker audits while keeping sensitive network requests
+      uncached and wallet data independent of release installation.
+- [ ] Validate target physical-device/browser passkey, WASM, memory, and storage
+      behavior beyond virtual-authenticator browser tests.
 
-## Security And Privacy Features
+## Future product and protocol work
 
-- [ ] Write a concise threat model covering static hosting, browser storage,
-      RPC metadata, RAILGUN note data, artifact downloads, and clipboard risk.
-- [x] Keep mnemonic material out of localStorage and document where SDKs persist
-      encrypted wallet/provider state.
-- [ ] Document the storage threat model for WebAuthn credential IDs and
-      smart-wallet metadata; keep RAILGUN viewing/spending material out of
-      localStorage.
-- [ ] Document that platform passkeys may sync through Apple, Google, Microsoft,
-      or other account providers depending on device settings.
-- [ ] Prefer user-verifying passkeys and disclose when a platform only offers a
-      weaker or roaming-authenticator path.
-- [x] Add browser-local encryption for Bindle-owned wallet metadata that
-      becomes sensitive, without user-entered passwords.
-- [ ] Add wallet lock, unlock, and local session timeout controls.
-- [x] Add a local-only wipe flow for Bindle-owned metadata and IndexedDB stores.
-- [ ] Add a service-worker cache audit so wallet RPC, broadcaster, resolver,
-      quote, and other sensitive POST traffic cannot be cached.
-- [ ] Add Content Security Policy guidance for static hosting, including
-      avoiding third-party scripts, fonts, frames, and image beacons.
-- [ ] Add dependency and supply-chain review gates for wallet, Kohaku, RAILGUN,
-      proof, and WASM packages.
-- [ ] Pin privacy-critical packages and document why each version changes.
-- [ ] Verify downloaded proving artifacts by SDK-supported hash checks before
-      use.
-- [ ] Add tests that fail if the app renders fake balances, fake `0zk`
-      addresses, seeded contacts, or simulated activity.
-- [ ] Add an explicit import warning that browser malware, extensions, and
-      compromised devices can still read user-entered secrets.
-- [ ] Add copy-to-clipboard affordances that reveal exactly what is copied and
-      do not auto-copy addresses.
-- [ ] Add privacy-preserving error reporting guidance that favors local,
-      user-exported diagnostics over automatic telemetry.
+- [ ] Add provider resolution and any-network payment settlement with explicit
+      endpoints and disclosure of the public routing leg.
+- [ ] Add Uniswap Swap as a real end-to-end flow.
+- [ ] Add XMTP chat/payment messaging with explicit network policy.
+- [ ] Add contract-internal public transfers through an explicit trace/indexer
+      service; current top-level block scans are incomplete by design.
+- [ ] Implement and test Helios behind visible execution/consensus/checkpoint
+      policy; reducing RPC trust does not hide network metadata.
+- [ ] Evaluate Portal Network behind the same visible peer/network boundary.
 
-## Anti-Features
+## Permanent constraints
 
-- [ ] Do not add analytics, session replay, ad pixels, conversion tracking, or
-      hidden crash reporting.
-- [ ] Do not add hidden hosted endpoints, unlabelled defaults, SDK helper
-      defaults, CDN imports, environment-magic endpoints, or undocumented
-      library defaults.
-- [ ] Do not imply Bindle default, public default, or operator default endpoints
-      are trustless or private.
-- [ ] Do not add server-side accounts, custodial key storage, cloud seed backup,
-      or hosted wallet recovery.
-- [ ] Do not hide passkey sync, attestation, account-recovery, or platform
-      dependency tradeoffs behind a "more secure" label.
-- [ ] Do not require a browser extension, seed phrase, or EOA private key for
-      the default mobile PWA onboarding path.
-- [ ] Do not auto-resolve ENS, providers, contacts, avatars, prices, or metadata
-      before the user takes an action that requires it.
-- [x] Do not start hidden broadcasters, provider resolvers, or network
-      services on page load or PWA launch. Public Waku broadcaster defaults are
-      allowed only when visible, inspectable, replaceable, and disclosed, and
-      are used to discover RAILGUN broadcasters rather than to submit through
-      the public funding wallet.
-- [ ] Do not auto-start the privacy toolkit unless the selected policy exposes
-      that behavior and a real local `0zk` wallet already exists.
-- [ ] Do not preload remote images, fonts, scripts, maps, avatars, token lists,
-      or marketing assets from third parties.
-- [ ] Do not add push notifications, email capture, referral links, or growth
-      loops to wallet flows.
-- [ ] Do not use synthetic activity, seeded contacts, fake balances, demo
-      liquidity, or fake `0zk` addresses to make the app look populated.
-- [ ] Do not silently choose a broadcaster, paymaster, bridge, swap route, or
-      provider resolver without showing the declassified routing leg.
-- [x] Do not use saved RAILGUN broadcaster registry state alone for a private
-      transaction. Refresh Waku ads immediately before each private-source
-      action, and only submit through the fresh selected
-      `waku-railgun-broadcaster`.
-- [ ] Do not make security state ambiguous: disabled, unsupported, unsynced,
-      locked, and error states must be visibly different.
-- [ ] Do not hide dependency vulnerabilities or SDK limitations behind polished
-      UI.
-
-## Wallet UX
-
-- [ ] Keep ENS resolution as "resolved at send time" until RPC-backed
-      resolution is wired.
-- [ ] Keep send review as an intent review until the full RAILGUN send path is
-      safely implemented.
-- [ ] Show real balance sync status, not placeholder balances.
-- [ ] Show activity only from real wallet history.
-
-## Protocol Features
-
-- [x] Submit ETH shield transactions from the passkey smart wallet using the
-      Kohaku shield-call builder and visible ERC-4337 RPC/bundler policy.
-- [ ] Sync shielded ETH balances from actual wallet state.
-- [ ] Implement private RAILGUN transfer review and proof generation.
-- [ ] Implement unshield-to-public-address review and proof generation.
-- [x] Implement RAILGUN Broadcaster discovery, fee quote, and submission only
-      through explicit broadcaster policy.
-- [ ] Implement provider payment routing for decloaked outbound messages.
-- [ ] Implement live Private Pay execution for shielded ETH/WETH unshield,
-      optional ERC-20 routing through Uniswap v4, final delivery, RAILGUN proof
-      generation, v4 quote/router calldata, RAILGUN Broadcaster submission,
-      private-or-ephemeral change handling, and slippage controls.
-- [x] Add Pay proof-path UX with honest stage status and RAILGUN proof progress
-      normalization for the SDK callback once proof generation is invoked.
-- [x] Default quote source to explicit `onchain:uniswap-v4` under Bindle
-      default, while keeping Privacy max empty/off.
-- [x] Default Pay swap review to 1% max slippage and show ephemeral settlement
-      change handling instead of blocking solely because private change return
-      is not wired.
-- [x] Add Pay route-review support for non-USDC output assets.
-- [ ] Add live generic ERC-20 Pay route quotes and execution beyond the current
-      ETH/WETH simple route and USDC calldata helper.
-- [ ] Explore LayerZero-style Pay routing for any-network settlement.
-- [ ] Add Uniswap-based Swap flow.
-- [ ] Add XMTP chat or payment messaging.
-
-## Security And Maintenance
-
-- [ ] Decide mitigation strategy for current RAILGUN transitive dependency
-      vulnerabilities.
-- [ ] Keep Kohaku versions pinned until the API stabilizes.
-- [ ] Revisit direct Kohaku WASM binding import when the package root no longer
-      pulls browser-incompatible plugin dependencies.
-- [ ] Avoid forced package-manager audit fixes without an SDK compatibility
-      review.
+- No analytics, session replay, ad pixels, hidden crash reporting, remote font
+  or avatar prefetches, cloud seed backup, custodial recovery, or growth prompts.
+- No hidden RPC, indexer, proving host, POI service, resolver, Waku bootstrap,
+  bundler, paymaster, passkey attestation, or recovery service.
+- No fake transactions, successful mock broadcasts, fake balances, addresses,
+  liquidity, or contacts in product flows. Mocks belong only in tests.
+- Never use Coinbase Smart Wallet, an EOA, ERC-4337, Pimlico, a paymaster, or a
+  durable funding account as the final submitter of a private-origin operation.
+- Never treat saved relay observations, raw ads, successful local decoding, or
+  a present proof API as authority for private spending.
+- Never silently change a stored wallet's derivation format or claim that
+  changing metadata/importing a phrase migrated funds.
+- Keep disabled, unsupported, unsynced, locked, and error states distinct;
+  keep security limitations and remaining gates visible.

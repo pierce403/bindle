@@ -1,9 +1,11 @@
 import type { ShieldedEthBalance } from "./shieldedBalance";
 import type { RailgunDerivationProvider } from "../wallet/walletState";
+import { historicalRailgunDerivation, parseRailgunDerivationVersion, type RailgunDerivationVersion } from "./railgunDerivation";
 
 type StoredShieldedEthBalance = {
   railgunAddress: string;
   derivationProvider: RailgunDerivationProvider;
+  derivationVersion: RailgunDerivationVersion;
   chainId: string;
   wei: string;
   formattedEth: string;
@@ -20,11 +22,12 @@ type StoredShieldedEthBalance = {
   } | null;
 };
 
-const storageKey = "bindle.railgun.shieldedBalanceCache.v1";
+const storageKey = "bindle.railgun.shieldedBalanceCache.v2";
 
 export type ShieldedEthBalanceCacheContext = {
   railgunAddress: string;
   derivationProvider: RailgunDerivationProvider;
+  derivationVersion?: RailgunDerivationVersion;
   chainId: bigint;
 };
 
@@ -34,11 +37,13 @@ const canUseStorage = (): boolean =>
 const cacheKeyForContext = ({
   chainId,
   derivationProvider,
+  derivationVersion,
   railgunAddress
 }: ShieldedEthBalanceCacheContext): string =>
   [
     railgunAddress.trim().toLowerCase(),
     derivationProvider,
+    parseRailgunDerivationVersion(derivationVersion),
     chainId.toString()
   ].join(":");
 
@@ -56,6 +61,8 @@ const isStoredShieldedEthBalance = (
     (parsed.derivationProvider === "kohaku-railgun" ||
       parsed.derivationProvider === "legacy-noncanonical" ||
       parsed.derivationProvider === "unknown") &&
+    (parsed.derivationVersion === "bindle-ethers-bip32-v1" ||
+      parsed.derivationVersion === "railgun-babyjubjub-v1") &&
     typeof parsed.chainId === "string" &&
     typeof parsed.wei === "string" &&
     typeof parsed.formattedEth === "string" &&
@@ -124,6 +131,7 @@ const deserializeBalance = (
     return {
       railgunAddress: stored.railgunAddress,
       derivationProvider: stored.derivationProvider,
+      derivationVersion: stored.derivationVersion,
       chainId: BigInt(stored.chainId),
       wei: BigInt(stored.wei),
       formattedEth: stored.formattedEth,
@@ -152,6 +160,7 @@ const serializeBalance = (
 ): StoredShieldedEthBalance => ({
   railgunAddress: balance.railgunAddress,
   derivationProvider: balance.derivationProvider,
+  derivationVersion: balance.derivationVersion ?? historicalRailgunDerivation,
   chainId: balance.chainId.toString(),
   wei: balance.wei.toString(),
   formattedEth: balance.formattedEth,
@@ -176,7 +185,11 @@ export const loadCachedShieldedEthBalance = (
 ): ShieldedEthBalance | null => {
   const cached = loadCacheMap()[cacheKeyForContext(context)];
 
-  if (!isStoredShieldedEthBalance(cached)) {
+  if (!isStoredShieldedEthBalance(cached) ||
+      cached.railgunAddress.toLowerCase() !== context.railgunAddress.trim().toLowerCase() ||
+      cached.derivationProvider !== context.derivationProvider ||
+      cached.derivationVersion !== parseRailgunDerivationVersion(context.derivationVersion) ||
+      cached.chainId !== context.chainId.toString()) {
     return null;
   }
 

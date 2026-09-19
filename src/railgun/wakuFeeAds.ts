@@ -10,13 +10,6 @@ export const RAILGUN_BROADCASTER_MIN_VERSION = "8.0.0";
 export const RAILGUN_BROADCASTER_MAX_VERSION = "8.999.0";
 export const RAILGUN_BROADCASTER_FEE_EXPIRATION_BUFFER_MS = 40_000;
 
-// Kohaku alpha currently hardcodes this active POI list key in its Waku plugin.
-// Keep it explicit here so current broadcaster fee ads can be diagnosed without
-// importing the removed RAILGUN Wallet SDK.
-export const KOHAKU_RAILGUN_ACTIVE_POI_LIST_KEYS = [
-  "efc6ddb59c098a13fb2b618fdae94c1c3a807abc8fb1837c93620c9143ee9e88"
-] as const;
-
 export type RawRailgunWakuMessage = {
   payload: number[] | Uint8Array;
   contentTopic: string;
@@ -36,7 +29,7 @@ export type RailgunBroadcasterFeeAd = {
   version: string;
   identifier?: string;
   signature: string;
-  signatureStatus: "unverified-no-wallet-sdk";
+  signatureStatus: "unverified-observation";
   receivedAt: number | null;
 };
 
@@ -132,7 +125,11 @@ const normalizeFeeMap = (value: unknown): Record<`0x${string}`, string> => {
 
   for (const [tokenAddress, feePerUnitGas] of Object.entries(value)) {
     const normalizedToken = getAddress(tokenAddress) as `0x${string}`;
-    fees[normalizedToken] = asString(feePerUnitGas, `fees.${tokenAddress}`);
+    const amount = asString(feePerUnitGas, `fees.${tokenAddress}`);
+    if (!/^(?:0x[0-9a-fA-F]+|[0-9]+)$/.test(amount) || BigInt(amount) <= 0n) {
+      throw new Error("fee ad token fee must be a positive integer");
+    }
+    fees[normalizedToken] = amount;
   }
 
   return fees;
@@ -171,7 +168,8 @@ export const railgunBroadcasterFeeUsable = (
     RailgunBroadcasterFeeAd,
     "availableWallets" | "feeExpiration" | "requiredPOIListKeys" | "version"
   >,
-  nowMs = Date.now()
+  nowMs = Date.now(),
+  activePoiListKeys: readonly string[] = []
 ): boolean => {
   if (!railgunBroadcasterVersionAllowed(ad.version)) {
     return false;
@@ -185,11 +183,7 @@ export const railgunBroadcasterFeeUsable = (
     return false;
   }
 
-  return ad.requiredPOIListKeys.every((listKey) =>
-    KOHAKU_RAILGUN_ACTIVE_POI_LIST_KEYS.includes(
-      listKey as (typeof KOHAKU_RAILGUN_ACTIVE_POI_LIST_KEYS)[number]
-    )
-  );
+  return ad.requiredPOIListKeys.every(listKey => activePoiListKeys.includes(listKey));
 };
 
 export const parseRailgunWakuFeeMessage = (
@@ -236,7 +230,7 @@ export const parseRailgunWakuFeeMessage = (
         version: asString(decoded.version, "version"),
         identifier: asOptionalString(decoded.identifier),
         signature,
-        signatureStatus: "unverified-no-wallet-sdk",
+        signatureStatus: "unverified-observation",
         receivedAt: message.timestamp ?? null
       }
     };
@@ -251,16 +245,18 @@ export const parseRailgunWakuFeeMessage = (
 export const tokenAdsForFeeAds = ({
   ads,
   tokenAddress,
-  nowMs = Date.now()
+  nowMs = Date.now(),
+  activePoiListKeys = []
 }: {
   ads: RailgunBroadcasterFeeAd[];
   tokenAddress: Address;
   nowMs?: number;
+  activePoiListKeys?: readonly string[];
 }): RailgunBroadcasterTokenAd[] => {
   const normalizedTokenAddress = getAddress(tokenAddress);
 
   return ads
-    .filter((ad) => railgunBroadcasterFeeUsable(ad, nowMs))
+    .filter((ad) => railgunBroadcasterFeeUsable(ad, nowMs, activePoiListKeys))
     .flatMap((ad): RailgunBroadcasterTokenAd[] => {
       const feePerUnitGas = Object.entries(ad.fees).find(
         ([candidate]) => getAddress(candidate) === normalizedTokenAddress
@@ -303,10 +299,12 @@ export const tokenAdsForFeeAds = ({
 export const selectBestRawRailgunBroadcasterTokenAd = ({
   ads,
   tokenAddress,
-  nowMs = Date.now()
+  nowMs = Date.now(),
+  activePoiListKeys = []
 }: {
   ads: RailgunBroadcasterFeeAd[];
   tokenAddress: Address;
   nowMs?: number;
+  activePoiListKeys?: readonly string[];
 }): RailgunBroadcasterTokenAd | null =>
-  tokenAdsForFeeAds({ ads, tokenAddress, nowMs })[0] ?? null;
+  tokenAdsForFeeAds({ ads, tokenAddress, nowMs, activePoiListKeys })[0] ?? null;

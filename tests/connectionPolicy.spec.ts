@@ -251,7 +251,7 @@ test("shielded balance sync preflight discloses the selected RPC", () => {
   );
 });
 
-test("unshield review preflight requires a visible bundler", () => {
+test("unshield review requires the private broadcaster and POI", () => {
   const disclosure = buildEndpointDisclosure(
     defaultConnectionPolicy,
     "unshield-review"
@@ -265,15 +265,13 @@ test("unshield review preflight requires a visible bundler", () => {
         required: true
       }),
       expect.objectContaining({
-        id: "erc4337-bundler",
-        configured: true,
-        required: true,
-        source: "default",
-        value: expect.stringContaining("https://public.pimlico.io/v2/1/rpc")
+        id: "railgun-broadcaster",
+        configured: false,
+        required: true
       }),
       expect.objectContaining({
         id: "railgun-poi",
-        required: false
+        required: true
       }),
       expect.objectContaining({
         id: "railgun-sync",
@@ -297,11 +295,9 @@ test("pay review preflight discloses private-source route endpoints", () => {
         source: "default"
       }),
       expect.objectContaining({
-        id: "erc4337-bundler",
-        configured: true,
-        required: true,
-        source: "default",
-        value: expect.stringContaining("https://public.pimlico.io/v2/1/rpc")
+        id: "railgun-broadcaster",
+        configured: false,
+        required: true
       }),
       expect.objectContaining({
         id: "provider-resolution",
@@ -323,10 +319,20 @@ test("pay review preflight discloses private-source route endpoints", () => {
       })
     ])
   );
-  expect(disclosure.map((endpoint) => endpoint.id)).not.toContain(
+  expect(disclosure.map((endpoint) => endpoint.id)).toContain(
     "railgun-broadcaster"
   );
-  expect(disclosure.map((endpoint) => endpoint.id)).not.toContain(
+  expect(disclosure.map((endpoint) => endpoint.id)).toContain(
     "waku"
   );
 });
+
+for (const action of ["pay-review", "send-review", "private-send", "unshield-review"] as const) {
+  test(`${action} never discloses a public submitter as a private route`, () => {
+    const ids = buildEndpointDisclosure(defaultConnectionPolicy, action).map((entry) => entry.id);
+    expect(ids).toContain("railgun-broadcaster");
+    expect(ids).toContain("railgun-poi");
+    expect(ids).not.toContain("erc4337-bundler");
+    expect(ids).not.toContain("erc4337-paymaster");
+  });
+}

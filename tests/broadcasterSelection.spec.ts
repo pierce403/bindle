@@ -1,56 +1,73 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { sendSmartWalletCalls } from "../src/wallet/smartAccountAdapter";
+import { privateSmartWalletSubmissionError } from "../src/wallet/transactionOrigin";
 import { defaultConnectionPolicy } from "../src/privacy/connectionPolicy";
 import { emptyWalletState } from "../src/wallet/walletState";
+import { getPayAsset } from "../src/intents/assets";
+import { prepareRailgunPayForRecipient } from "../src/railgun/pay";
+import { KOHAKU_PRIVATE_SUBMISSION_BLOCKER } from "../src/railgun/privateTransactionBridge";
+import { railgunDerivationFixtures } from "./fixtures/railgunDerivation";
 
 const mockPublicKey = "0xc18dd9496b23664467e10015e26c0d2d39a1fca1adacfa995641a820f39c5b0ea47207155abb2204701fd125829b76659fd6d48915890c5cc9c296a07c543310";
 
-test("Private Pay cannot produce submissionMode: erc4337-bundler", () => {
-  const paySource = readFileSync(resolve("src/railgun/pay.ts"), "utf8");
-  expect(paySource).not.toContain('submissionMode: "erc4337-bundler"');
-  expect(paySource).not.toContain('submitter: "erc4337-bundler"');
+test("a private origin is rejected before the public wallet reads policy or credentials", async () => {
+  const poisonPolicy = new Proxy(defaultConnectionPolicy, {
+    get() { throw new Error("Public endpoint policy was accessed"); }
+  });
+  await expect(sendSmartWalletCalls({
+    calls: [{ to: "0xfa7093cdd9ee6932b4eb2c9e1cde7ce00b1fa4b9", data: "0x" }],
+    origin: "railgun-private",
+    policy: poisonPolicy,
+    walletState: emptyWalletState
+  })).rejects.toThrow(privateSmartWalletSubmissionError);
 });
 
-test("Private Pay cannot call sendSmartWalletCalls (railgun-private origin blocked)", async () => {
-  await expect(
-    sendSmartWalletCalls({
-      calls: [{ to: "0xfa7093cdd9ee6932b4eb2c9e1cde7ce00b1fa4b9" as const, data: "0x" as const }],
-      origin: "railgun-private",
-      policy: defaultConnectionPolicy,
-      walletState: {
-        ...emptyWalletState,
-        passkeyCredentialId: "mock-cred",
-        passkeyPublicKey: mockPublicKey,
-        passkeyCredentials: []
-      }
-    })
-  ).rejects.toThrow("Private Pay cannot be submitted through the public smart wallet.");
+test("a public batch cannot smuggle a private-origin call", async () => {
+  await expect(sendSmartWalletCalls({
+    calls: [{ to: "0xfa7093cdd9ee6932b4eb2c9e1cde7ce00b1fa4b9", data: "0x", origin: "railgun-private" }],
+    origin: "public-smart-wallet",
+    policy: new Proxy(defaultConnectionPolicy, { get() { throw new Error("Public policy accessed"); } }),
+    walletState: emptyWalletState
+  })).rejects.toThrow(privateSmartWalletSubmissionError);
 });
 
-test("Private Pay cannot include a Coinbase Smart Wallet batch or WETH.withdraw tail-call", () => {
-  const paySource = readFileSync(resolve("src/railgun/pay.ts"), "utf8");
-  expect(paySource).not.toContain('WETH.withdraw');
-  expect(paySource).not.toContain('withdraw');
+for (const assetSymbol of ["ETH", "WETH", "USDC"]) {
+  test(`private ${assetSymbol} payment fails before any outbound request or wallet unlock`, async () => {
+    const originalFetch = globalThis.fetch;
+    let requests = 0;
+    globalThis.fetch = async () => { requests++; throw new Error("Unexpected outbound request"); };
+    try {
+      await expect(prepareRailgunPayForRecipient({
+        amount: "1",
+        asset: getPayAsset(assetSymbol)!,
+        policy: new Proxy(defaultConnectionPolicy, {
+          get() { throw new Error("Endpoint policy accessed before capability gate"); }
+        }),
+        recipient: "0x000000000000000000000000000000000000dEaD",
+        walletState: {
+          ...emptyWalletState,
+          railgunAddress: railgunDerivationFixtures[1].railgunAddress,
+          railgunDerivationProvider: "kohaku-railgun",
+          railgunDerivationVersion: "railgun-babyjubjub-v1"
+        },
+        onStatus: () => undefined,
+        onProgress: (progress) => expect(progress.percent).toBe(0)
+      })).rejects.toThrow(KOHAKU_PRIVATE_SUBMISSION_BLOCKER);
+      expect(requests).toBe(0);
+    } finally { globalThis.fetch = originalFetch; }
+  });
+}
+
+test("the private App action has no public submitter or fabricated success path", () => {
+  const source = readFileSync("src/App.tsx", "utf8");
+  const start = source.indexOf("const submitPay = async");
+  const end = source.indexOf("const submitShield = async", start);
+  expect(start).toBeGreaterThan(-1);
+  const action = source.slice(start, end);
+  expect(action).toContain("prepareRailgunPayForRecipient");
+  expect(action).not.toMatch(/sendSmartWalletCalls|sendTransaction|bundlerUrl|paymasterUrl|percent: 100/);
 });
-
-test("A generated railgun-private operation must use waku-railgun-broadcaster", () => {
-  const paySource = readFileSync(resolve("src/railgun/pay.ts"), "utf8");
-  expect(paySource).toContain('submissionMode: "railgun-waku-broadcaster"');
-  expect(paySource).toContain('submitter: "waku-railgun-broadcaster"');
-});
-
-test("Private Pay submit path in App.tsx asserts broadcaster invariants", () => {
-  const appSource = readFileSync(resolve("src/App.tsx"), "utf8");
-  const submitPayStart = appSource.indexOf("const submitPay = async () =>");
-  const submitPayEnd = appSource.indexOf("const submitShield = async", submitPayStart);
-  const submitPaySource = appSource.slice(submitPayStart, submitPayEnd);
-
-  expect(submitPayStart).toBeGreaterThan(-1);
-  expect(submitPaySource).toContain('throw new Error("Private Pay cannot be submitted through the public smart wallet.");');
-});
-
 test("UserOp simulation errors include decoded call targets/selectors", async () => {
   const mockCalls = [
     {
@@ -139,43 +156,3 @@ test("Public smart-wallet actions fail before send if callGasLimit or preVerific
     globalThis.fetch = originalFetch;
   }
 });
-
-test("private Pay does not require bundlerUrl", () => {
-  const paySource = readFileSync(resolve("src/railgun/pay.ts"), "utf8");
-  const prepareIndex = paySource.indexOf("export const prepareRailgunPayForRecipient");
-  const prepareSource = paySource.slice(prepareIndex);
-  expect(prepareSource).not.toContain("policy.bundlerUrl");
-});
-
-test("public recipient + ETH chooses native-eth-unshield and public recipient + WETH chooses erc20-unshield", () => {
-  const paySource = readFileSync(resolve("src/railgun/pay.ts"), "utf8");
-  expect(paySource).toContain('settlementKind = "native-eth-unshield"');
-  expect(paySource).toContain('settlementKind = "erc20-unshield"');
-});
-
-test("public recipient + ETH does not throw the old guard", () => {
-  const paySource = readFileSync(resolve("src/railgun/pay.ts"), "utf8");
-  expect(paySource).not.toContain("ETH settlement requires private unshield-and-call routing; WETH settlement is the only supported test path.");
-});
-
-test("public recipient + ETH does not produce WETH.withdraw tail-call", () => {
-  const paySource = readFileSync(resolve("src/railgun/pay.ts"), "utf8");
-  expect(paySource).not.toContain("WETH.withdraw");
-  
-  // Since paySource uses a dynamic string construct for the fallback message,
-  // it doesn't contain the literal word 'withdraw' or 'WETH.withdraw'.
-  expect(paySource).not.toContain("withdraw");
-});
-
-test("private Pay requires fresh Waku broadcaster", () => {
-  const paySource = readFileSync(resolve("src/railgun/pay.ts"), "utf8");
-  const prepareIndex = paySource.indexOf("export const prepareRailgunPayForRecipient");
-  const prepareSource = paySource.slice(prepareIndex);
-  expect(prepareSource).toContain("getRailgunWakuBroadcasterQuote");
-});
-
-test("private Pay returns PreparedBroadcasterSubmit with submitter waku-railgun-broadcaster", () => {
-  const paySource = readFileSync(resolve("src/railgun/pay.ts"), "utf8");
-  expect(paySource).toContain('submitter: "waku-railgun-broadcaster"');
-});
-

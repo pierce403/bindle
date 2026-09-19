@@ -79,7 +79,7 @@ test("send proof progress exposes honest stages", () => {
     expect.arrayContaining([
       expect.objectContaining({ id: "intent", status: "complete" }),
       expect.objectContaining({ id: "endpoints", status: "complete" }),
-      expect.objectContaining({ id: "proof", status: "active" }),
+      expect.objectContaining({ id: "proof", status: "waiting" }),
       expect.objectContaining({ id: "submit", status: "waiting" })
     ])
   );
@@ -103,7 +103,7 @@ test("proof stage calculates correct inline percent and keeps submit waiting", (
   expect(submitStage?.status).toBe("waiting");
 });
 
-test("submit stage becomes complete when proofPercent reaches 100", () => {
+test("a completed proof does not imply a submitted transaction", () => {
   const progress = buildSendProofProgress({
     intentReady: true,
     endpointsReady: true,
@@ -114,6 +114,16 @@ test("submit stage becomes complete when proofPercent reaches 100", () => {
   });
 
   const submitStage = progress.stages.find(s => s.id === "submit");
-  expect(submitStage?.status).toBe("complete");
+  expect(submitStage?.status).toBe("waiting");
 });
 
+test("submission progress needs an explicit successful submission result", () => {
+  const progress = buildSendProofProgress({
+    intentReady: true, endpointsReady: true, proofReady: true,
+    submitting: false, submitted: true, proofPercent: 100,
+    missingEndpointLabels: []
+  });
+  expect(progress.stages.find(stage => stage.id === "submit")).toMatchObject({
+    status: "complete", detail: "Transaction submitted"
+  });
+});

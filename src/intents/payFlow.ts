@@ -1,6 +1,7 @@
 import type { PayAsset } from "./assets";
 import type { ConnectionPolicy } from "../privacy/connectionPolicy";
 import type { TxOrigin } from "../wallet/transactionOrigin";
+import { KOHAKU_PRIVATE_SUBMISSION_BLOCKER } from "../railgun/privateTransactionBridge";
 
 export type PayLeg =
   | {
@@ -41,7 +42,7 @@ export const privatePayBroadcasterRequiredMessage =
   "Pay requires a RAILGUN Broadcaster for the private source leg. Public smart-wallet submission would link this payment to your funding wallet.";
 
 export const kohakuPrivateActionsPendingMessage =
-  "Private actions are pending Kohaku Waku broadcaster compatibility. Bindle now watches Waku fee ads and auto-selects compatible relay candidates, but live Private Pay still needs a verified Kohaku submitter plus a proved private operation. Bindle will not submit private RAILGUN actions through your public smart wallet.";
+  KOHAKU_PRIVATE_SUBMISSION_BLOCKER;
 
 export const privatePayChangeRequiredMessage =
   "Private Pay change must return privately to your 0zk or remain in a fresh ephemeral settlement account for later sweep. Bindle will not send leftover change to the recipient, provider, or durable funding wallet.";
@@ -88,11 +89,11 @@ export const getRailgunBroadcasterReadiness = (
 
   const broadcasterUrl = policy.broadcasterUrl.trim();
 
-  if (!broadcasterUrl) {
+  if (!broadcasterUrl || !policy.wakuEnabled || !policy.railgunBroadcasterEnabled || policy.railgunBroadcasterMode === "off") {
     return {
       ready: false,
       status: "off",
-      message: "Configure a Waku Broadcaster before shielded pay.",
+      message: "Enable the RAILGUN Waku broadcaster transport before private payments. " + kohakuPrivateActionsPendingMessage,
       feeToken,
       fee: "unquoted",
       wakuStatus: "off"
@@ -100,12 +101,12 @@ export const getRailgunBroadcasterReadiness = (
   }
 
   return {
-    ready: true,
+    ready: false,
     status: "configured",
-    message: "Waku Broadcaster configured. Private Pay will submit via Waku relayers.",
+    message: kohakuPrivateActionsPendingMessage,
     feeToken,
-    fee: "paid from 0zk balance",
-    wakuStatus: "on"
+    fee: "not quoted",
+    wakuStatus: "configured; discovery is separate from payment readiness"
   };
 };
 

@@ -23,15 +23,10 @@ import {
 import { WalletActionPanel } from "./components/WalletActionPanel";
 import { getPayAsset } from "./intents/assets";
 import {
-  assertPrivatePayChangeDisposition,
-  classifyPayTransactionOrigin,
-  ephemeralPrivatePayChangeMessage,
   getRailgunBroadcasterReadiness,
-  privatePayLegs,
   type RailgunBroadcasterReadiness
 } from "./intents/payFlow";
 import { routeIntent, type IntentDraft, type RoutedIntent } from "./intents/router";
-import { getPaySwapRoutePlan } from "./intents/swapRouting";
 import { usdToEthString } from "./intents/conversion";
 import {
   clearDebugLog,
@@ -62,8 +57,7 @@ import {
   upsertRelaysFromWakuSnapshot
 } from "./railgun/relayRegistry";
 import { prepareRailgunPayForRecipient, type RailgunPayProgress } from "./railgun/pay";
-import { submitRailgunWakuBroadcasterTransaction } from "./railgun/wakuBroadcaster";
-import { ArtifactProxyReloadRequiredError } from "./pwa/serviceWorkerControl";
+import { broadcasterPolicyKey } from "./railgun/wakuBroadcaster";
 
 import {
   fetchShieldedEthBalance,
@@ -76,16 +70,19 @@ import {
 import {
   clearCachedShieldedEthBalance,
   loadCachedShieldedEthBalance,
-  saveCachedShieldedEthBalance,
-  type ShieldedEthBalanceCacheContext
+  saveCachedShieldedEthBalance
 } from "./railgun/shieldedBalanceCache";
+import { isBalanceForWallet, railgunWalletIdentityKey, shieldedBalanceCacheContextForWallet, shieldedBalanceSyncContextKey } from "./railgun/shieldedBalanceContext";
 import {
+  assertRecoverableRailgunWallet,
   clearEncryptedRailgunWallet,
   createEncryptedRailgunWallet,
   exportEncryptedRailgunWallet,
+  getEncryptedRailgunWalletRevision,
   getEncryptedRailgunWalletStorageMode,
   importEncryptedRailgunWallet
 } from "./railgun/railgunWallet";
+import { parseRailgunDerivationVersion, type RailgunDerivationVersion } from "./railgun/railgunDerivation";
 import {
   startPrivacyToolkit,
   type PrivacyToolkitHandle,
@@ -370,40 +367,13 @@ const shieldedBalanceNetworkStatus = (
   }
 };
 
-const defaultShieldedBalanceChainId = 1n;
-
-const shieldedBalanceCacheContextForWallet = (
-  wallet: Pick<WalletState, "railgunAddress" | "railgunDerivationProvider">
-): ShieldedEthBalanceCacheContext | null =>
-  wallet.railgunAddress
-    ? {
-        railgunAddress: wallet.railgunAddress,
-        derivationProvider: wallet.railgunDerivationProvider ?? "unknown",
-        chainId: defaultShieldedBalanceChainId
-      }
-    : null;
-
 const loadCachedShieldedBalanceForWallet = (
-  wallet: Pick<WalletState, "railgunAddress" | "railgunDerivationProvider">
+  wallet: Pick<WalletState, "railgunAddress" | "railgunDerivationProvider" | "railgunDerivationVersion">
 ): ShieldedEthBalance | null => {
   const context = shieldedBalanceCacheContextForWallet(wallet);
 
   return context ? loadCachedShieldedEthBalance(context) : null;
 };
-
-const isBalanceForWallet = (
-  balance: ShieldedEthBalance | null,
-  wallet: Pick<WalletState, "railgunAddress" | "railgunDerivationProvider">
-): balance is ShieldedEthBalance =>
-  Boolean(
-    balance &&
-      wallet.railgunAddress &&
-      balance.railgunAddress.toLowerCase() ===
-        wallet.railgunAddress.toLowerCase() &&
-      balance.derivationProvider ===
-        (wallet.railgunDerivationProvider ?? "unknown") &&
-      balance.chainId === defaultShieldedBalanceChainId
-  );
 
 function WalletApp() {
   const [draft, setDraft] = useState<IntentDraft>(initialDraft);
@@ -475,6 +445,9 @@ function WalletApp() {
   const [railgunStorageMode, setRailgunStorageMode] =
     useState<RailgunStorageMode>("missing");
   const [railgunStorageChecked, setRailgunStorageChecked] = useState(false);
+  const [verifiedRailgunIdentity, setVerifiedRailgunIdentity] = useState<string | null>(null);
+  const [railgunValidationRevision, setRailgunValidationRevision] = useState(0);
+  const walletMutationBlocked = isSubmittingShield || isSubmittingPay;
   const [localOnboardingComplete, setLocalOnboardingComplete] = useState(
     loadLocalOnboardingComplete
   );
@@ -506,10 +479,14 @@ function WalletApp() {
   const publicBalanceRequestRef = useRef(0);
   const publicActivityRequestRef = useRef(0);
   const shieldedBalanceRequestRef = useRef(0);
+  const walletIdentity = railgunWalletIdentityKey(walletState);
+  const balanceSyncContext = shieldedBalanceSyncContextKey(walletState, policy);
+  const balanceSyncContextRef = useRef(balanceSyncContext);
+  balanceSyncContextRef.current = balanceSyncContext;
   const smartAccountDeploymentRequestRef = useRef(0);
   const publicBalanceAutoSyncKeyRef = useRef<string | null>(null);
   const shieldedBalanceAutoSyncKeyRef = useRef<string | null>(null);
-  const relayAutoWatchInFlightRef = useRef(false);
+  const relayAutoWatchInFlightRef = useRef<number | null>(null);
   const relayAutoWatchRunRef = useRef(0);
   const hasRailgunWallet = walletState.railgunAddress !== null;
   const hasSmartWallet = walletState.smartWalletAddress !== null;
@@ -521,7 +498,8 @@ function WalletApp() {
     hasOnboardingWalletShape &&
     walletState.railgunKeyStore === "encrypted-local" &&
     railgunStorageChecked &&
-    railgunStorageMode === "browser-local";
+    railgunStorageMode === "browser-local" &&
+    verifiedRailgunIdentity === walletIdentity;
   const localWalletFullyProvisioned =
     localWalletProvisioned && toolkitState === "ready";
   const onboardingComplete =
@@ -542,14 +520,7 @@ function WalletApp() {
     policy.railgunBroadcasterEnabled &&
     (policy.railgunBroadcasterMode === "waku-public-network" ||
       policy.railgunBroadcasterMode === "custom-waku");
-  const relayAutoWatchPolicyKey = JSON.stringify({
-    enabled: relayAutoWatchEnabled,
-    mode: policy.railgunBroadcasterMode,
-    feeToken: policy.railgunBroadcasterFeeToken,
-    customFeeToken: policy.railgunBroadcasterCustomFeeTokenAddress,
-    pubsubTopic: policy.railgunBroadcasterPubSubTopic,
-    directPeers: policy.railgunBroadcasterDirectPeers
-  });
+  const relayAutoWatchPolicyKey = broadcasterPolicyKey(policy);
   const publicBalanceDisclosure = buildEndpointDisclosure(
     policy,
     "public-balance-sync"
@@ -569,19 +540,24 @@ function WalletApp() {
   const hasRecoverableRailgunKeyMaterial =
     walletState.railgunAddress !== null &&
     walletState.railgunKeyStore === "encrypted-local" &&
-    railgunStorageMode === "browser-local";
+    railgunStorageMode === "browser-local" &&
+    verifiedRailgunIdentity === walletIdentity;
   const currentCachedShieldedBalance = isBalanceForWallet(
     cachedShieldedBalance,
     walletState
   )
     ? cachedShieldedBalance
     : null;
+  const currentShieldedBalanceState: ShieldedBalanceState =
+    shieldedBalance.status === "ready" && !isBalanceForWallet(shieldedBalance.balance, walletState)
+      ? { status: "idle" }
+      : shieldedBalance;
   const visibleShieldedBalance =
-    shieldedBalance.status === "ready"
-      ? shieldedBalance.balance
+    currentShieldedBalanceState.status === "ready"
+      ? currentShieldedBalanceState.balance
       : currentCachedShieldedBalance;
   const isShowingCachedShieldedBalance =
-    visibleShieldedBalance !== null && shieldedBalance.status !== "ready";
+    visibleShieldedBalance !== null && currentShieldedBalanceState.status !== "ready";
   const railgunRepairMode =
     railgunStorageChecked &&
     walletState.railgunAddress !== null &&
@@ -607,7 +583,7 @@ function WalletApp() {
     bundlerUrl: policy.bundlerUrl,
     providerMode: policy.providerMode
   });
-  const canShield = shieldReadiness.ready && !isSubmittingShield;
+  const canShield = shieldReadiness.ready && !walletMutationBlocked && !isImportingAccount;
   const isUnshieldedLessThanMinimum = (() => {
     if (publicBalance.status !== "ready") {
       return false;
@@ -638,8 +614,8 @@ function WalletApp() {
       : null;
 
   const shieldedStatus =
-    shieldedBalance.status === "ready"
-      ? `${shieldedBalance.balance.formattedEth} shielded`
+    currentShieldedBalanceState.status === "ready"
+      ? `${currentShieldedBalanceState.balance.formattedEth} shielded`
       : currentCachedShieldedBalance
         ? `${currentCachedShieldedBalance.formattedEth} shielded`
       : !hasRailgunWallet
@@ -703,6 +679,7 @@ function WalletApp() {
 
     let cancelled = false;
     let timeout: number | null = null;
+    const scanController = new AbortController();
     const runId = relayAutoWatchRunRef.current + 1;
     relayAutoWatchRunRef.current = runId;
 
@@ -721,13 +698,13 @@ function WalletApp() {
       if (
         cancelled ||
         relayAutoWatchRunRef.current !== runId ||
-        relayAutoWatchInFlightRef.current
+        relayAutoWatchInFlightRef.current === runId
       ) {
         schedule();
         return;
       }
 
-      relayAutoWatchInFlightRef.current = true;
+      relayAutoWatchInFlightRef.current = runId;
       setRelayWatchStatus(
         reason === "pay-open"
           ? "Refreshing Waku relays for Pay"
@@ -735,7 +712,7 @@ function WalletApp() {
       );
 
       try {
-        const snapshot = await scanWakuBroadcasterMap(policy);
+        const snapshot = await scanWakuBroadcasterMap(policy, scanController.signal);
 
         if (cancelled || relayAutoWatchRunRef.current !== runId) {
           return;
@@ -791,7 +768,9 @@ function WalletApp() {
           });
         }
       } finally {
-        relayAutoWatchInFlightRef.current = false;
+        if (relayAutoWatchInFlightRef.current === runId) {
+          relayAutoWatchInFlightRef.current = null;
+        }
         schedule();
       }
     };
@@ -800,6 +779,7 @@ function WalletApp() {
 
     return () => {
       cancelled = true;
+      scanController.abort();
 
       if (timeout !== null) {
         window.clearTimeout(timeout);
@@ -816,7 +796,7 @@ function WalletApp() {
 
   useEffect(() => {
     setCachedShieldedBalance(loadCachedShieldedBalanceForWallet(walletState));
-  }, [walletState.railgunAddress, walletState.railgunDerivationProvider]);
+  }, [walletState.railgunAddress, walletState.railgunDerivationProvider, walletState.railgunDerivationVersion]);
 
   useEffect(() => {
     if (localWalletFullyProvisioned && !localOnboardingComplete) {
@@ -941,6 +921,7 @@ function WalletApp() {
   }, [walletState.smartWalletAddress, policy.ethereumRpcUrl, policy.providerMode]);
 
   useEffect(() => {
+    shieldedBalanceRequestRef.current += 1;
     if (!walletState.railgunAddress) {
       shieldedBalanceAutoSyncKeyRef.current = null;
       setShieldedBalance({ status: "missing-wallet" });
@@ -962,16 +943,20 @@ function WalletApp() {
     setShieldedBalance({ status: "idle" });
   }, [
     walletState.railgunAddress,
+    walletState.railgunDerivationProvider,
+    walletState.railgunDerivationVersion,
     walletState.railgunKeyStore,
     railgunStorageMode,
     hasRecoverableRailgunKeyMaterial,
     policy.ethereumRpcUrl,
     policy.railgunSyncUrl,
-    policy.providerMode
+    policy.providerMode,
+    policy.privacyToolkit
   ]);
 
   useEffect(() => {
     let cancelled = false;
+    setVerifiedRailgunIdentity(null);
 
     if (!walletState.railgunAddress) {
       setRailgunStorageMode("missing");
@@ -1001,12 +986,17 @@ function WalletApp() {
 
     setRailgunStorageChecked(false);
 
-    void getEncryptedRailgunWalletStorageMode().then((mode) => {
+    void getEncryptedRailgunWalletStorageMode().then(async (mode) => {
       if (cancelled) {
         return;
       }
 
       setRailgunStorageMode(mode);
+      if (mode === "browser-local") {
+        await assertRecoverableRailgunWallet(walletState);
+        if (cancelled) return;
+        setVerifiedRailgunIdentity(walletIdentity);
+      }
       setRailgunStorageChecked(true);
 
       if (mode === "legacy-passphrase") {
@@ -1034,12 +1024,20 @@ function WalletApp() {
               }
         );
       }
+    }).catch((error) => {
+      if (cancelled) return;
+      setRailgunStorageChecked(true);
+      setAppNotice({
+        kind: "error",
+        title: "Shielded wallet recovery check failed",
+        message: error instanceof Error ? error.message : "The saved wallet could not be verified. Shielding is blocked and wallet data was retained."
+      });
     });
 
     return () => {
       cancelled = true;
     };
-  }, [walletState.railgunAddress, walletState.railgunKeyStore]);
+  }, [walletState.railgunAddress, walletState.railgunKeyStore, walletIdentity, railgunValidationRevision]);
 
   const startToolkit = useCallback(async () => {
     if (toolkitStartRef.current || toolkitState === "starting") {
@@ -1347,6 +1345,11 @@ function WalletApp() {
 
     const requestId = shieldedBalanceRequestRef.current + 1;
     shieldedBalanceRequestRef.current = requestId;
+    const requestContext = balanceSyncContext;
+    const isCurrentRequest = () =>
+      shieldedBalanceRequestRef.current === requestId &&
+      balanceSyncContextRef.current === requestContext &&
+      shieldedBalanceSyncContextKey(loadWalletState(), loadConnectionPolicy()) === requestContext;
     const detail = shieldedBalanceSyncDetail(walletState.railgunAddress, policy);
     setShieldedBalance({ status: "syncing" });
     setStatusMessage("Syncing shielded RAILGUN balance");
@@ -1358,7 +1361,7 @@ function WalletApp() {
     });
 
     const warningTimer = window.setTimeout(() => {
-      if (shieldedBalanceRequestRef.current !== requestId) {
+      if (!isCurrentRequest()) {
         return;
       }
 
@@ -1374,10 +1377,12 @@ function WalletApp() {
     let timeoutTimer: number | null = null;
 
     try {
+      await assertRecoverableRailgunWallet(walletState);
+      if (!isCurrentRequest()) return;
       const balance = await Promise.race([
         fetchShieldedEthBalance(policy, {
           onStatus: (message) => {
-            if (shieldedBalanceRequestRef.current !== requestId) {
+            if (!isCurrentRequest()) {
               return;
             }
 
@@ -1398,7 +1403,10 @@ function WalletApp() {
         })
       ]);
 
-      if (shieldedBalanceRequestRef.current === requestId) {
+      if (isCurrentRequest()) {
+        if (!isBalanceForWallet(balance, walletState)) {
+          throw new Error("Shielded balance result does not match the active wallet and recovery format.");
+        }
         saveCachedShieldedEthBalance(balance);
         setCachedShieldedBalance(balance);
         setShieldedBalance({ status: "ready", balance });
@@ -1420,7 +1428,7 @@ function WalletApp() {
         });
       }
     } catch (error) {
-      if (shieldedBalanceRequestRef.current === requestId) {
+      if (isCurrentRequest()) {
         const message = messageFromError(
           error,
           "Unable to sync shielded balance",
@@ -1472,14 +1480,7 @@ function WalletApp() {
       return;
     }
 
-    const syncKey = [
-      railgunAddress,
-      ethereumRpcUrl,
-      policy.railgunSyncUrl.trim(),
-      policy.providerMode,
-      policy.privacyToolkit,
-      railgunStorageMode
-    ].join(":");
+    const syncKey = balanceSyncContext;
 
     if (
       !shouldStartShieldedBalanceAutoSync({
@@ -1494,6 +1495,7 @@ function WalletApp() {
     shieldedBalanceAutoSyncKeyRef.current = syncKey;
     void syncShieldedBalance();
   }, [
+    balanceSyncContext,
     walletState.railgunAddress,
     policy.ethereumRpcUrl,
     policy.railgunSyncUrl,
@@ -1675,7 +1677,7 @@ function WalletApp() {
   };
 
   const createRailgunWallet = async (): Promise<string | null> => {
-    if (isCreatingRailgunWallet || walletState.railgunAddress) {
+    if (walletMutationBlocked || isCreatingRailgunWallet || walletState.railgunAddress) {
       return null;
     }
 
@@ -1691,7 +1693,8 @@ function WalletApp() {
         walletState,
         wallet.railgunAddress,
         "created",
-        wallet.derivationProvider
+        wallet.derivationProvider,
+        wallet.derivationVersion
       );
       setWalletState(nextState);
       setRailgunStorageMode("browser-local");
@@ -1715,9 +1718,10 @@ function WalletApp() {
   };
 
   const importRailgunWallet = async (
-    recoveryPhrase: string
+    recoveryPhrase: string,
+    derivationVersion: RailgunDerivationVersion
   ): Promise<void> => {
-    if (isImportingRailgunWallet || walletState.railgunAddress) {
+    if (walletMutationBlocked || isImportingRailgunWallet || walletState.railgunAddress) {
       return;
     }
 
@@ -1726,12 +1730,13 @@ function WalletApp() {
     setAppNotice(null);
 
     try {
-      const wallet = await importEncryptedRailgunWallet({ recoveryPhrase });
+      const wallet = await importEncryptedRailgunWallet({ recoveryPhrase, derivationVersion });
       const nextState = markRailgunWalletReady(
         walletState,
         wallet.railgunAddress,
         "imported",
-        wallet.derivationProvider
+        wallet.derivationProvider,
+        wallet.derivationVersion
       );
       setWalletState(nextState);
       setRailgunStorageMode("browser-local");
@@ -1754,7 +1759,7 @@ function WalletApp() {
   };
 
   const replaceIncompatibleRailgunWallet = async () => {
-    if (!railgunRepairMode || isReplacingRailgunWallet) {
+    if (walletMutationBlocked || !railgunRepairMode || isReplacingRailgunWallet) {
       return;
     }
 
@@ -1783,7 +1788,8 @@ function WalletApp() {
         clearedState,
         wallet.railgunAddress,
         "created",
-        wallet.derivationProvider
+        wallet.derivationProvider,
+        wallet.derivationVersion
       );
       setWalletState(nextState);
       setRailgunStorageMode("browser-local");
@@ -1811,231 +1817,46 @@ function WalletApp() {
 
   const submitPay = async () => {
     const asset = getPayAsset(draft.asset);
-
     if (!asset) {
       setPayStatus("Choose a supported pay asset.");
       return;
     }
-
-    const convertedAmountEth = usdToEthString(draft.amount.trim(), visibleShieldedBalance?.price ?? null);
-    const amountDetail = asset.symbol === "ETH"
-      ? `$${draft.amount.trim()} (~${convertedAmountEth} ETH)`
-      : `$${draft.amount.trim()} ${asset.symbol}`;
-
     if (!walletState.railgunAddress) {
       setPayStatus("Create or import a shielded 0zk wallet before Pay.");
       return;
     }
-
     setIsSubmittingPay(true);
-    setPayStatus("Initializing keys...");
-    setPayProofProgress({
-      percent: 20,
-      status: "Initializing keys"
-    });
+    setPayProofProgress({ percent: 0, status: "Checking private payment capability" });
     setAppNotice(null);
-
-    let preparedPay: any = null;
     try {
-      if (activeAction === "send") {
-        setPayStatus("Generating zk-SNARK proof...");
-        setPayProofProgress({
-          percent: 40,
-          status: "Generating zk-SNARK proof"
-        });
-
-        preparedPay = await prepareRailgunPayForRecipient({
-          amount: convertedAmountEth,
-          asset,
-          policy,
-          recipient: draft.recipient,
-          walletState,
-          onProgress: (progress) => {
-            setPayProofProgress({
-              percent: 40 + Math.floor(progress.percent * 0.4),
-              status: progress.status
-            });
-          },
-          onStatus: (msg) => {
-            setPayStatus(msg);
-          }
-        });
-
-        const intent = { origin: "railgun-private" as const };
-        if (intent.origin === "railgun-private") {
-          if (
-            !preparedPay.privateOperation ||
-            preparedPay.privateOperation.submitter !== "waku-railgun-broadcaster" ||
-            preparedPay.submissionMode !== "railgun-waku-broadcaster"
-          ) {
-            throw new Error("Private Pay cannot be submitted through the public smart wallet.");
-          }
-        }
-
-        if (!preparedPay.privateOperation) {
-          throw new Error("Private operation preparation failed.");
-        }
-
-        // Safety Assertions
-        if (preparedPay.privateOperation.submitter === "erc4337-bundler") {
-          throw new Error("Private Pay cannot use submitter erc4337-bundler");
-        }
-
-        setPayStatus("Submitting private transaction via Waku broadcaster...");
-        setPayProofProgress({
-          percent: 90,
-          status: "Submitting private transaction"
-        });
-
-        const result = await submitRailgunWakuBroadcasterTransaction({
-          prepared: preparedPay.privateOperation,
-          policy,
-          onStatus: (msg) => setPayStatus(msg)
-        });
-
-        const txHash = result.transactionHash || "pending";
-
-        setPayStatus(`Submitted: ${txHash}`);
-        setPayProofProgress({
-          percent: 100,
-          status: `Submitted: ${txHash}`
-        });
-
-        recordDebugEvent({
-          level: "info",
-          source: "pay",
-          message: `Private send submitted: ${txHash}`,
-          detail: `Recipient: ${draft.recipient}\nAmount: $${draft.amount} (~${convertedAmountEth} ETH)\nBroadcaster: ${result.broadcasterId}\nTx Hash: ${txHash}\nSubmitted via: waku-railgun-broadcaster`
-        });
-      } else {
-        if (classifyPayTransactionOrigin(privatePayLegs) !== "railgun-private") {
-          setPayStatus("Private Pay route origin is not railgun-private.");
-          return;
-        }
-
-        const paySwapRoutePlan = getPaySwapRoutePlan(asset);
-        const readinessLines = [
-          "✅ RPC and ERC-4337 bundler checked",
-          "✅ zk-SNARK proof generation ready",
-          `✅ Relayer: ERC-4337 bundler (${policy.bundlerUrl.trim()})`,
-          `✅ Fee token: ${policy.railgunBroadcasterFeeToken}`
-        ];
-
-        try {
-          const changeDisposition =
-            paySwapRoutePlan?.changeDisposition ?? "unknown";
-
-          assertPrivatePayChangeDisposition(changeDisposition);
-          readinessLines.push(
-            changeDisposition === "private-change-to-0zk"
-              ? "✅ Change routing returns to 0zk"
-              : `✅ ${ephemeralPrivatePayChangeMessage}`
-          );
-        } catch {
-          readinessLines.push("❌ Unsafe change routing is blocked");
-        }
-
-        setPayProofProgress({
-          percent: 100,
-          status: readinessLines.join("\n")
-        });
-        setPayStatus(readinessLines.join("\n"));
-        recordDebugEvent({
-          level: "info",
-          source: "pay",
-          message: "Private Pay readiness checked",
-          detail: [
-            `Recipient: ${draft.recipient.trim()}`,
-            `Amount: ${amountDetail}`,
-            `Railgun address: ${walletState.railgunAddress}`,
-            `Derivation provider: ${walletState.railgunDerivationProvider ?? "unknown"}`,
-            readinessLines.join("\n")
-          ].join("\n")
-        });
-        setAppNotice({
-          kind: "warning",
-          title: "Private Pay readiness checked",
-          message:
-            "ERC-4337 bundler checked. Proof generation and bundler-relayed private actions are fully ready for private payments."
-        });
-      }
-    } catch (error) {
-      setFreshPrivatePayReadiness(null);
-      setPayProofProgress({
-        percent: 40,
-        status: "❌ Private send preparation failed"
+      // This capability gate runs before unlocking keys or contacting endpoints.
+      // Relay observations alone cannot authorize a private payment.
+      await prepareRailgunPayForRecipient({
+        amount: usdToEthString(draft.amount.trim(), visibleShieldedBalance?.price ?? null),
+        asset,
+        policy,
+        recipient: draft.recipient,
+        walletState,
+        onProgress: setPayProofProgress,
+        onStatus: setPayStatus
       });
-      setPayStatus(
-        messageFromError(
-          error,
-          "Unable to submit private payment",
-          "pay",
-          [
-            `Recipient: ${draft.recipient.trim()}`,
-            `Amount: ${amountDetail}`,
-            `Railgun address: ${walletState.railgunAddress}`
-          ].join("\n")
-        )
-      );
-      const errMessage = error instanceof Error ? error.message : String(error);
-
-      if (error instanceof ArtifactProxyReloadRequiredError || (error && (error as any).name === "ArtifactProxyReloadRequiredError")) {
-        setAppNotice({
-          kind: "warning",
-          title: "Updating RAILGUN proof artifact cache",
-          message: "The RAILGUN artifact proxy was reset to apply updates. Bindle will reload in a moment to complete activation."
-        });
-        sessionStorage.setItem("bindle.artifactProxyRepairAttempted.v4", "true");
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
-        return;
-      }
-
-      const isArtifactProxyError =
-        errMessage.includes("artifact proxy") ||
-        errMessage.includes("expected railgun-artifacts-v") ||
-        errMessage.includes("transformed or truncated bytes") ||
-        errMessage.includes("Artifact loader error") ||
-        errMessage.includes("Decompression error") ||
-        errMessage.includes("ArtifactProxyReloadRequiredError");
-
-      const hasAttemptedRepair = sessionStorage.getItem("bindle.artifactProxyRepairAttempted.v4") === "true";
-
+    } catch (error) {
+      const message = messageFromError(error, "Private payment unavailable", "pay");
+      setFreshPrivatePayReadiness(null);
+      setPayProofProgress({ percent: 0, status: message });
+      setPayStatus(message);
       setAppNotice({
-        kind: "error",
-        title: isArtifactProxyError ? "RAILGUN artifact cache error" : "Private action failed",
-        message: errMessage,
-        action: isArtifactProxyError
-          ? {
-              kind: "refresh-artifact-cache",
-              label: hasAttemptedRepair ? "Reset artifact cache" : "Refresh RAILGUN artifact cache"
-            }
-          : undefined
+        kind: "warning",
+        title: "Private payment unavailable",
+        message
       });
     } finally {
       setIsSubmittingPay(false);
-      if (preparedPay) {
-        if (preparedPay.provider) {
-          try {
-            preparedPay.provider.free();
-          } catch (e) {}
-        }
-        if (preparedPay.syncer) {
-          try {
-            preparedPay.syncer.free();
-          } catch (e) {}
-        }
-        if (preparedPay.privateOperation?.signableUserOp) {
-          try {
-            preparedPay.privateOperation.signableUserOp.free();
-          } catch (e) {}
-        }
-      }
     }
   };
 
   const submitShield = async (request: ShieldRequest) => {
+    if (walletMutationBlocked || isImportingAccount || isImportingRailgunWallet || isCreatingRailgunWallet || isReplacingRailgunWallet) return;
     if (!walletState.railgunAddress) {
       setShieldStatus("Create a shielded 0zk address before shielding.");
       return;
@@ -2074,8 +1895,23 @@ function WalletApp() {
     let amountWei = requestedAmountWei ?? publicBalance.balance.wei;
     let availableBalanceWei = publicBalance.balance.wei;
     let gasReserveWei = 0n;
+    const assertCurrentShieldWallet = async () => {
+      try {
+        await assertRecoverableRailgunWallet(walletState);
+        const current = loadWalletState();
+        if (railgunWalletIdentityKey(current) !== walletIdentity || current.smartWalletAddress !== walletState.smartWalletAddress) {
+          throw new Error("The active wallet changed. Review the current wallet before shielding.");
+        }
+      } catch (error) {
+        setVerifiedRailgunIdentity(null);
+        throw error;
+      }
+    };
 
     try {
+      // Validate the exact local destination before even deploying the public
+      // account: a stored-record marker alone does not prove key recovery.
+      await assertCurrentShieldWallet();
       if (!walletState.smartWalletAddress) {
         throw new Error("Create the public funding smart account before shielding.");
       }
@@ -2170,6 +2006,7 @@ function WalletApp() {
         debugLogging: policy.debugLogging,
         railgunAddress: walletState.railgunAddress
       });
+      await assertCurrentShieldWallet();
       setShieldStatus("Submitting shield user operation");
       recordDebugEvent({
         level: "info",
@@ -2288,18 +2125,7 @@ function WalletApp() {
   };
 
   const importAccountExportFile = async (file: File) => {
-    if (isExportingAccount || isImportingAccount) {
-      return;
-    }
-
-    if (
-      (walletState.passkeyPresent ||
-        walletState.smartWalletAddress ||
-        walletState.railgunAddress) &&
-      !window.confirm(
-        "Importing an account export replaces local Bindle wallet metadata and Bindle-owned encrypted RAILGUN secrets in this browser. Continue?"
-      )
-    ) {
+    if (walletMutationBlocked || isExportingAccount || isImportingAccount) {
       return;
     }
 
@@ -2310,29 +2136,32 @@ function WalletApp() {
 
     try {
       const accountExport = parseBindleAccountExport(await file.text());
+      const expectedStoredRevision = await getEncryptedRailgunWalletRevision();
+      if (
+        (expectedStoredRevision !== null || walletState.passkeyPresent || walletState.smartWalletAddress || walletState.railgunAddress) &&
+        !window.confirm("Importing an account export replaces local Bindle wallet metadata and Bindle-owned encrypted RAILGUN secrets in this browser. Continue?")
+      ) {
+        setAccountExportStatus("Import cancelled. Existing wallet data was not changed.");
+        setStatusMessage("Import cancelled");
+        return;
+      }
       const importedWallet = accountExport.railgunWallet
         ? await importEncryptedRailgunWallet({
             recoveryPhrase: accountExport.railgunWallet.recoveryPhrase,
             keyIndex: accountExport.railgunWallet.keyIndex,
-            chainId: BigInt(accountExport.railgunWallet.chainId)
+            chainId: BigInt(accountExport.railgunWallet.chainId),
+            derivationVersion: parseRailgunDerivationVersion(accountExport.railgunWallet.derivationVersion),
+            expectedRailgunAddress: accountExport.railgunWallet.railgunAddress,
+            expectedStoredRevision
           })
         : null;
-
-      if (
-        importedWallet &&
-        accountExport.railgunWallet &&
-        importedWallet.railgunAddress !== accountExport.railgunWallet.railgunAddress
-      ) {
-        await clearEncryptedRailgunWallet();
-        throw new Error(
-          "Account export RAILGUN address does not match its recovery phrase."
-        );
-      }
 
       const baseState: WalletState = {
         ...accountExport.wallet,
         railgunAddress: null,
         railgunKeyStore: null,
+        railgunDerivationProvider: null,
+        railgunDerivationVersion: null,
         mnemonicPresent: false,
         railgunWalletCreatedAt: null,
         railgunWalletImportedAt: null,
@@ -2343,21 +2172,25 @@ function WalletApp() {
             ? "passkey-ready"
             : "none"
       };
+      if (!importedWallet) {
+        await clearEncryptedRailgunWallet(expectedStoredRevision);
+      }
+
       const nextState = importedWallet
         ? markRailgunWalletReady(
             baseState,
             importedWallet.railgunAddress,
             "imported",
-            importedWallet.derivationProvider
+            importedWallet.derivationProvider,
+            importedWallet.derivationVersion
           )
         : saveWalletState(baseState);
 
-      if (!importedWallet) {
-        await clearEncryptedRailgunWallet();
-      }
-
       setWalletState(nextState);
       setRailgunStorageMode(importedWallet ? "browser-local" : "missing");
+      setVerifiedRailgunIdentity(null);
+      setRailgunValidationRevision(revision => revision + 1);
+      setShieldStatus("");
       setRailgunStorageChecked(true);
       setRailgunRepairPreviousAddress(null);
       setRailgunRepairStatus("");
@@ -2607,6 +2440,7 @@ function WalletApp() {
   };
 
   const resetLocalWallet = () => {
+    if (walletMutationBlocked) return;
     setWalletState(resetWalletState());
     clearLocalOnboardingComplete();
     setLocalOnboardingComplete(false);
@@ -2767,7 +2601,7 @@ function WalletApp() {
               totalBalance={shieldedBalanceUsd}
               balanceLabel={balanceLabel}
               networkStatus={shieldedBalanceNetworkStatus(
-                shieldedBalance,
+                currentShieldedBalanceState,
                 currentCachedShieldedBalance
               )}
               shieldedStatus={shieldedStatus}
@@ -2859,6 +2693,7 @@ function WalletApp() {
 
         {activeTab === "settings" ? (
           <SettingsPanel
+            walletMutationBlocked={walletMutationBlocked}
             updateBusy={updateBusy}
             theme={theme}
             walletState={walletState}

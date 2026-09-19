@@ -1,5 +1,11 @@
-import { HDNodeWallet, Mnemonic } from "ethers";
+import { HDNodeWallet, Mnemonic, keccak256, toUtf8Bytes } from "ethers";
 import { loadKohakuRailgunBrowserModule } from "./kohakuRailgunModule";
+import {
+  canonicalRailgunDerivation,
+  deriveRailgunKeys,
+  parseRailgunDerivationVersion,
+  type RailgunDerivationVersion
+} from "./railgunDerivation";
 
 type KohakuRailgunTypes = typeof import("@kohaku-eth/railgun");
 type KohakuSignerModule = Pick<
@@ -10,6 +16,7 @@ type KohakuSignerModule = Pick<
 type BrowserLocalRailgunWalletRecord = {
   id: "primary";
   version: 2;
+  derivationVersion?: RailgunDerivationVersion;
   railgunAddress: string;
   derivationProvider?:
     | RailgunWalletDerivationProvider
@@ -51,6 +58,7 @@ type EncryptedRailgunWalletRecord =
 
 type RailgunSecretPayload = {
   version: 1;
+  derivationVersion?: RailgunDerivationVersion;
   recoveryPhrase: string;
   keyIndex: number;
   chainId: string;
@@ -63,6 +71,7 @@ export type RailgunWalletDerivationProvider =
 export type RailgunWalletResult = {
   railgunAddress: string;
   derivationProvider: RailgunWalletDerivationProvider;
+  derivationVersion: RailgunDerivationVersion;
   keyIndex: number;
   chainId: bigint;
   storedAt: string;
@@ -82,6 +91,7 @@ export type UnlockedRailgunWallet = RailgunWalletResult & {
 export type ExportedRailgunWallet = {
   railgunAddress: string;
   derivationProvider: RailgunWalletDerivationProvider;
+  derivationVersion?: RailgunDerivationVersion;
   recoveryPhrase: string;
   keyIndex: number;
   chainId: string;
@@ -240,14 +250,26 @@ const decryptSecretPayload = async (
 
   return {
     version: 1,
+    derivationVersion: parseRailgunDerivationVersion(payload.derivationVersion),
     recoveryPhrase: payload.recoveryPhrase,
     keyIndex: payload.keyIndex,
     chainId: payload.chainId
   };
 };
 
+const recordRevision = (record: EncryptedRailgunWalletRecord | null | undefined): string | null =>
+  record ? keccak256(toUtf8Bytes(JSON.stringify(record))) : null;
+
+const assertStoredWalletRevision = async (store: IDBObjectStore, expected: string | null): Promise<void> => {
+  const current = await requestToPromise<EncryptedRailgunWalletRecord | undefined>(store.get(primaryRecordId));
+  if (recordRevision(current) !== expected) {
+    throw new Error("The stored RAILGUN wallet changed while import was being reviewed. Existing keys were not changed. Review the import again.");
+  }
+};
+
 const storeEncryptedWallet = async (
-  record: BrowserLocalRailgunWalletRecord
+  record: BrowserLocalRailgunWalletRecord,
+  expectedStoredRevision?: string | null
 ): Promise<void> => {
   // Storage boundary: this IndexedDB object store is the only Bindle-owned
   // place where RAILGUN recovery material may be persisted. The recovery phrase
@@ -257,7 +279,21 @@ const storeEncryptedWallet = async (
   // later layer. The matching public 0zk address and key-store marker live in
   // localStorage metadata.
   await withSecretStore("readwrite", async (store) => {
-    await requestToPromise(store.put(record));
+    try {
+      // Unconfirmed imports/creates use atomic add. Explicitly reviewed
+      // replacements compare the old revision within this same transaction.
+      if (expectedStoredRevision) {
+        await assertStoredWalletRevision(store, expectedStoredRevision);
+        await requestToPromise(store.put(record));
+      } else {
+        await requestToPromise(store.add(record));
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "ConstraintError") {
+        throw new Error("A RAILGUN wallet is already stored in this browser. Existing keys were not changed. Recover or explicitly replace that wallet before importing or creating another.");
+      }
+      throw error;
+    }
   });
 };
 
@@ -304,29 +340,24 @@ const derivationProviderForRecord = (
 const deriveRailgunWallet = async ({
   recoveryPhrase,
   keyIndex,
-  chainId
+  chainId,
+  derivationVersion
 }: {
   recoveryPhrase: string;
   keyIndex: number;
   chainId: bigint;
+  derivationVersion: RailgunDerivationVersion;
 }): Promise<{
   railgunAddress: string;
   spendingKey: `0x${string}`;
   viewingKey: `0x${string}`;
 }> => {
   const kohaku = await loadKohakuSignerModule();
-  const spendingPath = kohaku.RailgunSigner.spendingKeyPath(keyIndex);
-  const viewingPath = kohaku.RailgunSigner.viewingKeyPath(keyIndex);
-  const spendingKey = HDNodeWallet.fromPhrase(
+  const { spendingKey, viewingKey } = deriveRailgunKeys({
     recoveryPhrase,
-    undefined,
-    spendingPath
-  ).privateKey as `0x${string}`;
-  const viewingKey = HDNodeWallet.fromPhrase(
-    recoveryPhrase,
-    undefined,
-    viewingPath
-  ).privateKey as `0x${string}`;
+    keyIndex,
+    derivationVersion
+  });
   const signer = kohaku.RailgunSigner.privateKey(
     spendingKey,
     viewingKey,
@@ -348,26 +379,37 @@ const persistRailgunWallet = async ({
   recoveryPhrase,
   source,
   keyIndex,
-  chainId
+  chainId,
+  derivationVersion,
+  expectedRailgunAddress,
+  expectedStoredRevision
 }: {
   recoveryPhrase: string;
   source: "created" | "imported";
   keyIndex: number;
   chainId: bigint;
+  derivationVersion: RailgunDerivationVersion;
+  expectedRailgunAddress?: string;
+  expectedStoredRevision?: string | null;
 }): Promise<RailgunWalletResult> => {
   assertRecoveryPhrase(recoveryPhrase);
 
   const derived = await deriveRailgunWallet({
     recoveryPhrase,
     keyIndex,
-    chainId
+    chainId,
+    derivationVersion
   });
   const railgunAddress = derived.railgunAddress;
+  if (expectedRailgunAddress !== undefined && railgunAddress !== expectedRailgunAddress) {
+    throw new Error("Account export RAILGUN address does not match its recovery phrase and derivation version. Existing wallet data was not changed.");
+  }
   const derivationProvider: RailgunWalletDerivationProvider = "kohaku-railgun";
 
   const now = new Date().toISOString();
   const encrypted = await encryptSecretPayload({
     version: 1,
+    derivationVersion,
     recoveryPhrase,
     keyIndex,
     chainId: chainId.toString()
@@ -376,6 +418,7 @@ const persistRailgunWallet = async ({
   await storeEncryptedWallet({
     id: primaryRecordId,
     version: 2,
+    derivationVersion,
     railgunAddress,
     derivationProvider,
     keyIndex,
@@ -386,11 +429,12 @@ const persistRailgunWallet = async ({
     keyStorage: "browser-local",
     cipher: "AES-GCM",
     ...encrypted
-  });
+  }, expectedStoredRevision);
 
   return {
     railgunAddress,
     derivationProvider,
+    derivationVersion,
     keyIndex,
     chainId,
     storedAt: now
@@ -415,7 +459,8 @@ export const createEncryptedRailgunWallet = async ({
     recoveryPhrase,
     source: "created",
     keyIndex,
-    chainId
+    chainId,
+    derivationVersion: canonicalRailgunDerivation
   });
 
   return {
@@ -427,21 +472,35 @@ export const createEncryptedRailgunWallet = async ({
 export const importEncryptedRailgunWallet = async ({
   recoveryPhrase,
   keyIndex = 0,
-  chainId = 1n
+  chainId = 1n,
+  derivationVersion,
+  expectedRailgunAddress,
+  expectedStoredRevision
 }: {
   recoveryPhrase: string;
   keyIndex?: number;
   chainId?: bigint;
+  derivationVersion: RailgunDerivationVersion;
+  expectedRailgunAddress?: string;
+  /** Supply only after the user confirms replacing this exact stored record. */
+  expectedStoredRevision?: string | null;
 }): Promise<RailgunWalletResult> =>
   persistRailgunWallet({
     recoveryPhrase: normalizeRecoveryPhrase(recoveryPhrase),
     source: "imported",
     keyIndex,
-    chainId
+    chainId,
+    derivationVersion: parseRailgunDerivationVersion(derivationVersion),
+    expectedRailgunAddress,
+    expectedStoredRevision
   });
 
 export const hasEncryptedRailgunWallet = async (): Promise<boolean> =>
   (await loadEncryptedWalletRecord()) !== null;
+
+/** Opaque revision for a user-reviewed replacement; contains no recovery keys. */
+export const getEncryptedRailgunWalletRevision = async (): Promise<string | null> =>
+  recordRevision(await loadEncryptedWalletRecord());
 
 export const getEncryptedRailgunWalletStorageMode = async (): Promise<
   "browser-local" | "legacy-passphrase" | "missing"
@@ -466,10 +525,17 @@ export const unlockEncryptedRailgunWallet =
     const payload = await decryptSecretPayload(record);
     const chainId = BigInt(payload.chainId);
     const derivationProvider = derivationProviderForRecord(record);
+    const derivationVersion = parseRailgunDerivationVersion(
+      record.version === 2 ? record.derivationVersion : undefined
+    );
+    if (parseRailgunDerivationVersion(payload.derivationVersion) !== derivationVersion) {
+      throw new Error("Stored RAILGUN derivation metadata does not match the encrypted wallet. This wallet was not changed.");
+    }
     const derived = await deriveRailgunWallet({
       recoveryPhrase: payload.recoveryPhrase,
       keyIndex: payload.keyIndex,
-      chainId
+      chainId,
+      derivationVersion
     });
 
     if (
@@ -482,6 +548,7 @@ export const unlockEncryptedRailgunWallet =
     return {
       railgunAddress: record.railgunAddress,
       derivationProvider,
+      derivationVersion,
       recoveryPhrase: payload.recoveryPhrase,
       spendingKey: derived.spendingKey,
       viewingKey: derived.viewingKey,
@@ -491,6 +558,28 @@ export const unlockEncryptedRailgunWallet =
       storedAt: record.updatedAt
     };
   };
+
+/** Local-only funding guard. No RPC or other outbound service is contacted. */
+export const assertRecoverableRailgunWallet = async (expected: {
+  railgunAddress: string | null;
+  railgunDerivationProvider: string | null;
+  railgunDerivationVersion?: RailgunDerivationVersion | null;
+}, chainId = 1n): Promise<void> => {
+  const version = parseRailgunDerivationVersion(expected.railgunDerivationVersion);
+  if (!expected.railgunAddress || expected.railgunDerivationProvider !== "kohaku-railgun") {
+    throw new Error("Shielded wallet recovery metadata is unsupported. Wallet data was not changed.");
+  }
+  const unlocked = await unlockEncryptedRailgunWallet();
+  if (
+    unlocked.railgunAddress !== expected.railgunAddress ||
+    unlocked.kohakuRailgunAddress !== expected.railgunAddress ||
+    unlocked.derivationProvider !== expected.railgunDerivationProvider ||
+    unlocked.derivationVersion !== version ||
+    unlocked.chainId !== chainId
+  ) {
+    throw new Error("Stored RAILGUN keys do not match this wallet's address, recovery format, or chain. Shielding is blocked; wallet data was not changed.");
+  }
+};
 
 export const exportEncryptedRailgunWallet =
   async (): Promise<ExportedRailgunWallet | null> => {
@@ -505,6 +594,7 @@ export const exportEncryptedRailgunWallet =
     return {
       railgunAddress: unlocked.railgunAddress,
       derivationProvider: unlocked.derivationProvider,
+      derivationVersion: unlocked.derivationVersion,
       recoveryPhrase: unlocked.recoveryPhrase,
       keyIndex: unlocked.keyIndex,
       chainId: unlocked.chainId.toString(),
@@ -512,12 +602,15 @@ export const exportEncryptedRailgunWallet =
     };
   };
 
-export const clearEncryptedRailgunWallet = async (): Promise<void> => {
+export const clearEncryptedRailgunWallet = async (expectedStoredRevision?: string | null): Promise<void> => {
   if (!canUseIndexedDb()) {
     return;
   }
 
   await withSecretStore("readwrite", async (store) => {
+    if (expectedStoredRevision !== undefined) {
+      await assertStoredWalletRevision(store, expectedStoredRevision);
+    }
     await requestToPromise(store.delete(primaryRecordId));
   });
 };

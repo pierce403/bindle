@@ -14,10 +14,10 @@ test("sums only wrapped base token notes as shielded ETH", () => {
     sumWrappedBaseTokenBalance({
       wrappedBaseToken: weth,
       balances: [
-        [{ type: "Erc20", value: weth.toLowerCase() as `0x${string}` }, 2n],
-        [{ type: "Erc20", value: weth }, 3n],
-        [{ type: "Erc20", value: otherToken }, 5n],
-        [{ type: "Erc721" }, 7n]
+        { asset: { type: "Erc20", value: weth.toLowerCase() as `0x${string}` }, amount: 2n, poiStatus: undefined },
+        { asset: { type: "Erc20", value: weth }, amount: 3n, poiStatus: "Valid" },
+        { asset: { type: "Erc20", value: otherToken }, amount: 5n, poiStatus: undefined },
+        { asset: { type: "Erc721", value: [otherToken, "0x01"] }, amount: 7n, poiStatus: undefined }
       ]
     })
   ).toBe(5n);
@@ -26,16 +26,30 @@ test("sums only wrapped base token notes as shielded ETH", () => {
     summarizeWrappedBaseTokenBalance({
       wrappedBaseToken: weth,
       balances: [
-        [{ type: "Erc20", value: weth.toLowerCase() as `0x${string}` }, 2n],
-        [{ type: "Erc20", value: weth }, 3n],
-        [{ type: "Erc20", value: otherToken }, 5n],
-        [{ type: "Erc721" }, 7n]
+        { asset: { type: "Erc20", value: weth.toLowerCase() as `0x${string}` }, amount: 2n, poiStatus: undefined },
+        { asset: { type: "Erc20", value: weth }, amount: 3n, poiStatus: "Valid" },
+        { asset: { type: "Erc20", value: otherToken }, amount: 5n, poiStatus: undefined },
+        { asset: { type: "Erc721", value: [otherToken, "0x01"] }, amount: 7n, poiStatus: undefined }
       ]
     })
   ).toEqual({
     wei: 5n,
     rawBalanceCount: 4,
     matchedWrappedBaseTokenBalances: 2
+  });
+});
+
+test("POI-restricted balances are not presented as spendable ETH", () => {
+  const balances = ["Missing", "ProofSubmitted", "ShieldBlocked"].map((poiStatus) => ({
+    asset: { type: "Erc20" as const, value: weth },
+    amount: 10n,
+    poiStatus: poiStatus as "Missing" | "ProofSubmitted" | "ShieldBlocked"
+  }));
+  expect(sumWrappedBaseTokenBalance({ balances, wrappedBaseToken: weth })).toBe(0n);
+  expect(summarizeWrappedBaseTokenBalance({ balances, wrappedBaseToken: weth })).toEqual({
+    wei: 0n,
+    rawBalanceCount: 3,
+    matchedWrappedBaseTokenBalances: 3
   });
 });
 

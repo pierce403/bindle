@@ -136,14 +136,32 @@ const buildInfoPlugin = (): Plugin => ({
   }
 });
 
+const broadcasterDependencyGuard = (): Plugin => ({
+  name: "bindle-broadcaster-dependency-guard",
+  generateBundle(_options, bundle) {
+    // These packages remain transitive install metadata of the official wallet
+    // helper dependency. Its browser crypto path must never render them.
+    for (const output of Object.values(bundle)) {
+      if (output.type !== "chunk") continue;
+      for (const [id, module] of Object.entries(output.modules)) {
+        if (module.renderedLength > 0 && /\/node_modules\/(?:elliptic|crypto-browserify)\//.test(id)) {
+          throw new Error(`Forbidden broadcaster browser crypto dependency: ${id}`);
+        }
+      }
+    }
+  }
+});
+
 export default defineConfig({
   base: "/",
   resolve: {
     alias: {
+      stream: "stream-browserify",
+      process: "process/browser",
       vm: new URL("./src/shims/vm.ts", import.meta.url).pathname
     }
   },
-  plugins: [buildInfoPlugin(), react()],
+  plugins: [buildInfoPlugin(), react(), broadcasterDependencyGuard()],
   build: {
     outDir: "docs",
     emptyOutDir: true,

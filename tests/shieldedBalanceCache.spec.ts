@@ -21,7 +21,7 @@ const installLocalStorage = () => {
   });
 };
 
-test("shielded balance cache is keyed by address, derivation provider, and chain", () => {
+test("shielded balance cache is keyed by address, derivation provider, version, and chain", () => {
   installLocalStorage();
   clearCachedShieldedEthBalance();
 
@@ -55,6 +55,21 @@ test("shielded balance cache is keyed by address, derivation provider, and chain
       chainId: 1n
     })
   ).toBeNull();
+  expect(
+    loadCachedShieldedEthBalance({
+      railgunAddress: "0zk1cached",
+      derivationProvider: "kohaku-railgun",
+      derivationVersion: "railgun-babyjubjub-v1",
+      chainId: 1n
+    })
+  ).toBeNull();
+  saveCachedShieldedEthBalance({ ...balance, derivationVersion: "railgun-babyjubjub-v1", formattedEth: "2 ETH" });
+  expect(loadCachedShieldedEthBalance({
+    railgunAddress: "0zk1cached", derivationProvider: "kohaku-railgun", derivationVersion: "railgun-babyjubjub-v1", chainId: 1n
+  })?.formattedEth).toBe("2 ETH");
+  expect(loadCachedShieldedEthBalance({
+    railgunAddress: "0zk1cached", derivationProvider: "kohaku-railgun", derivationVersion: "bindle-ethers-bip32-v1", chainId: 1n
+  })?.formattedEth).toBe("1 ETH");
   expect(
     loadCachedShieldedEthBalance({
       railgunAddress: "0zk1cached",

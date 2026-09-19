@@ -31,6 +31,7 @@ export const buildPayProofProgress = ({
   routeReady,
   proofReady,
   submitting,
+  submitted = false,
   missingEndpointLabels,
   routeLabel,
   proofPercent = 0,
@@ -41,6 +42,7 @@ export const buildPayProofProgress = ({
   routeReady: boolean;
   proofReady: boolean;
   submitting: boolean;
+  submitted?: boolean;
   missingEndpointLabels: string[];
   routeLabel: string;
   proofPercent?: number;
@@ -75,19 +77,21 @@ export const buildPayProofProgress = ({
       label: "Proof",
       detail: proofReady
         ? "RAILGUN proof generated"
-        : routeReady
+        : routeReady && proofPercent > 0
           ? (proofStatus ?? "Generating RAILGUN unshield proof")
           : "Waiting for RAILGUN unshield proof generation",
-      status: proofReady ? "complete" : routeReady ? "active" : "waiting",
+      status: proofReady ? "complete" : routeReady && proofPercent > 0 ? "active" : "waiting",
       percent: routeReady && !proofReady ? Math.round(Math.max(0, Math.min(100, ((proofPercent - 40) / 40) * 100))) : undefined
     },
     {
       id: "submit",
       label: "Submit",
-      detail: submitting && proofReady
+      detail: submitted
+        ? "Transaction submitted"
+        : submitting && proofReady
         ? "Submitting transaction"
         : "Submission stays disabled until proof and route are complete",
-      status: proofPercent >= 100 ? "complete" : submitting && proofReady ? "active" : "waiting"
+      status: submitted ? "complete" : submitting && proofReady ? "active" : "waiting"
     }
   ];
   const completeStages = stages.filter((stage) => stage.status === "complete");
@@ -101,7 +105,7 @@ export const buildPayProofProgress = ({
     percent: clampPercent(
       ((completeStages.length + activeProofProgress) / stages.length) * 100
     ),
-    status: blockedStage ? blockedStage.detail : stages.find((stage) => stage.status === "active")?.detail ?? "Ready",
+    status: blockedStage ? blockedStage.detail : stages.find((stage) => stage.status === "active")?.detail ?? "Waiting for proof generation",
     stages
   };
 };
@@ -111,6 +115,7 @@ export const buildSendProofProgress = ({
   endpointsReady,
   proofReady,
   submitting,
+  submitted = false,
   missingEndpointLabels,
   proofPercent = 0,
   proofStatus
@@ -119,6 +124,7 @@ export const buildSendProofProgress = ({
   endpointsReady: boolean;
   proofReady: boolean;
   submitting: boolean;
+  submitted?: boolean;
   missingEndpointLabels: string[];
   proofPercent?: number;
   proofStatus?: string;
@@ -144,19 +150,21 @@ export const buildSendProofProgress = ({
       label: "Proof",
       detail: proofReady
         ? "RAILGUN proof generated"
-        : endpointsReady
+        : endpointsReady && proofPercent > 0
           ? (proofStatus ?? "Generating RAILGUN proof")
           : "Waiting for RAILGUN proof generation",
-      status: proofReady ? "complete" : endpointsReady ? "active" : "waiting",
+      status: proofReady ? "complete" : endpointsReady && proofPercent > 0 ? "active" : "waiting",
       percent: endpointsReady && !proofReady ? Math.round(Math.max(0, Math.min(100, ((proofPercent - 40) / 40) * 100))) : undefined
     },
     {
       id: "submit",
       label: "Submit",
-      detail: submitting && proofReady
+      detail: submitted
+        ? "Transaction submitted"
+        : submitting && proofReady
         ? "Submitting transaction"
         : "Submission stays disabled until proof is complete",
-      status: proofPercent >= 100 ? "complete" : submitting && proofReady ? "active" : "waiting"
+      status: submitted ? "complete" : submitting && proofReady ? "active" : "waiting"
     }
   ];
   const completeStages = stages.filter((stage) => stage.status === "complete");
@@ -170,8 +178,7 @@ export const buildSendProofProgress = ({
     percent: clampPercent(
       ((completeStages.length + activeProofProgress) / stages.length) * 100
     ),
-    status: blockedStage ? blockedStage.detail : stages.find((stage) => stage.status === "active")?.detail ?? "Ready",
+    status: blockedStage ? blockedStage.detail : stages.find((stage) => stage.status === "active")?.detail ?? "Waiting for proof generation",
     stages
   };
 };
-

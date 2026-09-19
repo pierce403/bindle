@@ -1,3 +1,4 @@
+import { KOHAKU_PRIVATE_SUBMISSION_BLOCKER } from "./privateTransactionBridge";
 import type { ProviderMode } from "../privacy/connectionPolicy";
 import { createKohakuWasmTrapError } from "../privacy/toolkitErrors";
 import { loadKohakuRailgunBrowserModule } from "./kohakuRailgunModule";
@@ -30,7 +31,7 @@ export type UnshieldReadinessInput = {
   shieldedBalanceWei: bigint | null;
   toolkitReady: boolean;
   ethereumRpcUrl: string;
-  bundlerUrl: string;
+  broadcasterConfigured: boolean;
   providerMode: ProviderMode;
 };
 
@@ -192,7 +193,7 @@ export const assessUnshieldReadiness = ({
   shieldedBalanceWei,
   toolkitReady,
   ethereumRpcUrl,
-  bundlerUrl,
+  broadcasterConfigured,
   providerMode
 }: UnshieldReadinessInput): ReadinessReport =>
   readinessReport([
@@ -232,10 +233,16 @@ export const assessUnshieldReadiness = ({
       detail: ethereumRpcUrl.trim() || "configure a visible RPC endpoint"
     },
     {
-      id: "erc4337-bundler",
-      label: "ERC-4337 bundler",
-      ready: bundlerUrl.trim().length > 0,
-      detail: bundlerUrl.trim() || "configure a visible bundler endpoint"
+      id: "railgun-broadcaster",
+      label: "RAILGUN Waku broadcaster",
+      ready: broadcasterConfigured,
+      detail: "Private unshield uses only the RAILGUN broadcaster transport"
+    },
+    {
+      id: "private-proof-capability",
+      label: "broadcaster proof and POI support",
+      ready: false,
+      detail: KOHAKU_PRIVATE_SUBMISSION_BLOCKER
     },
     {
       id: "provider-mode",

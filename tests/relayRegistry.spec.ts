@@ -12,7 +12,7 @@ const snapshot = {
   network: "ethereum-mainnet",
   status: "partial",
   elapsedMs: 100,
-  transport: "kohaku-waku",
+  transport: "railgun-waku",
   pubsubTopic: "/waku/2/rs/5/1",
   wakuPeerCount: 3,
   requiredProtocols: {
@@ -22,7 +22,7 @@ const snapshot = {
   },
   rawFeeMessagesObserved: 2,
   rawFeeAdsParsed: 2,
-  kohakuManagerSelections: 0,
+  broadcasterSelections: 0,
   feeTokens: [],
   discoveredBroadcasters: [
     {
@@ -41,7 +41,7 @@ const snapshot = {
       availableWallets: 2,
       reliability: 0.91,
       selectionSource: "raw-fee-ad",
-      signatureStatus: "unverified-no-wallet-sdk"
+      signatureStatus: "unverified-observation"
     },
     {
       railgunAddress: "0zk1relayusdc",
@@ -59,7 +59,7 @@ const snapshot = {
       availableWallets: 4,
       reliability: 0.99,
       selectionSource: "raw-fee-ad",
-      signatureStatus: "unverified-no-wallet-sdk"
+      signatureStatus: "unverified-observation"
     }
   ],
   notes: [],

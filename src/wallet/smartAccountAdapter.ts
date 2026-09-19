@@ -1,3 +1,4 @@
+import { assertPublicSmartWalletOrigin } from "./transactionOrigin";
 import { getAddress, http, isAddress, parseEther, formatEther, type Address } from "viem";
 import {
   createBundlerClient,
@@ -272,7 +273,6 @@ export const resolvePublicRecipient = async (
 const simulateAndSendUserOperation = async ({
   bundlerClient,
   account,
-  client,
   calls,
   origin
 }: {
@@ -287,51 +287,7 @@ const simulateAndSendUserOperation = async ({
     return `[Call ${i}: target=${c.to}, selector=${selector}]`;
   }).join(", ");
 
-  if (origin === "railgun-private") {
-    console.error("Preflight decoder: railgun-private flow produced smart-account calldata!");
-    console.error("- tx origin:", origin);
-    console.error("- submitter: waku-railgun-broadcaster (attempted to wrap into public smart wallet)");
-    console.error("- submission mode: railgun-waku-broadcaster (attempted to wrap into public smart wallet)");
-    console.error("- smart account sender:", account.address);
-    const targetsCoinbase = calls.some(c => c.to.toLowerCase() === account.address.toLowerCase());
-    console.error("- whether calldata targets Coinbase Smart Wallet:", targetsCoinbase);
-    
-    const decodedCalls = await Promise.all(calls.map(async (c, i) => {
-      const selector = c.data && c.data.length >= 10 ? c.data.slice(0, 10) : "0x";
-      let detail = `call ${i}: target=${c.to}, selector=${selector}, dataLength=${(c.data || "").length} bytes`;
-      if (c.to.toLowerCase() === UNISWAP_V4_WETH_ADDRESS.toLowerCase() && selector === "0x2e1a7d4d") {
-        const wad = BigInt("0x" + ((c.data || "").slice(10, 74) || "0"));
-        detail += ` (WETH.withdraw: amount=${formatEther(wad)} ETH)`;
-      }
-      return detail;
-    }));
-    console.error("- decoded call targets/selectors:\n", decodedCalls.join("\n"));
-    
-    const wethWithdraws = calls.filter(c => c.to.toLowerCase() === UNISWAP_V4_WETH_ADDRESS.toLowerCase() && c.data.startsWith("0x2e1a7d4d"));
-    console.error("- any WETH.withdraw tail-calls:", wethWithdraws.length > 0);
-    if (wethWithdraws.length > 0) {
-      const firstWethAmount = BigInt("0x" + (wethWithdraws[0].data.slice(10, 74) || "0"));
-      console.error("- amount of any WETH.withdraw:", formatEther(firstWethAmount), "ETH");
-      
-      const wethBalance = await client.readContract({
-        address: UNISWAP_V4_WETH_ADDRESS,
-        abi: [{
-          name: "balanceOf",
-          type: "function",
-          inputs: [{ name: "owner", type: "address" }],
-          outputs: [{ name: "balance", type: "uint256" }]
-        }],
-        functionName: "balanceOf",
-        args: [account.address]
-      }).catch(() => 0n);
-      console.error("- whether public smart wallet has enough WETH:", wethBalance >= firstWethAmount, `(balance=${formatEther(wethBalance)} ETH, required=${formatEther(firstWethAmount)} ETH)`);
-    } else {
-      console.error("- amount of any WETH.withdraw: N/A");
-      console.error("- whether public smart wallet has enough WETH: N/A");
-    }
-    
-    throw new Error("Private Pay cannot be submitted through the public smart wallet.");
-  }
+  assertPublicSmartWalletOrigin(origin);
 
   let preparedUserOp: any;
   try {
@@ -576,64 +532,15 @@ export const sendSmartWalletCalls = async ({
   policy: ConnectionPolicy;
   walletState: WalletState;
 }): Promise<SmartWalletPaymentResult> => {
+  assertPublicSmartWalletOrigin(origin);
+  for (const call of calls) {
+    if (call.origin !== undefined) assertPublicSmartWalletOrigin(call.origin);
+  }
   try {
-    void origin;
     if (!policy.bundlerUrl.trim()) {
       throw new Error("Configure an ERC-4337 bundler before sending.");
     }
 
-    if (origin === "railgun-private") {
-      const accounts = await createSmartAccountCandidates(policy, walletState).catch(() => []);
-      const senderAddress = accounts[0]?.account?.address ?? "unknown-sender";
-      const client = accounts[0]?.client;
-
-      console.error("Preflight decoder: railgun-private flow produced smart-account calldata!");
-      console.error("- tx origin:", origin);
-      console.error("- submitter: waku-railgun-broadcaster (attempted to wrap into public smart wallet)");
-      console.error("- submission mode: railgun-waku-broadcaster (attempted to wrap into public smart wallet)");
-      console.error("- smart account sender:", senderAddress);
-      const targetsCoinbase = calls.some(c => c.to.toLowerCase() === senderAddress.toLowerCase());
-      console.error("- whether calldata targets Coinbase Smart Wallet:", targetsCoinbase);
-      
-      const decodedCalls = await Promise.all(calls.map(async (c, i) => {
-        const selector = c.data && c.data.length >= 10 ? c.data.slice(0, 10) : "0x";
-        let detail = `call ${i}: target=${c.to}, selector=${selector}, dataLength=${(c.data || "").length} bytes`;
-        if (c.to.toLowerCase() === UNISWAP_V4_WETH_ADDRESS.toLowerCase() && selector === "0x2e1a7d4d") {
-          const wad = BigInt("0x" + ((c.data || "").slice(10, 74) || "0"));
-          detail += ` (WETH.withdraw: amount=${formatEther(wad)} ETH)`;
-        }
-        return detail;
-      }));
-      console.error("- decoded call targets/selectors:\n", decodedCalls.join("\n"));
-      
-      const wethWithdraws = calls.filter(c => c.to.toLowerCase() === UNISWAP_V4_WETH_ADDRESS.toLowerCase() && c.data && c.data.startsWith("0x2e1a7d4d"));
-      console.error("- any WETH.withdraw tail-calls:", wethWithdraws.length > 0);
-      if (wethWithdraws.length > 0) {
-        const firstWethAmount = BigInt("0x" + ((wethWithdraws[0]?.data || "").slice(10, 74) || "0"));
-        console.error("- amount of any WETH.withdraw:", formatEther(firstWethAmount), "ETH");
-        
-        let wethBalance = 0n;
-        if (client && senderAddress.startsWith("0x")) {
-          wethBalance = (await client.readContract({
-            address: UNISWAP_V4_WETH_ADDRESS,
-            abi: [{
-              name: "balanceOf",
-              type: "function",
-              inputs: [{ name: "owner", type: "address" }],
-              outputs: [{ name: "balance", type: "uint256" }]
-            }],
-            functionName: "balanceOf",
-            args: [senderAddress as Address]
-          }).catch(() => 0n)) as bigint;
-        }
-        console.error("- whether public smart wallet has enough WETH:", wethBalance >= firstWethAmount, `(balance=${formatEther(wethBalance)} ETH, required=${formatEther(firstWethAmount)} ETH)`);
-      } else {
-        console.error("- amount of any WETH.withdraw: N/A");
-        console.error("- whether public smart wallet has enough WETH: N/A");
-      }
-      
-      throw new Error("Private Pay cannot be submitted through the public smart wallet.");
-    }
 
     if (calls.length === 0) {
       throw new Error("No smart-wallet calls were prepared.");

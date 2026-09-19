@@ -1,6 +1,6 @@
 {
   "name": "bindle",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "license": "Apache-2.0",
@@ -16,16 +16,21 @@
     "icons": "node scripts/generate-pwa-icons.mjs",
     "logo": "node scripts/generate-logo-source.mjs && node scripts/generate-pwa-icons.mjs",
     "preview": "vite preview --host 127.0.0.1",
-    "scan:waku": "node scripts/scan-kohaku-waku-relays.mjs",
+    "scan:waku": "node scripts/scan-railgun.mjs",
+    "scan:railgun": "node scripts/scan-railgun.mjs",
     "test:e2e": "playwright test",
     "typecheck": "tsc -b"
   },
   "dependencies": {
-    "@kohaku-eth/plugins": "0.0.1-alpha.8",
-    "@kohaku-eth/provider": "0.1.0-alpha.8",
-    "@kohaku-eth/railgun": "0.0.1-alpha.22",
-    "@kohaku-eth/railgun-waku": "npm:@kohaku-eth/railgun@0.0.1-alpha.12",
-    "@waku/sdk": "0.0.36",
+    "@kohaku-eth/plugins": "0.0.1-alpha.13",
+    "@kohaku-eth/provider": "0.1.0-alpha.9",
+    "@kohaku-eth/railgun": "0.0.1-alpha.30",
+    "@railgun-community/shared-models": "8.0.1",
+    "@railgun-community/waku-broadcaster-client-web": "9.1.1",
+    "@railgun-community/wallet": "10.9.1",
+    "buffer": "6.0.3",
+    "process": "0.11.10",
+    "stream-browserify": "3.0.0",
     "ethers": "6.14.3",
     "lucide-react": "1.17.0",
     "qrcode": "^1.5.4",
@@ -43,6 +48,10 @@
     "vite": "8.0.16"
   },
   "pnpm": {
+    "patchedDependencies": {
+      "@railgun-community/waku-broadcaster-client-web@9.1.1": "patches/railgun-waku-broadcaster-client-web-9.1.1.patch",
+      "@waku/discovery@0.0.13": "patches/waku-discovery-0.0.13.patch"
+    },
     "overrides": {
       "underscore": "1.13.8",
       "uuid": "11.1.1",

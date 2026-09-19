@@ -106,7 +106,7 @@ test.describe("passkey-first onboarding", () => {
       "RAILGUN 0zk"
     );
     await expect(page.getByLabel("Review pay route")).toContainText(
-      "ERC-4337 Bundler"
+      "RAILGUN Waku broadcaster only"
     );
     await expect(page.getByLabel("Review pay route")).toContainText(
       "Relay fee token"
@@ -115,7 +115,8 @@ test.describe("passkey-first onboarding", () => {
     await expect(page.getByLabel("Review pay route")).toContainText(
       "Relay fee"
     );
-    await expect(page.getByLabel("Review pay route")).toContainText("paid from 0zk balance");
+    await expect(page.getByLabel("Review pay route")).toContainText("unquoted");
+    await expect(page.getByLabel("Review pay route")).not.toContainText("Generating RAILGUN");
     await expect(page.getByLabel("Review pay route")).toContainText(
       "Public settlement"
     );
@@ -133,13 +134,13 @@ test.describe("passkey-first onboarding", () => {
     );
     await expect(page.getByLabel("Review pay route")).toContainText("Blocked");
     await expect(page.getByLabel("Review pay route")).toContainText(
-      "configured"
+      "Broadcaster status"
     );
     await expect(page.getByLabel("Review pay route")).toContainText(
       "Create or import a shielded 0zk wallet."
     );
     await expect(page.getByLabel("Review pay route")).toContainText(
-      "Private actions are pending Kohaku Waku broadcaster compatibility"
+      "no pre-transaction POI proof export"
     );
     await expect(page.getByLabel("Proof generation progress")).toContainText(
       "ETH to USDC through Uniswap v4"

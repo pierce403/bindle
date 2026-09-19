@@ -57,7 +57,8 @@ test("Waku map reports unavailable without fake broadcasters when policy cannot 
     wakuEnabled: true,
     railgunBroadcasterEnabled: true,
     railgunBroadcasterMode: "waku-public-network",
-    railgunBroadcasterDirectPeers: []
+    railgunBroadcasterDirectPeers: [],
+    railgunBroadcasterDnsDiscoveryEnabled: false
   });
 
   expect(snapshot.transport).toBe("unavailable");
@@ -149,7 +150,7 @@ test("copyable debug map includes status and errors without key-material labels"
       },
       rawFeeMessagesObserved: 0,
       rawFeeAdsParsed: 0,
-      kohakuManagerSelections: 0,
+      broadcasterSelections: 0,
       feeTokens: [],
       discoveredBroadcasters: [],
       notes: ["debug copy test"],

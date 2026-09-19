@@ -72,6 +72,7 @@ const hasLegacyCustomEndpoint = (parsed: Record<string, unknown>): boolean =>
   stringValue(parsed.recoveryServiceUrl).length > 0 ||
   stringArrayValue(parsed.poiAggregatorUrls).length > 0 ||
   stringArrayValue(parsed.railgunBroadcasterDnsDiscoveryUrls).length > 0 ||
+  stringArrayValue(parsed.railgunBroadcasterDnsResolverUrls).length > 0 ||
   stringArrayValue(parsed.railgunBroadcasterDirectPeers).length > 0 ||
   booleanValue(parsed.wakuEnabled);
 
@@ -102,6 +103,7 @@ const normalizeConnectionPolicy = (value: unknown): ConnectionPolicy => {
       ? presetPolicy.priceQuoteUrl
       : stringValue(parsed.priceQuoteUrl);
   const broadcasterUrl =
+    stringValue(parsed.broadcasterUrl).startsWith("mock:") ? "" :
     endpointPreset === "bindle-default" && !stringValue(parsed.broadcasterUrl)
       ? presetPolicy.broadcasterUrl
       : stringValue(parsed.broadcasterUrl);
@@ -112,12 +114,12 @@ const normalizeConnectionPolicy = (value: unknown): ConnectionPolicy => {
       : stringValue(parsed.railgunBroadcasterPubSubTopic);
   const railgunBroadcasterDnsDiscoveryUrls =
     endpointPreset === "bindle-default" &&
-    stringArrayValue(parsed.railgunBroadcasterDnsDiscoveryUrls).length === 0
+    !Array.isArray(parsed.railgunBroadcasterDnsDiscoveryUrls)
       ? presetPolicy.railgunBroadcasterDnsDiscoveryUrls
       : stringArrayValue(parsed.railgunBroadcasterDnsDiscoveryUrls);
   const railgunBroadcasterDirectPeers =
     endpointPreset === "bindle-default" &&
-    stringArrayValue(parsed.railgunBroadcasterDirectPeers).length === 0
+    !Array.isArray(parsed.railgunBroadcasterDirectPeers)
       ? presetPolicy.railgunBroadcasterDirectPeers
       : stringArrayValue(parsed.railgunBroadcasterDirectPeers);
   const parsedRailgunArtifactUrl = stringValue(parsed.railgunArtifactUrl);
@@ -140,6 +142,9 @@ const normalizeConnectionPolicy = (value: unknown): ConnectionPolicy => {
     railgunSyncUrl,
     railgunArtifactUrl,
     poiAggregatorUrls: stringArrayValue(parsed.poiAggregatorUrls),
+    railgunPoiListKeys: Array.isArray(parsed.railgunPoiListKeys)
+      ? stringArrayValue(parsed.railgunPoiListKeys)
+      : presetPolicy.railgunPoiListKeys,
     broadcasterUrl,
     railgunBroadcasterMode:
       endpointPreset === "bindle-default"
@@ -160,6 +165,14 @@ const normalizeConnectionPolicy = (value: unknown): ConnectionPolicy => {
     ),
     railgunBroadcasterPubSubTopic,
     railgunBroadcasterDnsDiscoveryUrls,
+    railgunBroadcasterDnsDiscoveryEnabled:
+      typeof parsed.railgunBroadcasterDnsDiscoveryEnabled === "boolean"
+        ? parsed.railgunBroadcasterDnsDiscoveryEnabled
+        : presetPolicy.railgunBroadcasterDnsDiscoveryEnabled,
+    railgunBroadcasterDnsResolverUrls:
+      Array.isArray(parsed.railgunBroadcasterDnsResolverUrls)
+        ? stringArrayValue(parsed.railgunBroadcasterDnsResolverUrls)
+        : presetPolicy.railgunBroadcasterDnsResolverUrls,
     railgunBroadcasterDirectPeers,
     providerResolverUrl: stringValue(parsed.providerResolverUrl),
     priceQuoteUrl,

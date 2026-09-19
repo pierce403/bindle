@@ -15,7 +15,7 @@ export type RegisteredRailgunRelay = {
   availableWallets: number | null;
   advertisedReliability: number | null;
   signatureStatus: string | null;
-  selectionSource: "kohaku-manager" | "raw-fee-ad" | null;
+  selectionSource: "railgun-client" | "raw-fee-ad" | null;
   firstSeenAt: string;
   lastSeenAt: string;
   seenCount: number;
@@ -109,7 +109,7 @@ const normalizeRelay = (value: unknown): RegisteredRailgunRelay | null => {
     advertisedReliability: numberOrNull(value.advertisedReliability),
     signatureStatus: stringOrNull(value.signatureStatus),
     selectionSource:
-      value.selectionSource === "kohaku-manager" ||
+      value.selectionSource === "railgun-client" ||
       value.selectionSource === "raw-fee-ad"
         ? value.selectionSource
         : null,
@@ -234,7 +234,7 @@ const compareRelays = (
   }
 
   if (left.selectionSource !== right.selectionSource) {
-    return left.selectionSource === "kohaku-manager" ? -1 : 1;
+    return left.selectionSource === "railgun-client" ? -1 : 1;
   }
 
   const reliabilityDelta =
