@@ -288,6 +288,14 @@ Tooling lessons:
   may require command sandbox escalation.
 - Close Send/Pay modal backdrops before clicking navigation. Open Receive for
   address assertions; addresses are intentionally absent from the home balance.
+- Production preview disables Vite CORS. Its default `Vary: Origin` makes
+  crossorigin script/style requests miss service-worker entries fetched without
+  Origin, producing a blank cached reload. Pages uses `Vary: Accept-Encoding`.
+  Verify reloads with the configured `pnpm preview`; do not alter the frozen
+  controller to work around development-server headers.
+- Build metadata reads use `git --no-optional-locks status` so read-only sandbox
+  inspection cannot leave a stale index lock. Before removing an existing lock,
+  verify no Git process or open-file owner still uses it.
 - Use `rg`, `apply_patch`, strict TypeScript, and primary upstream sources.
   Keep changes scoped. No `any` escape hatches at protocol boundaries.
 

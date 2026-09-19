@@ -81,7 +81,7 @@ const readGitCommit = () => {
 
 const isGitDirty = () => {
   try {
-    const result = spawnSync("git", ["status", "--porcelain"], {
+    const result = spawnSync("git", ["--no-optional-locks", "status", "--porcelain"], {
       cwd: repoRoot,
       encoding: "utf8"
     });

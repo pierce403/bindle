@@ -76,7 +76,7 @@ const readGitCommit = (): string => {
 
 const isGitDirty = (): boolean => {
   try {
-    const result = spawnSync("git", ["status", "--porcelain"], {
+    const result = spawnSync("git", ["--no-optional-locks", "status", "--porcelain"], {
       cwd: repoRoot,
       encoding: "utf8"
     });
@@ -154,6 +154,9 @@ const broadcasterDependencyGuard = (): Plugin => ({
 
 export default defineConfig({
   base: "/",
+  // Match same-origin Pages serving: Vite's Origin-varying preview responses
+  // otherwise miss the controller's cached assets on a crossorigin reload.
+  preview: { cors: false },
   resolve: {
     alias: {
       stream: "stream-browserify",
