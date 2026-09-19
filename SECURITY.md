@@ -86,6 +86,12 @@ not the controller. A future controller change must use a content-addressed,
 append-only URL and be registered only after a separate explicit approval; it
 must not replace `/service-worker.js` in place.
 
+Published release IDs are also immutable. The build refuses to reuse the ID in
+the checked-in `docs/release.json`, because the controller treats an approved
+ID as already staged and would not distinguish a second asset set carrying the
+same ID. This repository check prevents accidental ID reuse; it is not an
+independent signature or a browser-enforced content identity.
+
 ### User preferences
 
 - **Ask** is the default. A verified pending release is shown with its version,
@@ -134,6 +140,9 @@ the `bindle.cash` origin.
   approved-shell guarantee. A subsequent visit may be a fresh installation.
 - Release metadata is publisher-provided, not independently signed or recorded
   in a transparency log. The UI shows what the release channel claims.
+- A party that can bypass the repository build and publish the manifest can
+  still reuse or forge release metadata. The immutable-ID build check protects
+  the normal release workflow, not a compromised origin or maintainer.
 - Update checks and downloads contact `bindle.cash` and reveal ordinary request
   metadata to its hosting path even when a release is rejected.
 - The controller deliberately retains the approved, previous, pending, and

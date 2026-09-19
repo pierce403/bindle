@@ -216,6 +216,9 @@ shell asset, including lazy JS/WASM. Missing/mismatched assets fail staging;
 proving artifacts stay on demand. Keep the approved shell pointer in `bindle-release-selection-v1`
 independent of worker activation: closing all windows can activate a waiting
 worker without user approval. Never initialize approval during activation.
+The build refuses to reuse the ID already present in `docs/release.json`;
+published release IDs are immutable because the controller treats an approved
+ID as already staged. Do not bypass this check for production releases.
 A fresh install may select its release; upgrades with missing selection must
 preserve the sole previous shell or fail closed when missing/ambiguous. Never
 fall back to a new network shell. Never restore unconditional `skipWaiting`,

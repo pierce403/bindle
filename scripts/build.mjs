@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "
 import { createHash } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { assertFreshReleaseId } from "./release-identity.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const stableUpdateControllerHash = "d82fa0672e56b8ca4fe72b4b8158bc3da1f102efb0b8a6c89aaf5b90a261a586";
@@ -125,6 +126,17 @@ const env = {
   BINDLE_BUILD_TIME: readGitCommitTime(buildCommit)
 };
 
+const version = JSON.parse(readFileSync(resolve(repoRoot, "package.json"), "utf8")).version;
+const time = env.BINDLE_BUILD_TIME;
+const id = createHash("sha256").update(JSON.stringify([version, buildCommit, time])).digest("hex").slice(0, 24);
+const build = { version, commit: buildCommit, time, id };
+const publishedReleasePath = resolve(repoRoot, "docs/release.json");
+
+if (existsSync(publishedReleasePath)) {
+  const publishedRelease = JSON.parse(readFileSync(publishedReleasePath, "utf8"));
+  assertFreshReleaseId(publishedRelease?.build, build);
+}
+
 const verifyResult = spawnSync("pnpm", ["run", "artifacts:verify"], {
   env,
   stdio: "inherit"
@@ -148,10 +160,6 @@ if (result.error) {
 
 if (result.status === 0) {
   const swPath = resolve(repoRoot, "docs/service-worker.js");
-  const version = JSON.parse(readFileSync(resolve(repoRoot, "package.json"), "utf8")).version;
-  const time = env.BINDLE_BUILD_TIME;
-  const id = createHash("sha256").update(JSON.stringify([version, buildCommit, time])).digest("hex").slice(0, 24);
-  const build = { version, commit: buildCommit, time, id };
   if (!existsSync(swPath)) {
     throw new Error("The stable service-worker.js update controller is missing from the build.");
   }
