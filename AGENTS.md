@@ -161,6 +161,13 @@ new wallet and does not recover funds at the old address.
   upstream supplies equivalent behavior. Signature verification stays enabled.
 - Narrow Buffer/stream browser compatibility is justified by actual upstream
   imports. Do not restore broad crypto/Node polyfill bundles by default.
+- The peer-store 11.2.7 patch backports upstream signer/record identity binding;
+  do not replace the entire libp2p generation to satisfy a version-only scanner.
+  `tests/peerStoreValidation.spec.ts` uses decoded stubs to test the guard.
+- Axios 1.20.0, bn.js 4.x 4.12.5, qs 6.16.0, ws 8.21.3, PostCSS 8.5.28 and
+  form-data 2.x 2.5.6 are security overrides. Unfixed legacy tar/request/cookie/
+  URI/Web3/elliptic dependencies remain in the install graph; Vite rejects
+  their rendered browser modules. Keep those limits disclosed in the report.
 - `wakuFeeAds.ts` is independent diagnostic parsing only. Relay registry rows
   and raw ads never authorize spend. Refresh the official cache, obtain a fresh
   selection, bind quote/policy to the operation, and revalidate before submit.
@@ -282,10 +289,17 @@ Tooling lessons:
 - Dependency lifecycle scripts are disabled; `minimumReleaseAge: 1440` holds
   releases for 24 hours. Keep reviewed ignored build scripts and pinned security
   overrides in sync with the actual lockfile. Do not run force audit fixes.
+- The original node_modules retained undeclared physical url/qs polyfills from
+  an older install. A frozen install on top did not remove them. Validate major
+  dependency changes with a clean install and inspect actual rendered module
+  paths, not only the lockfile. A clean 933-package install was verified here.
 - Playwright uses `localhost:5178`; WebAuthn rejects `127.0.0.1` as RP domain.
   One worker avoids Chrome Crash Reports lock collisions. It prefers local
   Chrome, then snap Chromium, then a managed browser. Browser/localhost access
   may require command sandbox escalation.
+- In the restricted command sandbox, `node --test` reported one passing file
+  without listing the controller's ten cases. The escalated run executed all
+  ten named cases. Verify actual case counts, not only a zero exit status.
 - Close Send/Pay modal backdrops before clicking navigation. Open Receive for
   address assertions; addresses are intentionally absent from the home balance.
 - Production preview disables Vite CORS. Its default `Vary: Origin` makes

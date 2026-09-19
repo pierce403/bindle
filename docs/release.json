@@ -1,10 +1,10 @@
 {
   "schema": 1,
   "build": {
-    "version": "0.2.0",
-    "commit": "1a9785c2c868ce52d4b89ce2da76399453947158",
-    "time": "2026-09-19T07:15:30-07:00",
-    "id": "a7daee280c3decec6ea84ef3"
+    "version": "0.2.1",
+    "commit": "8c9e1415d106b047cbdcc6def60a891515216d39-dirty",
+    "time": "2026-09-19T14:29:00.494Z",
+    "id": "c6f9099eab75c58ef662b08d"
   },
   "files": [
     {
@@ -25,7 +25,7 @@
     },
     {
       "url": "/index.html",
-      "hash": "356367e3f8a18d5d0928ea92ca44ced04bed67f34f261b68147bfa1901399e6b"
+      "hash": "71f8267a350b44687d3afeac0ba47a604072addebc6f65dd71c0e48a59505ecc"
     },
     {
       "url": "/logo.png",
@@ -45,31 +45,31 @@
     },
     {
       "url": "/railgun-modernization-evidence.json",
-      "hash": "58ce1cb6003f15023e041623d52a32840e61516e3072e485b161b330d13b3450"
+      "hash": "68e69307b7c21a393b869e31b6e75719b200b572de962e5bc54185775e2093ee"
     },
     {
       "url": "/railgun-modernization.md",
-      "hash": "ec4d9f1850c1afe64afacc6134ea777d48837a4709e727ee1d29ddcefd664680"
+      "hash": "2db966277be43852f860d28aa7eb5c02a42ea3bccbf4d106446b4269f80834f4"
     },
     {
-      "url": "/assets/ccip-CPqfqyI3.js",
-      "hash": "308f469f4420f1277f567d1c12dd5ad5f160d52a7b395f39a59628266a51a27c"
+      "url": "/assets/ccip-DDJYK8Rj.js",
+      "hash": "077d039895e7468a47d437a51a574de9f08b51ccc7f07d8f2207a186c44efb35"
     },
     {
       "url": "/assets/curve25519_scalarmult_wasm_bg-DFYe4j8J.wasm",
       "hash": "6e8400dd820cea117d53f3bf23a1dcf23dc4c51aa963beeff756f04dfcd1fb12"
     },
     {
-      "url": "/assets/dist-CYDkvmgs.js",
-      "hash": "54831bfbf79b9f46b462899bfee3236be7176122e20258dd458c95952a425f0e"
+      "url": "/assets/dist-CmFBEBmD.js",
+      "hash": "1e8fd2f43f7760cdd7184f4c5b740514e8d4221a134d82b0cabb7b3d1eb3ce56"
     },
     {
       "url": "/assets/index-BFeqMLLP.css",
       "hash": "051f184e3e4158130b68bb6cdfae711a4b29cb89a6c7dc579801c2966228019a"
     },
     {
-      "url": "/assets/index-MGAKdB-B.js",
-      "hash": "730e7b68094b6207e14694b63d8d0956d44d9caa562ce09fe9ce6a42b8e04f13"
+      "url": "/assets/index-C4orTM1-.js",
+      "hash": "622444d8dad5959b9a07dcb560b3195db99a663b1f8cd2820fae0688306c1f47"
     },
     {
       "url": "/assets/index_bg-DA_b1Txv.wasm",

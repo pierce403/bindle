@@ -26,10 +26,10 @@ test("official browser transport is pinned with auditable policy patches", () =>
   expect(packageJson.dependencies["@railgun-community/shared-models"]).toBe("8.0.1");
   expect(packageJson.dependencies["@railgun-community/wallet"]).toBe("10.9.1");
   for (const [name, path] of Object.entries(packageJson.pnpm.patchedDependencies)) {
-    expect(name).toMatch(/^@(?:railgun-community\/waku-broadcaster-client-web|waku\/discovery)@/);
+    expect(name).toMatch(/^@(?:railgun-community\/waku-broadcaster-client-web|waku\/discovery|libp2p\/peer-store)@/);
     expect(readFileSync(path, "utf8")).toContain("--- a/dist/");
   }
-  expect(Object.keys(packageJson.pnpm.patchedDependencies)).toHaveLength(2);
+  expect(Object.keys(packageJson.pnpm.patchedDependencies)).toHaveLength(3);
 });
 
 test("the app never starts a second RAILGUN wallet engine or imports the old alias", () => {
@@ -53,9 +53,12 @@ test("browser compatibility uses only the exact shims proven necessary", () => {
 });
 
 test("existing patched transitive packages remain pinned", () => {
-  expect(packageJson.pnpm.overrides).toMatchObject({ underscore: "1.13.8", uuid: "11.1.1", ws: "8.20.1" });
+  expect(packageJson.pnpm.overrides).toMatchObject({
+    underscore: "1.13.8", uuid: "11.1.1", ws: "8.21.3", axios: "1.20.0",
+    qs: "6.16.0", "bn.js@<5": "4.12.5", postcss: "8.5.28", "form-data@<3": "2.5.6"
+  });
   const lockfile = readFileSync("pnpm-lock.yaml", "utf8");
-  for (const vulnerable of ["underscore@1.13.6", "uuid@9.0.1", "ws@8.17.1", "ws@8.18.3"]) {
+  for (const vulnerable of ["underscore@1.13.6", "uuid@9.0.1", "ws@8.17.1", "ws@8.18.3", "ws@8.20.1", "axios@1.7.2", "bn.js@4.11.6", "qs@6.5.5", "form-data@2.3.3", "postcss@8.5.15"]) {
     expect(lockfile, vulnerable).not.toContain(vulnerable);
   }
 });

@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "scope": "No-spend browser diagnostics; public discovery observations are time-limited, not submission authority. No real proofs or transactions were submitted.",
+  "scope": "No-spend isolated browser diagnostics. Local and mixed runs repeated after the 0.2.1 clean install and security pins; direct and DNS-only runs recorded during 0.2.0 validation. Public discovery observations are time-limited, not submission authority. No real proofs or transactions were submitted.",
   "runs": {
     "local": {
       "schemaVersion": 1,
-      "startedAt": "2026-09-19T13:57:13.402Z",
-      "completedAt": "2026-09-19T13:57:14.759Z",
+      "startedAt": "2026-09-19T14:26:40.897Z",
+      "completedAt": "2026-09-19T14:26:42.247Z",
       "mode": "local",
       "policy": {
         "pubsubTopic": "/waku/2/rs/5/1",
@@ -115,12 +115,12 @@
       "liveSubmission": "intentionally-not-attempted",
       "errors": [],
       "localChecksPassed": true,
-      "browserErrors": [],
       "networkEvidence": {
         "externalRequestCount": 0,
         "externalRequestKinds": [],
         "blockedRequests": []
-      }
+      },
+      "browserErrors": []
     },
     "direct": {
       "schemaVersion": 1,
@@ -278,8 +278,8 @@
     },
     "mixed": {
       "schemaVersion": 1,
-      "startedAt": "2026-09-19T13:57:58.828Z",
-      "completedAt": "2026-09-19T13:58:12.571Z",
+      "startedAt": "2026-09-19T14:27:01.239Z",
+      "completedAt": "2026-09-19T14:27:11.100Z",
       "mode": "live",
       "policy": {
         "pubsubTopic": "/waku/2/rs/5/1",
@@ -342,7 +342,7 @@
       },
       "waku": {
         "status": "connected",
-        "detail": "3 actual Waku peer connections."
+        "detail": "4 actual Waku peer connections."
       },
       "wakuProtocols": {
         "status": "ready",
@@ -354,31 +354,35 @@
       },
       "directPeers": {
         "status": "connected",
-        "detail": "2 live connections match configured direct peer IDs."
+        "detail": "3 live connections match configured direct peer IDs."
       },
       "feeQuotes": {
         "status": "verified",
-        "detail": "343 current fee-token offers accepted by the official client."
+        "detail": "110 current fee-token offers accepted by the official client."
       },
       "broadcasterSelection": {
         "status": "selected",
         "detail": "A fresh official-client broadcaster fee quote was selected. Proof/submission readiness is checked separately and remains blocked."
       },
-      "broadcastersFound": 47,
-      "compatibleBroadcasters": 47,
-      "compatibleFeeQuotes": 343,
+      "broadcastersFound": 24,
+      "compatibleBroadcasters": 24,
+      "compatibleFeeQuotes": 110,
       "peerConnections": [
-        {
-          "peerId": "16Uiu2HAm1XAZUTsZcbvLBWe9MR2QxEJ1oowv5VgZavwiwTEx4uPC",
-          "remoteAddress": "/dns4/relay-b.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAm1XAZUTsZcbvLBWe9MR2QxEJ1oowv5VgZavwiwTEx4uPC"
-        },
         {
           "peerId": "16Uiu2HAmS8YbNhE1rJGBQ3VaubZjM1iAR7zVvtLf6CrEB3Hc9Krr",
           "remoteAddress": "/dns4/client-edge.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmS8YbNhE1rJGBQ3VaubZjM1iAR7zVvtLf6CrEB3Hc9Krr"
         },
         {
-          "peerId": "16Uiu2HAmNPCetmCFdVrFknNThKm5Kt6WsTEKAVaFeUN6J5x4WGpW",
-          "remoteAddress": "/dns4/seed-b.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmNPCetmCFdVrFknNThKm5Kt6WsTEKAVaFeUN6J5x4WGpW"
+          "peerId": "16Uiu2HAm1XAZUTsZcbvLBWe9MR2QxEJ1oowv5VgZavwiwTEx4uPC",
+          "remoteAddress": "/dns4/relay-b.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAm1XAZUTsZcbvLBWe9MR2QxEJ1oowv5VgZavwiwTEx4uPC"
+        },
+        {
+          "peerId": "16Uiu2HAmMkCL9Y4R6V8eyTfHRfPA9JUBSnsJXwiUvgUJHU7N9AsR",
+          "remoteAddress": "/dns4/relay-a.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmMkCL9Y4R6V8eyTfHRfPA9JUBSnsJXwiUvgUJHU7N9AsR"
+        },
+        {
+          "peerId": "16Uiu2HAm7zQk13R6Uhu5tW2cjhABiGud7uHkP4yfAZmPW9KfU3z7",
+          "remoteAddress": "/dns4/seed-a.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAm7zQk13R6Uhu5tW2cjhABiGud7uHkP4yfAZmPW9KfU3z7"
         }
       ],
       "selected": {
@@ -388,15 +392,15 @@
           "id": 1
         },
         "policyKey": "{\"enabled\":true,\"mode\":\"custom-waku\",\"pubsubTopic\":\"/waku/2/rs/5/1\",\"dnsEnabled\":true,\"trees\":[\"enrtree://APMYHUVNQWHJNPI5L2KQ765EMCKUAMRWPUH3U2QIKPK6XEV3OW442@discovery.rootedinprivacy.com\"],\"resolvers\":[\"https://cloudflare-dns.com/dns-query\"],\"peers\":[\"/dns4/relay-a.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmMkCL9Y4R6V8eyTfHRfPA9JUBSnsJXwiUvgUJHU7N9AsR\",\"/dns4/relay-b.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAm1XAZUTsZcbvLBWe9MR2QxEJ1oowv5VgZavwiwTEx4uPC\",\"/dns4/client-edge.rootedinprivacy.com/tcp/8000/wss/p2p/16Uiu2HAmS8YbNhE1rJGBQ3VaubZjM1iAR7zVvtLf6CrEB3Hc9Krr\"],\"trustedFeeSigner\":\"\",\"poiListKeys\":[\"efc6ddb59c098a13fb2b618fdae94c1c3a807abc8fb1837c93620c9143ee9e88\"]}",
-        "selectedAt": 1789826292393,
-        "railgunAddress": "0zk1qygfpqycdsk4ldakg09hr6n9zndgcyxamufq089ud37kk23ze4yerrv7j6fe3z53lu62vy79awth6gewkmh93nus9sc5t30v58ldxud4ymywwa7ay4mlwqqntyn",
+        "selectedAt": 1789828030963,
+        "railgunAddress": "0zk1q80000000000mlnzzaarhkpwuqwg3fzuujjt0063t4x8acvdr6pghrv7j6fe3z53lagrgzq7kyllxntesvgce4vq754e9mqhurqk5cecxwzwu64fhxk3ukerl8g",
         "tokenFee": {
-          "feesID": "td2ua2nsrafylxk3",
+          "feesID": "0hfomt2pekaer8l0",
           "token": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-          "perUnitGas": "800000000000000000",
-          "recipient": "0zk1qygfpqycdsk4ldakg09hr6n9zndgcyxamufq089ud37kk23ze4yerrv7j6fe3z53lu62vy79awth6gewkmh93nus9sc5t30v58ldxud4ymywwa7ay4mlwqqntyn",
-          "expiration": 1789826436647,
-          "availableWallets": 2,
+          "perUnitGas": "807554349000000000",
+          "recipient": "0zk1q80000000000mlnzzaarhkpwuqwg3fzuujjt0063t4x8acvdr6pghrv7j6fe3z53lagrgzq7kyllxntesvgce4vq754e9mqhurqk5cecxwzwu64fhxk3ukerl8g",
+          "expiration": 1789828274809,
+          "availableWallets": 5,
           "relayAdapt": "0xAc9f360Ae85469B27aEDdEaFC579Ef2d052aD405",
           "reliability": 1
         }
@@ -421,15 +425,15 @@
       "liveSubmission": "intentionally-not-attempted",
       "errors": [],
       "localChecksPassed": true,
-      "browserErrors": [],
       "networkEvidence": {
-        "externalRequestCount": 10,
+        "externalRequestCount": 13,
         "externalRequestKinds": [
           "dns",
           "waku-websocket"
         ],
         "blockedRequests": []
-      }
+      },
+      "browserErrors": []
     },
     "dns": {
       "schemaVersion": 1,
@@ -613,5 +617,111 @@
       },
       "ip": "45.76.18.7"
     }
-  ]
+  ],
+  "dependencyReview": {
+    "capturedAt": "2026-09-19T14:25:37.394Z",
+    "packages": {
+      "axios": {
+        "rendered": 1,
+        "all": 1
+      },
+      "qs": {
+        "rendered": 0,
+        "all": 0
+      },
+      "decode-uri-component": {
+        "rendered": 0,
+        "all": 0
+      },
+      "tar": {
+        "rendered": 0,
+        "all": 0
+      },
+      "form-data": {
+        "rendered": 0,
+        "all": 0
+      },
+      "bn.js": {
+        "rendered": 2,
+        "all": 2
+      },
+      "postcss": {
+        "rendered": 0,
+        "all": 0
+      },
+      "ws": {
+        "rendered": 0,
+        "all": 0
+      },
+      "tough-cookie": {
+        "rendered": 0,
+        "all": 0
+      },
+      "request": {
+        "rendered": 0,
+        "all": 0
+      },
+      "elliptic": {
+        "rendered": 0,
+        "all": 0
+      },
+      "web3-core-subscriptions": {
+        "rendered": 0,
+        "all": 0
+      },
+      "crypto-browserify": {
+        "rendered": 0,
+        "all": 0
+      },
+      "url": {
+        "rendered": 0,
+        "all": 0
+      },
+      "http": {
+        "rendered": 0,
+        "all": 0
+      },
+      "https-browserify": {
+        "rendered": 0,
+        "all": 0
+      },
+      "stream-http": {
+        "rendered": 0,
+        "all": 0
+      }
+    },
+    "modules": [
+      {
+        "name": "axios",
+        "id": "node_modules/.pnpm/axios@1.20.0/node_modules/axios/dist/browser/axios.cjs",
+        "chunk": "assets/dist-b0Y_A03P.js",
+        "renderedLength": 103479,
+        "importers": [
+          "node_modules/.pnpm/@railgun-community+wallet@10.9.1_@graphql-tools+utils@9.2.1_graphql@16.14.2__@types+nod_c2b0a6a1d01b3fbde50572650e832af1/node_modules/@railgun-community/wallet/dist/services/artifacts/artifact-downloader.js",
+          "node_modules/.pnpm/@railgun-community+wallet@10.9.1_@graphql-tools+utils@9.2.1_graphql@16.14.2__@types+nod_c2b0a6a1d01b3fbde50572650e832af1/node_modules/@railgun-community/wallet/dist/services/poi/poi-node-request.js"
+        ]
+      },
+      {
+        "name": "bn.js",
+        "id": "node_modules/.pnpm/bn.js@4.12.5/node_modules/bn.js/lib/bn.js",
+        "chunk": "assets/dist-b0Y_A03P.js",
+        "renderedLength": 73812,
+        "importers": [
+          "node_modules/.pnpm/ethjs-unit@0.1.6/node_modules/ethjs-unit/lib/index.js",
+          "node_modules/.pnpm/number-to-bn@1.7.0/node_modules/number-to-bn/src/index.js"
+        ]
+      },
+      {
+        "name": "bn.js",
+        "id": "node_modules/.pnpm/bn.js@5.2.5/node_modules/bn.js/lib/bn.js",
+        "chunk": "assets/dist-b0Y_A03P.js",
+        "renderedLength": 75909,
+        "importers": [
+          "node_modules/.pnpm/web3-utils@1.10.4/node_modules/web3-utils/lib/index.js",
+          "node_modules/.pnpm/web3-utils@1.10.4/node_modules/web3-utils/lib/soliditySha3.js",
+          "node_modules/.pnpm/web3-utils@1.10.4/node_modules/web3-utils/lib/utils.js"
+        ]
+      }
+    ]
+  }
 }

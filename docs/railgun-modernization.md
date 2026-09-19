@@ -1,4 +1,4 @@
-# RAILGUN / Waku modernization: Bindle 0.2.0
+# RAILGUN / Waku modernization: Bindle 0.2.1
 
 Validated September 19, 2026. This release replaces the split Kohaku/Waku stack,
 preserves existing wallet addresses, and removes the public-account fallback
@@ -37,6 +37,23 @@ deprecated packages and installed `elliptic`/`crypto-browserify` dependencies.
 A production build guard rejects either crypto package in rendered browser code.
 Only demonstrated Buffer/process/stream compatibility shims are included.
 Large bundle warnings remain; successful builds are not a dependency security audit.
+
+The post-push advisory review led to a 0.2.1 follow-up. Mature compatible pins
+update Axios to 1.20.0, bn.js 4.x to 4.12.5, qs to 6.16.0, ws to 8.21.3,
+PostCSS to 8.5.28, and form-data 2.x to 2.5.6. Peer-store 11.2.7 receives the
+exact upstream signer/record identity check, avoiding an incompatible libp2p
+major upgrade. Three defensive tests cover that check. Version-only scanners
+may continue flagging the locally patched peer-store version.
+
+A clean frozen install replaced stale undeclared root packages before final
+validation. The final rendered-module audit confirms patched Axios/bn.js paths;
+the old incidental url/qs polyfills are absent. Advisories remain in unused
+transitive tar 4.4.19, decode-uri-component 0.2.2, tough-cookie 2.5.0, request
+2.88.2, elliptic 6.6.1, and web3-core-subscriptions 1.10.4. Blind major upgrades
+would break legacy CommonJS/API contracts. The build rejects all those packages
+and crypto-browserify in served chunks, and dependency scripts remain disabled.
+This reduces browser exposure; it does not claim the install graph is fully
+patched or safe to use in arbitrary Node programs.
 
 ## Wallet derivation and recovery
 
@@ -77,11 +94,13 @@ observations. Counts are September 19 snapshots, not ongoing availability claims
 | --- | ---: | ---: | ---: | --- |
 | Local, outbound blocked | 0 | 0 | 0 | Local checks passed; zero external requests |
 | Direct peers, DNS disabled | 3 | 23 | 104 | All three configured peer IDs matched; WETH selected |
-| DNS plus direct peers | 3 | 47 | 343 | DNS resolved; WETH selected |
+| DNS plus direct peers, final 0.2.1 | 4 | 24 | 110 | All three direct IDs matched; DNS resolved; WETH selected |
 | DNS only | 0 | 0 | 0 | DNS resolved; browser connection timed out and cleaned up |
 
 Connected peers advertised Filter, LightPush, and Store support. Live direct/mixed
 runs had no diagnostic errors, browser exceptions, or unexpected requests.
+Local and mixed scans were repeated after the clean security-pinned install;
+the direct-only and DNS-only rows retain the earlier same-day observations.
 DNS-only failure is explained by three independently decoded, signature-checked
 ENRs: cluster 5/shard 1, IP TCP/UDP port 30304, **no browser WebSocket addresses**.
 Bindle does not invent endpoints from those records. Explicit visible WSS peers

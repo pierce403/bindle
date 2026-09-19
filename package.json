@@ -1,6 +1,6 @@
 {
   "name": "bindle",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "license": "Apache-2.0",
@@ -51,12 +51,18 @@
   "pnpm": {
     "patchedDependencies": {
       "@railgun-community/waku-broadcaster-client-web@9.1.1": "patches/railgun-waku-broadcaster-client-web-9.1.1.patch",
-      "@waku/discovery@0.0.13": "patches/waku-discovery-0.0.13.patch"
+      "@waku/discovery@0.0.13": "patches/waku-discovery-0.0.13.patch",
+      "@libp2p/peer-store@11.2.7": "patches/libp2p-peer-store-11.2.7.patch"
     },
     "overrides": {
       "underscore": "1.13.8",
       "uuid": "11.1.1",
-      "ws": "8.20.1"
+      "ws": "8.21.3",
+      "axios": "1.20.0",
+      "qs": "6.16.0",
+      "bn.js@<5": "4.12.5",
+      "postcss": "8.5.28",
+      "form-data@<3": "2.5.6"
     }
   }
 }

@@ -139,13 +139,13 @@ const buildInfoPlugin = (): Plugin => ({
 const broadcasterDependencyGuard = (): Plugin => ({
   name: "bindle-broadcaster-dependency-guard",
   generateBundle(_options, bundle) {
-    // These packages remain transitive install metadata of the official wallet
-    // helper dependency. Its browser crypto path must never render them.
+    // Unfixed/legacy transitive packages remain in the upstream install graph.
+    // Their Node/tooling paths must stay outside the served application.
     for (const output of Object.values(bundle)) {
       if (output.type !== "chunk") continue;
       for (const [id, module] of Object.entries(output.modules)) {
-        if (module.renderedLength > 0 && /\/node_modules\/(?:elliptic|crypto-browserify)\//.test(id)) {
-          throw new Error(`Forbidden broadcaster browser crypto dependency: ${id}`);
+        if (module.renderedLength > 0 && /\/node_modules\/(?:elliptic|crypto-browserify|request|tar|tough-cookie|decode-uri-component|web3-core-subscriptions)\//.test(id)) {
+          throw new Error(`Forbidden broadcaster browser dependency: ${id}`);
         }
       }
     }

@@ -161,6 +161,12 @@ second-engine transaction lookup, and stop client polling on teardown. Narrow
 browser Buffer/stream compatibility supports actual upstream imports; avoid
 broad Node polyfills without a demonstrated requirement.
 
+The 0.2.1 advisory follow-up pins compatible security releases and backports
+libp2p's peer-record identity check. Some unused upstream Node dependencies
+remain vulnerable in the install graph; the production build rejects them in
+browser chunks. The modernization report records the clean-install audit and
+remaining limits rather than claiming a fully patched dependency graph.
+
 ## Deployment and updates
 
 `pnpm build` writes `docs/`, published by GitHub Pages from `main:/docs` at
