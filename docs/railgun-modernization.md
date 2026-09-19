@@ -170,8 +170,8 @@ reported separately from successful execution.
 Baseline: pinned install, typecheck, and build passed; 126 tests passed with one
 pre-existing real-spend acceptance test skipped.
 
-Final merged validation: frozen pnpm 10.34.1 install, TypeScript, and production
-build passed; **192 combined deterministic/integration/Chrome tests passed**,
+Final 0.2.1 validation: clean frozen pnpm 10.34.1 install, TypeScript, and
+production build passed; **195 combined deterministic/integration/Chrome tests passed**,
 with the one pre-existing real-spend acceptance case intentionally skipped.
 **All 10 stable-controller lifecycle tests passed.** The suite covers browser
 onboarding, recovery compatibility, orphaned/concurrent key protection,
