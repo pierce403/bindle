@@ -451,6 +451,11 @@ button:disabled {
 }
 
 .build-metadata-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
   max-width: 188px;
   overflow: hidden;
   color: color-mix(in srgb, var(--muted) 82%, transparent);
@@ -1695,6 +1700,28 @@ button:disabled {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+.app-update-card {
+  padding: 16px;
+  border: 1px solid var(--accent);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.app-update-card h2 { margin: 0; font-size: 1.1rem; }
+.app-update-card button { font-size: 0.85rem; padding: 0 10px; }
+.app-update-card p, .version-menu p { font-size: 0.82rem; line-height: 1.45; }
+.version-menu summary { cursor: pointer; font-weight: 700; margin-bottom: 12px; }
+.release-details { margin: 12px 0; font-size: 0.78rem; }
+.release-details div { margin-bottom: 8px; }
+.release-details dt { color: var(--muted); }
+.release-details dd { margin: 0; overflow-wrap: anywhere; }
+.update-preferences { display: flex; gap: 16px; border: 0; padding: 0; margin: 16px 0 8px; }
+.update-preferences legend { margin-bottom: 10px; font-weight: 600; }
+.update-preferences label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.9rem; }
+.update-preferences input { accent-color: var(--accent); }
+.update-footnote { color: var(--muted); }
+.available-release { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
 
 .settings-row small {
   color: color-mix(in srgb, var(--text) 54%, transparent);

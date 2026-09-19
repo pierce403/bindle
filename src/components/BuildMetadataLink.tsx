@@ -16,8 +16,15 @@ const formatBuildTime = (value: string): string => {
   }).format(date);
 };
 
-export function BuildMetadataLink() {
+export function BuildMetadataLink({ onOpenVersion }: { onOpenVersion?: () => void }) {
   const buildTime = formatBuildTime(bindleBuildInfo.time);
+
+  if (onOpenVersion) return (
+    <button className="build-metadata-link" type="button" onClick={onOpenVersion}
+      title="Open version and update settings">
+      v{bindleBuildInfo.version} · {bindleBuildInfo.shortCommit}
+    </button>
+  );
 
   return (
     <a
@@ -27,8 +34,7 @@ export function BuildMetadataLink() {
       target="_blank"
       title={`Build ${bindleBuildInfo.commit} at ${bindleBuildInfo.time}`}
     >
-      {bindleBuildInfo.shortCommit} · {buildTime}
+      v{bindleBuildInfo.version} · {bindleBuildInfo.shortCommit} · {buildTime}
     </a>
   );
 }
-

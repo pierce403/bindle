@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -106,7 +107,7 @@ const readGitCommitTime = (commit) => {
   return new Date().toISOString();
 };
 
-const buildCommit = readGitCommit() + (isGitDirty() ? "-dirty" : "");
+const buildCommit = process.env.BINDLE_BUILD_COMMIT ?? (readGitCommit() + (isGitDirty() ? "-dirty" : ""));
 
 const env = {
   ...process.env,
@@ -137,15 +138,23 @@ if (result.error) {
 
 if (result.status === 0) {
   const swPath = resolve(repoRoot, "docs/service-worker.js");
-  if (existsSync(swPath)) {
-    console.log(`Busting PWA service worker cache using commit: ${buildCommit}`);
-    let swContent = readFileSync(swPath, "utf8");
-    swContent = swContent.replace(
-      'const CACHE_NAME = "bindle-shell-v13";',
-      `const CACHE_NAME = "bindle-shell-${buildCommit}";`
-    );
-    writeFileSync(swPath, swContent, "utf8");
-  }
+  const version = JSON.parse(readFileSync(resolve(repoRoot, "package.json"), "utf8")).version;
+  const time = env.BINDLE_BUILD_TIME;
+  const id = createHash("sha256").update(JSON.stringify([version, buildCommit, time])).digest("hex").slice(0, 24);
+  const build = { version, commit: buildCommit, time, id };
+  const files = readdirSync(resolve(repoRoot, "docs"), { recursive: true })
+    .filter((file) => !file.startsWith("railgun-artifacts/") && file !== "service-worker.js" && file !== "build.json")
+    .filter((file) => statSync(resolve(repoRoot, "docs", file)).isFile());
+  const precache = files.map((file) => ({
+    url: `/${file}`,
+    hash: createHash("sha256").update(readFileSync(resolve(repoRoot, "docs", file))).digest("hex")
+  }));
+  const swContent = readFileSync(swPath, "utf8")
+    .replace("/* BINDLE_BUILD_INFO */ null", JSON.stringify(build))
+    .replace("/* BINDLE_PRECACHE */ []", JSON.stringify(precache));
+  writeFileSync(swPath, swContent);
+  writeFileSync(resolve(repoRoot, "docs/build.json"), JSON.stringify(build, null, 2) + "\n");
+  console.log(`Prepared PWA release ${version} (${id}), ${precache.length} verified shell assets.`);
 }
 
 process.exit(result.status ?? 1);

@@ -1,4 +1,6 @@
 import {
+  rawBuildVersion,
+  rawBuildId,
   rawBuildCommit,
   rawBuildTime
 } from "virtual:bindle-build-info";
@@ -17,6 +19,8 @@ const buildTime =
     : "unknown";
 
 export const bindleBuildInfo = {
+  version: rawBuildVersion,
+  id: rawBuildId,
   commit: buildCommit,
   shortCommit:
     buildCommit === unknownCommit ? unknownCommit : buildCommit.slice(0, 12),

@@ -139,140 +139,26 @@ export async function ensureExpectedArtifactProxyServiceWorker({
     return status;
   }
 
-  onStatus(
-    `Service Worker version is ${
-      currentVersion ?? "unknown"
-    } (expected ${expectedVersion}). Checking for updates...`
-  );
-
-  onStatus("Triggering Service Worker update check");
-  status.repairActions.push("registration_update");
+  // A repair must never unregister the worker, purge an approved shell, or
+  // activate a release behind the user's update preference.
+  onStatus("Checking the artifact proxy without changing the approved app version.");
   try {
     await registration.update();
-  } catch (err: any) {
-    console.warn("SW update call failed:", err);
+    const deadline = Date.now() + timeoutMs;
+    while (!navigator.serviceWorker.controller && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    currentVersion = await checkControllerVersion();
+  } catch {
+    // Return an actionable readiness failure while offline.
   }
   updateStatusFromRegistration();
-
-  if (registration.waiting) {
-    onStatus("Found waiting Service Worker. Sending skip waiting command.");
-    status.repairActions.push("send_skip_waiting");
-    status.repairAttempted = true;
-
-    const skipAckPromise = new Promise<void>((resolve) => {
-      const channel = new MessageChannel();
-      const waitingWorker = registration!.waiting!;
-      const timeout = setTimeout(resolve, 2000);
-
-      channel.port1.onmessage = () => {
-        clearTimeout(timeout);
-        resolve();
-      };
-      waitingWorker.postMessage({ type: "BINDLE_SKIP_WAITING" }, [channel.port2]);
-    });
-
-    await skipAckPromise;
+  status.controllerVersion = currentVersion;
+  status.ok = currentVersion === expectedVersion;
+  status.caches = await getCacheKeys();
+  if (!status.ok) {
+    status.error = "The required artifact proxy is unavailable. Open Settings > Version to review app updates, then retry.";
+    onStatus(status.error);
   }
-
-  const onControllerChangePromise = new Promise<void>((resolve) => {
-    const handler = () => {
-      navigator.serviceWorker.removeEventListener("controllerchange", handler);
-      resolve();
-    };
-    navigator.serviceWorker.addEventListener("controllerchange", handler);
-    setTimeout(() => {
-      navigator.serviceWorker.removeEventListener("controllerchange", handler);
-      resolve();
-    }, timeoutMs);
-  });
-
-  if (registration.installing) {
-    onStatus("Service Worker is currently installing. Waiting for completion...");
-    const installingWorker = registration.installing;
-    await new Promise<void>((resolve) => {
-      const stateHandler = () => {
-        if (installingWorker.state === "installed" || installingWorker.state === "redundant") {
-          installingWorker.removeEventListener("statechange", stateHandler);
-          resolve();
-        }
-      };
-      installingWorker.addEventListener("statechange", stateHandler);
-      setTimeout(resolve, 8000);
-    });
-    updateStatusFromRegistration();
-
-    if (registration.waiting) {
-      onStatus("Service Worker installed and waiting. Skipping waiting state.");
-      status.repairActions.push("send_skip_waiting_after_install");
-      status.repairAttempted = true;
-      registration.waiting.postMessage({ type: "BINDLE_SKIP_WAITING" });
-    }
-  }
-
-  if (status.repairAttempted || registration.waiting) {
-    onStatus("Waiting for new Service Worker controller to activate...");
-    await onControllerChangePromise;
-    updateStatusFromRegistration();
-
-    currentVersion = await checkControllerVersion();
-    status.controllerVersion = currentVersion;
-    if (currentVersion === expectedVersion) {
-      status.ok = true;
-      return status;
-    }
-  }
-
-  if (navigator.serviceWorker.controller) {
-    onStatus("Sending cache purge command to the current active controller...");
-    status.repairActions.push("send_clear_caches");
-    status.repairAttempted = true;
-
-    try {
-      const channel = new MessageChannel();
-      const controller = navigator.serviceWorker.controller;
-      await new Promise<void>((resolve) => {
-        const timeout = setTimeout(resolve, 2000);
-        channel.port1.onmessage = () => {
-          clearTimeout(timeout);
-          resolve();
-        };
-        controller.postMessage({ type: "BINDLE_CLEAR_BINDLE_CACHES" }, [channel.port2]);
-      });
-    } catch (err) {
-      console.warn("Failed to clear caches via controller:", err);
-    }
-  }
-
-  if (currentVersion !== expectedVersion) {
-    onStatus("Service Worker upgrade failed. Performing safe unregistration and local cache purge...");
-    status.repairActions.push("hard_reset");
-    status.repairAttempted = true;
-
-    try {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      for (const reg of regs) {
-        await reg.unregister();
-      }
-
-      if ("caches" in window) {
-        const keys = await caches.keys();
-        for (const key of keys) {
-          if (key.startsWith("bindle-shell-") || key.startsWith("bindle-railgun-artifacts-")) {
-            await caches.delete(key);
-          }
-        }
-      }
-    } catch (err: any) {
-      console.error("Hard reset cleanup failed:", err);
-    }
-
-    status.caches = await getCacheKeys();
-
-    throw new ArtifactProxyReloadRequiredError(
-      `Service Worker hard reset performed. The page must be reloaded to register and activate artifact proxy version ${expectedVersion}.`
-    );
-  }
-
-  status.ok = true;
   return status;
 }

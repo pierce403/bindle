@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
 
 const virtualBuildInfoModuleId = "virtual:bindle-build-info";
 const resolvedVirtualBuildInfoModuleId = `\0${virtualBuildInfoModuleId}`;
@@ -111,8 +112,10 @@ const readGitCommitTime = (commit: string): string => {
   return new Date().toISOString();
 };
 
-const buildCommit = readGitCommit() + (isGitDirty() ? "-dirty" : "");
+const buildCommit = process.env.BINDLE_BUILD_COMMIT ?? (readGitCommit() + (isGitDirty() ? "-dirty" : ""));
 const buildTime = readGitCommitTime(buildCommit);
+const buildVersion = JSON.parse(readFileSync(resolve(repoRoot, "package.json"), "utf8")).version as string;
+const buildId = createHash("sha256").update(JSON.stringify([buildVersion, buildCommit, buildTime])).digest("hex").slice(0, 24);
 
 const buildInfoPlugin = (): Plugin => ({
   name: "bindle-build-info",
@@ -124,6 +127,8 @@ const buildInfoPlugin = (): Plugin => ({
   load(id) {
     if (id === resolvedVirtualBuildInfoModuleId) {
       return [
+        `export const rawBuildVersion = ${JSON.stringify(buildVersion)};`,
+        `export const rawBuildId = ${JSON.stringify(buildId)};`,
         `export const rawBuildCommit = ${JSON.stringify(buildCommit)};`,
         `export const rawBuildTime = ${JSON.stringify(buildTime)};`
       ].join("\n");

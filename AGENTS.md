@@ -223,12 +223,42 @@ avoids requiring GitHub workflow scope.
 - Use lucide icons for UI controls when an icon exists.
 - Do not add decorative UI that undermines the app's utilitarian wallet flow.
 - Do not use long-lived hidden endpoints or analytics scripts.
-- The service worker should only cache same-origin GET requests. Keep navigation
-  network-first and do not cache wallet RPC, broadcaster, provider resolver, or
-  other sensitive POST traffic.
+- The service worker should only cache same-origin GET requests. Navigation
+  serves the approved release's cached shell so Ask/Reject cannot be bypassed
+  by reopening the app. Never cache wallet RPC, broadcaster, provider resolver,
+  or other sensitive POST traffic.
 
 ## Known Issues And Pitfalls
 
+- PWA updates: `src/pwa/registerServiceWorker.ts` owns update discovery and
+  local Approve/Ask/Reject preferences; Ask is the default. `useAppUpdates`
+  defers installation/reload during wallet actions and recovery-phrase review.
+  Settings > Version and the header version button expose current/pending
+  version, full commit, and build timestamp. Checks/downloads are same-origin.
+- `pnpm build` stamps the worker and `docs/build.json` with matching release
+  metadata and hashes every shell asset, including lazy JS/WASM. Installation
+  must fail on missing/mismatched assets; proving artifacts remain on demand.
+  Keep the approved shell pointer in `bindle-release-selection-v1` independent
+  of worker activation: browsers activate waiting workers after all windows
+  close, which must not imply app-update approval. Never restore unconditional
+  `skipWaiting`, controller-change reloads, or network-first shell navigation.
+- Artifact-proxy readiness fails with instructions to review Version settings
+  instead of silently unregistering/upgrading the worker. Artifact-cache repair
+  clears only proving artifacts. The header refresh now checks for app updates.
+  Wallet secrets/metadata are never cleared by an app update. Browser storage
+  eviction or an explicit site-data wipe removes the cached-version guarantee.
+- Verify PWA lifecycle changes with `pnpm build` followed by
+  `pnpm test:e2e tests/pwaUpdates.spec.ts`. These tests serve two production
+  release fixtures and exercise real workers, restart rejection, deferred
+  auto-approval, offline launch, incomplete downloads, multiple windows, and
+  localStorage/IndexedDB preservation. Vite dev uses an unpinned worker. The
+  September 19 update suite run passed 126 tests with the existing real-spend
+  acceptance test skipped; no paid/chain transactions were run.
+- In the Codex desktop runtime, the fallback `pnpm` may be version 11 and try an
+  unwanted install that fails with SQLite store permissions. Use the cached
+  pinned pnpm 10.34.1 executable (or Corepack), and ensure nested build/test
+  commands resolve that executable too. Browser tests require localhost binds
+  and Chrome access outside the restrictive command sandbox.
 - Kohaku RAILGUN is currently pinned to `@kohaku-eth/railgun@0.0.1-alpha.22`
   with `@kohaku-eth/provider@0.1.0-alpha.8` and
   `@kohaku-eth/plugins@0.0.1-alpha.8`.

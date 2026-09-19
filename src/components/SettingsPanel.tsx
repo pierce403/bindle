@@ -1,6 +1,7 @@
 import { Copy, Download, KeyRound, Palette, RotateCcw, Settings, Upload } from "lucide-react";
 import { useRef } from "react";
 import { ThemeControls } from "./ThemeControls";
+import { VersionMenu } from "./AppUpdates";
 import type { ThemeSelection } from "../theme/theme";
 import {
   getCurrentPasskeyHostname,
@@ -10,6 +11,7 @@ import type { PasskeyAuthenticatorKind } from "../wallet/passkeys";
 import type { WalletState } from "../wallet/walletState";
 
 type SettingsPanelProps = {
+  updateBusy: boolean;
   theme: ThemeSelection;
   walletState: WalletState;
   accountExportStatus: string;
@@ -36,6 +38,7 @@ type SettingsPanelProps = {
 };
 
 export function SettingsPanel({
+  updateBusy,
   theme,
   walletState,
   accountExportStatus,
@@ -88,6 +91,8 @@ export function SettingsPanel({
       </div>
 
       <ThemeControls theme={theme} onChange={onThemeChange} />
+
+      <VersionMenu busy={updateBusy} />
 
       <div className="settings-row">
         <div>

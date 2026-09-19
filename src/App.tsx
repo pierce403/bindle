@@ -6,6 +6,9 @@ import { BalancePanel, type WalletAction } from "./components/BalancePanel";
 import { BottomNav, type AppTab } from "./components/BottomNav";
 import { BrowserLandingPage } from "./components/BrowserLandingPage";
 import { BuildMetadataLink } from "./components/BuildMetadataLink";
+import { AppUpdatePrompt } from "./components/AppUpdates";
+import { useAppUpdates } from "./pwa/useAppUpdates";
+import { checkForUpdates } from "./pwa/registerServiceWorker";
 import { DebugPanel } from "./components/DebugPanel";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { PrivacySwitchboard } from "./components/PrivacySwitchboard";
@@ -448,6 +451,7 @@ function WalletApp() {
   const [freshPrivatePayReadiness, setFreshPrivatePayReadiness] =
     useState<RailgunBroadcasterReadiness | null>(null);
   const [isSubmittingShield, setIsSubmittingShield] = useState(false);
+  const [isReviewingShield, setIsReviewingShield] = useState(false);
   const [shieldStatus, setShieldStatus] = useState("");
   const [isExportingAccount, setIsExportingAccount] = useState(false);
   const [isImportingAccount, setIsImportingAccount] = useState(false);
@@ -474,6 +478,12 @@ function WalletApp() {
   const [localOnboardingComplete, setLocalOnboardingComplete] = useState(
     loadLocalOnboardingComplete
   );
+  const updateBusy = Boolean(activeAction) || isSubmittingPay || isSubmittingShield || isReviewingShield ||
+    isCreatingPasskey || isDerivingSmartWallet || isCreatingRailgunWallet ||
+    isImportingRailgunWallet || isExportingAccount || isImportingAccount ||
+    isCreatingOwnerEnrollment || isReplacingRailgunWallet ||
+    Boolean(createdRailgunRecoveryPhrase || railgunReplacementRecoveryPhrase);
+  useAppUpdates(updateBusy);
   const [publicBalance, setPublicBalance] = useState<PublicBalanceState>(
     initialPublicBalanceState
   );
@@ -1122,16 +1132,10 @@ function WalletApp() {
 
   const handleRefreshArtifactCache = async () => {
     try {
-      if ("serviceWorker" in navigator) {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        for (const reg of registrations) {
-          await reg.unregister();
-        }
-      }
       if ("caches" in window) {
         const keys = await caches.keys();
         for (const key of keys) {
-          if (key.startsWith("bindle-railgun-artifacts-") || key.startsWith("bindle-shell-")) {
+          if (key.startsWith("bindle-railgun-artifacts-")) {
             await caches.delete(key);
           }
         }
@@ -2634,27 +2638,6 @@ function WalletApp() {
       });
   };
 
-  const handleHardRefresh = async () => {
-    try {
-      if ("serviceWorker" in navigator) {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        for (const reg of registrations) {
-          await reg.unregister();
-        }
-      }
-      if ("caches" in window) {
-        const keys = await caches.keys();
-        for (const key of keys) {
-          await caches.delete(key);
-        }
-      }
-    } catch (err) {
-      console.error("Hard refresh clear failed:", err);
-    } finally {
-      window.location.reload();
-    }
-  };
-
   const noticeAction = appNotice?.action;
 
   return (
@@ -2670,7 +2653,10 @@ function WalletApp() {
             <div className="brand-copy">
               <strong>Bindle</strong>
               <span className="eyebrow">ETH mainnet</span>
-              <BuildMetadataLink />
+              <BuildMetadataLink onOpenVersion={() => {
+                setActiveTab("settings");
+                requestAnimationFrame(() => document.getElementById("version-menu")?.scrollIntoView({ block: "start" }));
+              }} />
             </div>
           </div>
 
@@ -2678,8 +2664,8 @@ function WalletApp() {
             <button
               className="icon-button ghost"
               type="button"
-              title="Hard refresh"
-              onClick={handleHardRefresh}
+              title="Check for updates"
+              onClick={() => void checkForUpdates()}
             >
               <RotateCw size={19} aria-hidden="true" />
             </button>
@@ -2690,6 +2676,7 @@ function WalletApp() {
         </header>
 
         <div className="app-content">
+          <AppUpdatePrompt busy={updateBusy} />
           {appNotice ? (
             <section
               className={`app-notice ${appNotice.kind}`}
@@ -2814,6 +2801,7 @@ function WalletApp() {
                 shieldStatus={shieldStatus}
                 onSync={() => void syncPublicBalance()}
                 onShield={(request) => void submitShield(request)}
+                onReviewChange={setIsReviewingShield}
               />
             ) : null}
 
@@ -2871,6 +2859,7 @@ function WalletApp() {
 
         {activeTab === "settings" ? (
           <SettingsPanel
+            updateBusy={updateBusy}
             theme={theme}
             walletState={walletState}
             accountExportStatus={accountExportStatus}

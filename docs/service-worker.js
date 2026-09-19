@@ -1,85 +1,66 @@
-const CACHE_NAME = "bindle-shell-1a53807ac745c5355ed3f2827a35f5b19f4e19db-dirty";
+// Stamped by pnpm build. The development worker does not pin Vite modules.
+const BUILD_INFO = {"version":"0.1.1","commit":"f5f4a47ac68e589c83fe9fbeaabfa7ffcd1c8d40-dirty","time":"2026-09-19T12:53:52.923Z","id":"a7896f10eb2ec990d3c99e02"};
+const PRECACHE = [{"url":"/.nojekyll","hash":"01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"},{"url":"/CNAME","hash":"4e35c0e085a490b46a50c23d115a2b2d52dcee84cd8dccd6c2ea50e7b63bd46d"},{"url":"/favicon-16.png","hash":"e71f59a78448b8264c0a3e96399bbe7e60d5815474e7053007e23d88bb176d7b"},{"url":"/favicon-32.png","hash":"b5fc90d4936b1cfa6f5168d0b859d0dd3ac6a31abf2852c98b7d4d246019bab1"},{"url":"/index.html","hash":"4c487a5f9b8ab0d3bffd337707b6bd85b067b2588e30f63f2258f3b268594583"},{"url":"/logo.png","hash":"bb119224bf2b6c67ebc68a8daf8abb8e661254b955c54d363411eaeb352afddf"},{"url":"/manifest.webmanifest","hash":"048cf65eb8430e8b8c6512860e53847bb78b54f74b8f5f811331d0a4640af171"},{"url":"/paisley-monochrome.png","hash":"c60bb9bc1d7705fd6a8262ed2e47348da17ac81babef91c74cb13e1a4823d75a"},{"url":"/paisley-rose-monochrome.png","hash":"42e7e07b241db403d04c9352c9da6e3b62d92fff1094bed9253d91675486f7ff"},{"url":"/assets/ccip-G9PAdqUI.js","hash":"fef31082f46007f6f89970c8e0686aa7703a0732e2982649135a1dc6ae4d3357"},{"url":"/assets/dist-Bj-vwC65.js","hash":"326bc3e4ccacf6d1f71bc5d78bff35085b1fd57f53fa44f0f1e93e8292290bd4"},{"url":"/assets/index-BFeqMLLP.css","hash":"051f184e3e4158130b68bb6cdfae711a4b29cb89a6c7dc579801c2966228019a"},{"url":"/assets/index-CqDP9uUP.js","hash":"8361d1113986796b9a168c71b9035097209f818dae3fd4d0efddaf741059aceb"},{"url":"/assets/index_bg-B29YS5-Q.wasm","hash":"a122c9b3dc572805f68e3bea27f3c2bb1a0c3ee42a86cc3cfd287990e49a4b04"},{"url":"/assets/pkg-BHh18C2y.js","hash":"724a391976c0ff772189a34007c78b9fda4a9ebdc2b156b642a6817d08910566"},{"url":"/assets/railgun_rs-FG7lo5Ag.js","hash":"69d030fe12399cae31518295edee62f7c11f0cc04ac85b3b37ea6f0013d588bc"},{"url":"/assets/railgun_rs_bg-mJRSrp_z.wasm","hash":"3d7d0d556b545ef67a5e67144134931058b2fe7b887815311d16b1304d49497b"},{"url":"/assets/utils-BAL4l3fO.js","hash":"42edaea7a1f433a9b4833a15edd8da26917672f93c2c7c0d37de0aeeb2a722f2"},{"url":"/icons/icon-192.png","hash":"6f1c4c80db555703c22bc947e5fbb970ab138e482770e3604b0224548931ce46"},{"url":"/icons/icon-512.png","hash":"bb119224bf2b6c67ebc68a8daf8abb8e661254b955c54d363411eaeb352afddf"},{"url":"/icons/maskable-192.png","hash":"1450f8d17005132ee822528e6154265c8e3451abdd547aa5321b2d9fac65307f"},{"url":"/icons/maskable-512.png","hash":"84b19d3486a10725c6367240d9967394b6e3d1931fb9a38a2585e1ca858b9b1d"}];
+const CACHE_NAME = `bindle-shell-${BUILD_INFO?.id ?? "dev"}`;
+const RELEASE_CACHE = "bindle-release-selection-v1";
+const RELEASE_KEY = "/__bindle-approved-release";
+const readRelease = async () => {
+  const response = await (await caches.open(RELEASE_CACHE)).match(RELEASE_KEY);
+  return response ? response.json() : null;
+};
+const approveRelease = async () => {
+  const previous = await readRelease();
+  await (await caches.open(RELEASE_CACHE)).put(RELEASE_KEY, Response.json({
+    build: BUILD_INFO,
+    cacheName: CACHE_NAME,
+    previousCacheName: previous?.cacheName === CACHE_NAME
+      ? previous.previousCacheName : previous?.cacheName
+  }));
+};
 const ARTIFACT_CACHE_NAME = "bindle-railgun-artifacts-v4";
 const ARTIFACT_PROXY_VERSION = "railgun-artifacts-v4";
 const KOHAKU_RAILGUN_ARTIFACT_ORIGIN = "https://github.com";
 const KOHAKU_RAILGUN_ARTIFACT_PATH_PREFIX =
   "/Robert-MacWha/privacy-protocol-artifacts/raw/refs/heads/main/artifacts/";
 const LOCAL_RAILGUN_ARTIFACT_PATH_PREFIX = "/railgun-artifacts/";
-const APP_SHELL = [
-  "/",
-  "/index.html",
-  "/favicon-16.png",
-  "/favicon-32.png",
-  "/logo.png",
-  "/paisley-rose-monochrome.png",
-  "/manifest.webmanifest",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
-  "/icons/maskable-192.png",
-  "/icons/maskable-512.png"
-];
-
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      const cachePromises = APP_SHELL.map((url) => {
-        return fetch(url)
-          .then((response) => {
-            if (!response.ok) {
-              throw new Error(`Status ${response.status.toString()}`);
-            }
-            return cache.put(url, response);
-          })
-          .catch((err) => {
-            console.warn(`Non-critical shell asset failed to cache: ${url}`, err);
-          });
-      });
-      return Promise.allSettled(cachePromises).then(() => {
-        return self.skipWaiting();
-      });
-    })
-  );
+  if (!BUILD_INFO) return;
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    // A partial/mixed deployment must never become an installable release.
+    for (const { url, hash } of PRECACHE) {
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok || await sha256Hex(await response.clone().arrayBuffer()) !== hash) {
+        throw new Error(`Incomplete Bindle release: ${url}`);
+      }
+      await cache.put(url, response);
+    }
+    // No skipWaiting: only the explicit approval message can activate early.
+  })());
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys
-            .filter((key) => {
-              // Delete old shell caches
-              if (key.startsWith("bindle-shell-") && key !== CACHE_NAME) {
-                return true;
-              }
-              // Delete old artifact caches
-              if (
-                key.startsWith("bindle-railgun-artifacts-") &&
-                key !== ARTIFACT_CACHE_NAME
-              ) {
-                return true;
-              }
-              // Delete any unrecognized keys
-              if (key !== CACHE_NAME && key !== ARTIFACT_CACHE_NAME) {
-                return true;
-              }
-              return false;
-            })
-            .map((key) => caches.delete(key))
-        )
-      )
-      .then(() => self.clients.claim())
-      .then(() => self.clients.matchAll())
-      .then((clients) => {
-        for (const client of clients) {
-          client.postMessage({
-            type: "BINDLE_SERVICE_WORKER_ACTIVATED",
-            version: ARTIFACT_PROXY_VERSION
-          });
-        }
-      })
-  );
+  event.waitUntil((async () => {
+    // Browsers activate a waiting worker when the last window closes. Preserve
+    // the approved shell independently, so closing the PWA never implies consent.
+    if (BUILD_INFO && !(await readRelease())) await approveRelease();
+    const release = await readRelease();
+    const keep = [CACHE_NAME, release?.cacheName, release?.previousCacheName];
+    // Keep all shells while a page may still need an older lazy-loaded chunk.
+    if ((await self.clients.matchAll({ includeUncontrolled: true })).length === 0) {
+      await Promise.all((await caches.keys())
+        .filter((key) => key.startsWith("bindle-shell-") && !keep.includes(key))
+        .map((key) => caches.delete(key)));
+    }
+    await self.clients.claim();
+    const clients = await self.clients.matchAll();
+    for (const client of clients) {
+      client.postMessage({
+        type: "BINDLE_SERVICE_WORKER_ACTIVATED",
+        version: ARTIFACT_PROXY_VERSION
+      });
+    }
+  })());
 });
 
 self.addEventListener("message", (event) => {
@@ -95,6 +76,29 @@ self.addEventListener("message", (event) => {
     }
   };
 
+  if (type === "BINDLE_GET_RELEASE") {
+    event.waitUntil(readRelease().then((release) => reply({
+      build: BUILD_INFO, approved: release?.build ?? null
+    })));
+    return;
+  }
+
+  if (type === "BINDLE_APPROVE_UPDATE") {
+    event.waitUntil((async () => {
+      if (!BUILD_INFO || event.data.id !== BUILD_INFO.id) {
+        reply({ error: "The available release changed. Check for updates again." });
+        return;
+      }
+      await approveRelease();
+      await self.skipWaiting();
+      reply({ approved: BUILD_INFO });
+      for (const client of await self.clients.matchAll({ includeUncontrolled: true })) {
+        client.postMessage({ type: "BINDLE_RELEASE_APPROVED" });
+      }
+    })().catch((error) => reply({ error: error.message })));
+    return;
+  }
+
   if (type === "BINDLE_ARTIFACT_PROXY_READY") {
     reply({
       type: "BINDLE_ARTIFACT_PROXY_READY",
@@ -107,10 +111,9 @@ self.addEventListener("message", (event) => {
   }
 
   if (type === "BINDLE_SKIP_WAITING") {
-    self.skipWaiting();
+    // Artifact-proxy repair cannot bypass the app update decision.
     reply({
-      type: "BINDLE_SKIP_WAITING_ACK",
-      version: ARTIFACT_PROXY_VERSION
+      type: "BINDLE_UPDATE_APPROVAL_REQUIRED"
     });
     return;
   }
@@ -343,38 +346,36 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  if (!BUILD_INFO) return;
+
   if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request)
-        .then((networkResponse) => {
-          const responseCopy = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put("/", responseCopy));
-          return networkResponse;
-        })
-        .catch(() =>
-          caches
-            .match("/")
-            .then((cachedResponse) => cachedResponse || caches.match("/index.html"))
-        )
-    );
+    event.respondWith((async () => {
+      const release = await readRelease();
+      const cache = await caches.open(release?.cacheName ?? CACHE_NAME);
+      return await cache.match("/index.html") ?? new Response(
+        "Bindle's saved version is unavailable. Restore site storage or clear site data to install the current release.",
+        { status: 503, headers: { "content-type": "text/plain" } }
+      );
+    })());
     return;
   }
 
-  event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-
-      return fetch(request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200) {
-          return networkResponse;
+  // Only release assets are cached, never arbitrary same-origin APIs/requests.
+  if (requestUrl.pathname.startsWith("/assets/") || PRECACHE.some(({ url }) => url === requestUrl.pathname)) {
+    event.respondWith((async () => {
+      const release = await readRelease();
+      const cache = await caches.open(release?.cacheName ?? CACHE_NAME);
+      const saved = await cache.match(request);
+      if (saved) return saved;
+      // Hashed assets from older open windows remain valid across activation.
+      if (requestUrl.pathname.startsWith("/assets/")) {
+        for (const name of await caches.keys()) {
+          if (!name.startsWith("bindle-shell-")) continue;
+          const older = await (await caches.open(name)).match(request);
+          if (older) return older;
         }
-
-        const responseCopy = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, responseCopy));
-        return networkResponse;
-      });
-    })
-  );
+      }
+      return fetch(request);
+    })());
+  }
 });

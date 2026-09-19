@@ -7,6 +7,10 @@ infrastructure.
 
 ## Done
 
+- [x] Add PWA update prompts with version, full source commit, and build time;
+      persist Approve / Ask (default) / Reject in Settings > Version. Keep the
+      approved shell across reloads, restarts, and offline use, and defer
+      installation/reload during wallet actions and recovery-phrase review.
 - [x] Make mobile PWA onboarding default to a passkey-backed smart wallet,
       not a seed phrase or browser extension.
 - [x] Evaluate Kohaku's smart-wallet/account path for passkey-backed accounts

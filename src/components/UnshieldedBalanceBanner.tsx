@@ -1,5 +1,5 @@
 import { ShieldAlert } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { isValidEthAmount } from "../intents/validation";
 import type { EndpointDisclosure } from "../privacy/preflightDisclosure";
 
@@ -17,6 +17,7 @@ type UnshieldedBalanceBannerProps = {
   shieldStatus: string;
   onSync: () => void;
   onShield: (request: ShieldRequest) => void;
+  onReviewChange?: (reviewing: boolean) => void;
 };
 
 export type ShieldRequest =
@@ -39,9 +40,14 @@ export function UnshieldedBalanceBanner({
   shieldEndpointDisclosures,
   shieldStatus,
   onSync,
-  onShield
+  onShield,
+  onReviewChange
 }: UnshieldedBalanceBannerProps) {
   const [reviewingShield, setReviewingShield] = useState(false);
+  useEffect(() => {
+    onReviewChange?.(reviewingShield);
+    return () => onReviewChange?.(false);
+  }, [reviewingShield, onReviewChange]);
   const [shieldAmount, setShieldAmount] = useState("");
   const validShieldAmount = isValidEthAmount(shieldAmount);
   const canSweepAll = canShield && balanceWei !== null && balanceWei > 0n;
