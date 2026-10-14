@@ -168,6 +168,11 @@ new wallet and does not recover funds at the old address.
   form-data 2.x 2.5.6 are security overrides. Unfixed legacy tar/request/cookie/
   URI/Web3/elliptic dependencies remain in the install graph; Vite rejects
   their rendered browser modules. Keep those limits disclosed in the report.
+- `shell-quote` 1.11.0 is a narrow security override for the
+  `@railgun-community/wallet` → GraphQL Mesh → `react-native-fs` →
+  `react-devtools-core` chain. Do not restore 1.10.0; it is affected by
+  GHSA-pqg4-j6r4-53mv. Verify the one-copy resolution, no-spend tests,
+  and immutable PWA build before publishing a new release.
 - `wakuFeeAds.ts` is independent diagnostic parsing only. Relay registry rows
   and raw ads never authorize spend. Refresh the official cache, obtain a fresh
   selection, bind quote/policy to the operation, and revalidate before submit.
@@ -261,6 +266,9 @@ from external DNS/peer/broadcaster unavailability.
 
 `pnpm build` writes `docs/`. Its default timestamp is the source commit time to
 avoid reproducibility churn; set `BINDLE_BUILD_TIME` only for an intended override.
+In a Git worktree, the build's `.git` ref reader can report commit `unknown`;
+set `BINDLE_BUILD_COMMIT` to the exact clean source commit and verify
+`docs/build.json.commit` before publishing the generated release.
 `pnpm icons` regenerates public assets from `assets/bindle-logo-source.png`;
 `pnpm logo` first rebuilds that rose-paisley raster source. Keep source/generated
 output synchronized. Public source markdown is copied into docs by the build.
