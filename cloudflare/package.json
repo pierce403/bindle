@@ -1,0 +1,11 @@
+{
+  "name": "bindle-static-hosting",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "wrangler": "node run-wrangler.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.149.0"
+  }
+}

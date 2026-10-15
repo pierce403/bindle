@@ -1,6 +1,6 @@
 # Bindle privacy and trust boundaries
 
-Bindle runs as a static PWA served by GitHub Pages at `bindle.cash`. It does not
+Bindle runs as a static PWA served by Cloudflare at `bindle.cash`. It does not
 add analytics, session replay, or automatic crash reporting. Static hosting and
 the external services chosen in Connections can still observe IP addresses,
 request timing, and other network metadata. Static hosting is not anonymity.

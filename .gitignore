@@ -11,3 +11,9 @@ test-results
 *.tsbuildinfo
 engine.db
 artifacts-directory
+
+# Generated native static publishing
+/dist/
+/.wrangler/
+/cloudflare/node_modules/
+/cloudflare/large-assets.generated.json

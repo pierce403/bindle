@@ -189,3 +189,12 @@ Modernization evidence and limitations are in
 `docs/railgun-modernization.md` by the build.
 
 Licensed under [Apache License 2.0](LICENSE).
+
+## Cloudflare publishing
+
+Native main builds run pnpm install --frozen-lockfile, pnpm build:cloudflare and
+pnpm test:hosting, then pnpm deploy. Deployment credentials stay in Cloudflare;
+previews remain disabled. The normal docs build and Pages recovery are preserved.
+The byte-stable update controller, release consent, wallet storage and original
+release-ID freshness gate remain. Hosting uses zone request metrics with no browser
+analytics. The large proving key streams unchanged from same-origin static chunks.

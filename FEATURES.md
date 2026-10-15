@@ -141,3 +141,8 @@ See [modernization evidence](public/railgun-modernization.md) for validation.
   changing metadata/importing a phrase migrated funds.
 - Keep disabled, unsupported, unsynced, locked, and error states distinct;
   keep security limitations and remaining gates visible.
+
+## Native static hosting
+
+- [ ] Verify exact native version, HTTPS/public assets/404 and zone request metrics.
+- [ ] Preserve controller digest, release hashes/consent and unchanged proving-key full/range downloads.

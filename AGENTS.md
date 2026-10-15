@@ -333,3 +333,13 @@ not endpoint metadata leakage. Product gaps stay in `FEATURES.md`.
 `AGENTS.md` is canonical. Other harness files should be symlinks only when
 needed (`ln -s AGENTS.md CLAUDE.md`, likewise GEMINI.md). No project-local memory
 or skill directory exists. Add a compact index before introducing one.
+
+## Native static hosting
+
+Cloudflare native main builds use pnpm10.34.1 and separate dist output; ordinary
+pnpm build still writes docs for Pages recovery. Keep the frozen controller and
+immutable release-ID check unchanged. No dependency lifecycle scripts are enabled:
+the pinned hosting CLI uses its registry optional binaries directly. Preserve
+privacy with no-transform, zero browser beacons and zone request metrics. The
+large proving artifact retains its URL, bytes and octet-stream MIME via bounded
+static chunks. Check local/native/public full and range behavior before routing.

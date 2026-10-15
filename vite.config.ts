@@ -166,7 +166,7 @@ export default defineConfig({
   },
   plugins: [buildInfoPlugin(), react(), broadcasterDependencyGuard()],
   build: {
-    outDir: "docs",
+    outDir: process.env.BINDLE_BUILD_OUTPUT === "dist" ? "dist" : "docs",
     emptyOutDir: true,
     sourcemap: false,
     target: "es2022"

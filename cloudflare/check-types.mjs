@@ -1,0 +1,1 @@
+import{mkdirSync}from'node:fs';import{execFileSync}from'node:child_process';mkdirSync('.wrangler',{recursive:true});execFileSync(process.execPath,['cloudflare/run-wrangler.mjs','types','.wrangler/env.d.ts'],{stdio:'inherit'});execFileSync('pnpm',['exec','tsc','--project','tsconfig.worker.json','--noEmit'],{stdio:'inherit'});

@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 import { assertFreshReleaseId } from "./release-identity.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const outputName = process.env.BINDLE_BUILD_OUTPUT || "docs";
+if (!["docs", "dist"].includes(outputName)) throw new Error("Invalid build output");
 const stableUpdateControllerHash = "d82fa0672e56b8ca4fe72b4b8158bc3da1f102efb0b8a6c89aaf5b90a261a586";
 
 const updateControllerPath = resolve(repoRoot, "public/service-worker.js");
@@ -159,20 +161,20 @@ if (result.error) {
 }
 
 if (result.status === 0) {
-  const swPath = resolve(repoRoot, "docs/service-worker.js");
+  const swPath = resolve(repoRoot, outputName, "service-worker.js");
   if (!existsSync(swPath)) {
     throw new Error("The stable service-worker.js update controller is missing from the build.");
   }
-  const files = readdirSync(resolve(repoRoot, "docs"), { recursive: true })
+  const files = readdirSync(resolve(repoRoot, outputName), { recursive: true })
     .filter((file) => !file.startsWith("railgun-artifacts/") &&
       file !== "service-worker.js" && file !== "build.json" && file !== "release.json")
-    .filter((file) => statSync(resolve(repoRoot, "docs", file)).isFile());
+    .filter((file) => statSync(resolve(repoRoot, outputName, file)).isFile());
   const precache = files.map((file) => ({
     url: `/${file}`,
-    hash: createHash("sha256").update(readFileSync(resolve(repoRoot, "docs", file))).digest("hex")
+    hash: createHash("sha256").update(readFileSync(resolve(repoRoot, outputName, file))).digest("hex")
   }));
-  writeFileSync(resolve(repoRoot, "docs/build.json"), JSON.stringify(build, null, 2) + "\n");
-  writeFileSync(resolve(repoRoot, "docs/release.json"), JSON.stringify({
+  writeFileSync(resolve(repoRoot, outputName, "build.json"), JSON.stringify(build, null, 2) + "\n");
+  writeFileSync(resolve(repoRoot, outputName, "release.json"), JSON.stringify({
     schema: 1,
     build,
     files: precache

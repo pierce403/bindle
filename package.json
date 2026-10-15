@@ -20,7 +20,11 @@
     "scan:railgun": "node scripts/scan-railgun.mjs",
     "test:e2e": "playwright test",
     "test:pwa-worker": "node --test tests/serviceWorkerRelease.test.mjs tests/releaseIdentity.test.mjs",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "build:cloudflare": "BINDLE_BUILD_OUTPUT=dist pnpm run build && node cloudflare/cloudflare-assets.mjs && node cloudflare/split-large-assets.mjs && node cloudflare/check-types.mjs",
+    "deploy": "node cloudflare/run-wrangler.mjs deploy",
+    "check:deploy": "pnpm run build:cloudflare && node cloudflare/run-wrangler.mjs deploy --dry-run",
+    "test:hosting": "node cloudflare/verify-large-asset.mjs"
   },
   "dependencies": {
     "@kohaku-eth/plugins": "0.0.1-alpha.13",
