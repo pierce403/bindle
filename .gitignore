@@ -17,3 +17,4 @@ artifacts-directory
 /.wrangler/
 /cloudflare/node_modules/
 /cloudflare/large-assets.generated.json
+/cloudflare/.wrangler/
