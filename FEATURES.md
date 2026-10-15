@@ -144,5 +144,5 @@ See [modernization evidence](public/railgun-modernization.md) for validation.
 
 ## Native static hosting
 
-- [ ] Verify exact native version, HTTPS/public assets/404 and zone request metrics.
-- [ ] Preserve controller digest, release hashes/consent and unchanged proving-key full/range downloads.
+- [x] Verify exact native version, HTTPS/public assets/404 and zone request metrics.
+- [x] Preserve controller digest, release hashes/consent and unchanged proving-key full/range downloads.
